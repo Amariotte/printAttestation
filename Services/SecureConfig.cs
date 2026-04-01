@@ -1,4 +1,4 @@
-﻿namespace InteroperabiliteProject.ServicesSecure
+﻿namespace ask.Services
 {
     public class secureConfig
     {

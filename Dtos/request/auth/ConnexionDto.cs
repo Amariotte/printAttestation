@@ -1,10 +1,10 @@
 ﻿using FluentValidation;
 
-namespace InteroperabiliteProject.DtoAppMobile.Securite
+namespace ask.Dtos.Request.Auth
 {
     public class ConnexionDto
     {
-        public string identifiant { get; set; }
+        public string username { get; set; }
         public string password { get; set; }
     }
 
@@ -12,8 +12,8 @@ namespace InteroperabiliteProject.DtoAppMobile.Securite
     {
         public ConnexionDtoValidator()
         {
-            RuleFor(x => x.identifiant)
-                .NotEmpty().WithMessage("L'identifiant est obligatoire.");
+            RuleFor(x => x.username)
+                .NotEmpty().WithMessage("L'username est obligatoire.");
 
             RuleFor(x => x.password)
                 .NotEmpty().WithMessage("Le mot de passe est obligatoire.");

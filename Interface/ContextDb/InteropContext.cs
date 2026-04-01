@@ -19,12 +19,11 @@ namespace ask.ContextDb
         public DbSet<t_histo_sms> t_histo_sms { get; set; }
         public DbSet<t_histo_email> t_histo_email { get; set; }
         public DbSet<t_modele> t_modele { get; set; }
-        public DbSet<t_otp> t_otp { get; set; }
         public DbSet<t_direction> t_direction { get; set; }
         public DbSet<t_fonction> t_fonction { get; set; }
        
         public DbSet<t_route_scope> t_route_scope { get; set; }
-        public DbSet<t_scoped> t_scoped { get; set; }
+        public DbSet<t_user> t_user { get; set; }
         public DbSet<t_entite> t_entite { get; set; }
 
         

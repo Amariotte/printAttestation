@@ -13,7 +13,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 
-namespace InteroperabiliteProject.ServicesSecure
+namespace ask.Services
 {
     public class SecureService
     {

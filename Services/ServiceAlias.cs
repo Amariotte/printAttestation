@@ -25,7 +25,7 @@ namespace InteroperabiliteProject.ServicceAIP
         private readonly ServiceMessagerie _serviceMessagerie;
         private readonly EnvoieController _envoieController;
         private readonly EventService _eventService;
-        private readonly ServiceSecurity _securityService;
+        private readonly ServiceAuth _securityService;
         private readonly AIPDATA _aipdata;
         private readonly PARAM_MESSAGE _paramdata;
         private readonly IemployeRepo _aliasRepo;
@@ -39,7 +39,7 @@ namespace InteroperabiliteProject.ServicceAIP
         private readonly SecurityConfig _securityconfig;
 
 
-        public ServiceAlias(ILogger<ServiceAlias> logger, ServiceSecurity ServiceSecurity, IOptions<SecurityConfig> securityconfig, ServiceAIF serviceAIF, ServiceMessagerie serviceMessagerie, IOptions<AIPDATA> aipdata, IOptions<PARAM_MESSAGE> paramdata, EnvoieController envoieController, EventService eventService, IemployeRepo aliasRepo, IotpRepo otpRepo, IclientRepo clientRepo, IMapper imapper, IcompteRepo compteRepo, IcreationAliasRepo creationAliasRepo, IrevendicationRepo revendicationRepo)
+        public ServiceAlias(ILogger<ServiceAlias> logger, ServiceAuth ServiceSecurity, IOptions<SecurityConfig> securityconfig, ServiceAIF serviceAIF, ServiceMessagerie serviceMessagerie, IOptions<AIPDATA> aipdata, IOptions<PARAM_MESSAGE> paramdata, EnvoieController envoieController, EventService eventService, IemployeRepo aliasRepo, IotpRepo otpRepo, IclientRepo clientRepo, IMapper imapper, IcompteRepo compteRepo, IcreationAliasRepo creationAliasRepo, IrevendicationRepo revendicationRepo)
         {
             _logger = logger;
             _serviceAIF = serviceAIF;

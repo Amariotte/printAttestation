@@ -6,6 +6,7 @@ using ask.DtoAppMobile;
 using ask.DtoAppMobile.Alias;
 using ask.DtoAppMobile.Securite;
 using ask.Dtos;
+using ask.Dtos.Request.Auth;
 using ask.Event;
 using ask.Interface;
 using ask.Model;
@@ -344,57 +345,9 @@ namespace ask.Controllers
         }
 
 
-        [HttpPost("auth/app")]
-        [AllowAnonymous]
-        public async Task<IActionResult> AuthentificationApplication([FromBody] AppConnexionDto? body)
-        {
-            const string ROUTE_DESC = "Authentification de l'application";
-            string idDemande = RecupererIdDemandeEnCours();
+      
 
-            try
-            {
-                // 1) Récup appId / appSecret (priorité au Basic)
-                (string? appId, string? appSecret) = ReadBasicOrBody(Request, body);
-
-                // 2) Validation d'entrée
-                var invalidParams = new List<InvalidParam>();
-                if (string.IsNullOrWhiteSpace(appId))
-                    invalidParams.Add(new InvalidParam { name = "app_id", reason = "Identifiant application requis" });
-                if (string.IsNullOrWhiteSpace(appSecret))
-                    invalidParams.Add(new InvalidParam { name = "app_secret", reason = "Mot de passe application requis" });
-
-                if (invalidParams.Count > 0)
-                {
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-                    return BadRequest(problems);
-                }
-
-                // 3) Appel du service de sécurité AVEC appId/appSecret (pas _body)
-                GeneraleRetour res = await _serviceSecurity.AuthentificationUserApplication(appId!, appSecret!, idDemande);
-
-                if (!Tools.Tools.RetourIsSucces(res.status))
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: res.detail, instance: HttpContext.Request.Path));
-
-                var session = JsonConvert.DeserializeObject<AuthSecurityRetourDto>(res.data);
-                if (session is null || string.IsNullOrWhiteSpace(session.access_token))
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Authentification échouée", instance: HttpContext.Request.Path));
-
-                // 4) OK
-                return Ok(new { session });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[EndPoint {Route}] ===============================> {Message}", ROUTE_DESC, ex.Message);
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
-        [HttpPost("auth")]
+        [HttpPost("auth/login")]
         [AllowAnonymous]
         public async Task<IActionResult> Authentification([FromBody] ConnexionDto _body)
         {

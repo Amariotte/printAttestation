@@ -1,15 +1,11 @@
-﻿using InteroperabiliteProject.Model;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Text;
-using InteroperabiliteProject.Dtos;
-using InteroperabiliteProject.Interface;
 using System.Net.Mail;
 using System.Net;
-using System.Collections.Generic;
-using InteroperabiliteProject.Implementation;
+using ask.Interface;
 
-namespace InteroperabiliteProject.ServicceAIP
+namespace ask.Services
 {
     public class ServiceMessagerie
     {

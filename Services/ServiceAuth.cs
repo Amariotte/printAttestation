@@ -1,44 +1,29 @@
 ﻿using ask.Dtos.RequestToReceiveDto;
 using ask.Dtos.RequestToSendDto;
+using ask.Interface;
+using ask.Model;
 using AutoMapper;
-using InteroperabiliteProject.DtoAppMobile.Securite;
-using InteroperabiliteProject.Dtos;
-using InteroperabiliteProject.Interface;
-using InteroperabiliteProject.Model;
-using InteroperabiliteProject.ServicesKeycloack;
-using InteroperabiliteProject.ServicesKeycloack.Dtos;
-using InteroperabiliteProject.ServicesSecure;
-using InteroperabiliteProject.ServicesSecure.Dtos;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
-namespace InteroperabiliteProject.ServicceAIP
+namespace ask.Services
 {
-    public class ServiceSecurity
+    public class ServiceAuth
     {
 
-        private readonly ILogger<ServiceSecurity> _logger;
-        private readonly ServiceAIF _serviceAIF;
+        private readonly ILogger<ServiceAuth> _logger;
         private readonly ServiceMessagerie _serviceMessagerie;
-   
-        private readonly KeycloackService _keycloackService;
-        private readonly SecureService _secureService;
-       private readonly IclientRepo _clientRepo;
-        private readonly IcompteRepo _compteRepo;
+         private readonly IUserRepo _userRepo;
         private readonly IMapper _imapper;
         private readonly SecurityConfig _securityconfig;
 
-        public ServiceSecurity(ILogger<ServiceSecurity> logger, IMapper imapper, SecureService SecureService, KeycloackService KeycloackService,IOptions<SecurityConfig> securityConfig, ServiceAIF serviceAIF, ServiceMessagerie serviceMessagerie, IOptions<PARAM_MESSAGE> paramdata, IclientRepo clientRepo, IdemandeLigneRepo demandeLigneRepo, IcompteRepo compteRepo )
+        public ServiceAuth(ILogger<ServiceAuth> logger, IMapper imapper, SecureService SecureService,IOptions<SecurityConfig> securityConfig, ServiceAIF serviceAIF, ServiceMessagerie serviceMessagerie, IOptions<PARAM_MESSAGE> paramdata, IuserRepo userRepo )
         {
             _logger = logger;
-            _serviceAIF = serviceAIF;
             _serviceMessagerie = serviceMessagerie;
-            _keycloackService = KeycloackService;
-            _secureService = SecureService;
             _securityconfig = securityConfig.Value;
-            _clientRepo = clientRepo;
-            _compteRepo = compteRepo;
-         _imapper = imapper;
+            _userRepo = userRepo;
+             _imapper = imapper;
         }
 
         public async Task<GeneraleRetour> Register(t_register t, string? IdDemande)
@@ -140,123 +125,16 @@ namespace InteroperabiliteProject.ServicceAIP
         }
 
 
-        public async Task<GeneraleRetour> Register_keycloack(t_register_plus r,string? IdDemande)
+
+
+        public async Task<GeneraleRetour> ModificationMotPasse(t_user dataUser, UpdatePasswordClientDto _body, string token)
         {
             try
             {
 
+                dataUser.r_password = _body.new_password; 
 
-                // Authentification du compte administrateur
-
-                GeneraleRetour b = await _keycloackService.AuthenticateAsync(_securityconfig.keycloack.user_admin, _securityconfig.keycloack.pwd_admin, IdDemande);
-               
-                if (!Tools.Tools.RetourIsSucces(b.status))
-                    return b;
-
-
-                AuthRetourDto res_auth = JsonConvert.DeserializeObject<AuthRetourDto>(b.data);
-
-                string token_admin = res_auth.access_token;
-
-                string email_user = r.email;
-                if (string.IsNullOrEmpty(email_user))
-                    email_user = "defaut@defaut.com";
-
-
-                CreationCompteDto datacompte_user = new CreationCompteDto
-                {
-                    username = r.identifiant,
-                    firstName = r.nom,
-                    lastName = r.nom,
-                    email = email_user,
-                    enabled = true,
-                    emailVerified = false,
-                    attributes = new Attributes
-                    {
-                        racine_client = r.racine,
-                        numero_tel = r.telephone
-                    }
-                };
-
-                GeneraleRetour f = await _keycloackService.CreateUserAsync(datacompte_user,r.password, token_admin, IdDemande);
-               
-                if (!Tools.Tools.RetourIsSucces(f.status))
-                    return f;
-
-
-                 List<UserDto> ret = JsonConvert.DeserializeObject<List<UserDto>>(f.data);
-
-                UserSecurityData d = new UserSecurityData
-                {
-                    username = ret[0].username,
-                    id = ret[0].id,
-                    email = ret[0].email,
-                    nomcomplet = ret[0].firstName + ' ' + ret[0].lastName,
-                    nom = ret[0].firstName,
-                    prenom = ret[0].lastName,
-                    racine = ret[0].username
-                };
-
-
-            
-
-
-                return (new GeneraleRetour { status = 200, data = JsonConvert.SerializeObject(d) });
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[CreerCompteUser_keycloack] ===============================>{ex.ToString()}");
-                throw;
-            }
-        }
-
-        public async Task<GeneraleRetour> ModificationCodePin(Model.t_client data_client, UpdateCodePinClientDto _body, string token, string IdDemande)
-        {
-            try
-            {
-
-                switch (_securityconfig.secure_method.ToUpper())
-                {
-                    case "SECURE":
-                        return await _secureService.UpdateCodePinAsync(_body, token, IdDemande);
-                    case "KEYCLOAK":
-
-                        GeneraleRetour b =  await _keycloackService.AuthenticateAsync(_securityconfig.keycloack.user_admin, _securityconfig.keycloack.pwd_admin, IdDemande);
-                        if (!Tools.Tools.RetourIsSucces(b.status))
-                            return b;
-
-                        AuthRetourDto res_auth = JsonConvert.DeserializeObject<AuthRetourDto>(b.data);
-
-                       
-                        string token_admin = res_auth.access_token;
-                        string email_user = data_client.email;
-                        if (string.IsNullOrEmpty(email_user))
-                            email_user = "defaut@defaut.com";
-
-
-                        UpdateCompteDto datacompte_user = new UpdateCompteDto
-                        {
-                            id = data_client.security_user_id,
-                            username = data_client.code,
-                            firstName = data_client.nom,
-                            lastName = data_client.prenom,
-                            email = email_user,
-                            enabled = true,
-                            emailVerified = false,
-                            attributes = new Attributes
-                            {
-                                racine_client = data_client.code,
-                                numero_tel = data_client.telephone,
-                                pin_code = _body.new_pin
-                            }
-                        };
-
-                        return await _keycloackService.ModifieUser(datacompte_user, token_admin);
-                    default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de modification du code pin" });
-
-                }
+              
             }
 
             catch (Exception ex)
@@ -267,85 +145,7 @@ namespace InteroperabiliteProject.ServicceAIP
         }
 
 
-
-        public async Task<GeneraleRetour> ModificationMotPasse(Model.t_client data_client, UpdatePasswordClientDto _body, string token, string IdDemande)
-        {
-            try
-            {
-
-                switch (_securityconfig.secure_method.ToUpper())
-                {
-                    case "SECURE":
-                        return await _secureService.UpdateMotPasseAsync(_body, token, IdDemande);
-                    case "KEYCLOAK":
-
-                        GeneraleRetour b = await _keycloackService.AuthenticateAsync(_securityconfig.keycloack.user_admin, _securityconfig.keycloack.pwd_admin, IdDemande);
-                        if (!Tools.Tools.RetourIsSucces(b.status))
-                            return b;
-
-                        AuthRetourDto res_auth = JsonConvert.DeserializeObject<AuthRetourDto>(b.data);
-
-                        string token_admin = res_auth.access_token;
-                      
-
-                        return await _keycloackService.SetPassword(data_client.security_user_id, _body.new_password, res_auth.access_token);
-                    default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de modification du code pin" });
-
-                }
-            }
-
-            catch (Exception ex)
-            {
-                _logger.LogError($"[Modification de code pin] ===============================>{ex.ToString()}");
-                throw;
-            }
-        }
-
-
-        public async Task<GeneraleRetour> Register_Secure(Model.t_register_plus r,string? IdDemande)
-        {
-            try
-            {
-
-                // Authentification du compte administrateur
-                GeneraleRetour e = await _secureService.AuthenticateUserAsync(_securityconfig.Secure.user_admin, _securityconfig.Secure.pwd_admin, IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(e.status))
-                    return e;
-
-                AuthResponseSecureDto res_auth = JsonConvert.DeserializeObject<AuthResponseSecureDto>(e.data);
-
-                string token_admin = res_auth.data.token;
-
-             
-                ClientSecureDto dataClient = new ClientSecureDto
-                {
-                    username = r.identifiant,
-                    nomcomplet = r.nom,
-                    password = r.password,
-                    telephone = r.telephone,
-                    nom = r.nom,
-                    prenom = "",
-                    email = r.email,
-                    racine = r.racine,
-                };
-
-                GeneraleRetour res = await _secureService.CreateClientAsync(dataClient, token_admin, IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(e.status))
-                    return res;
-
-                return (new GeneraleRetour { status = 200 , data = res.data });
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[Register_Secure] ===============================>{ex.ToString()}");
-                return (new GeneraleRetour { status = 500, detail = "Une erreur interne est survenue" });
-            }
-        }
-
+     
         public async Task<GeneraleRetour> AuthentificationUserClient(string username,string password,string IdDemande)
         {
             try
@@ -374,21 +174,7 @@ namespace InteroperabiliteProject.ServicceAIP
 
                        return (new GeneraleRetour { status = 200,data  = JsonConvert.SerializeObject(data_auth) }); ;
                         break;
-                    case "KEYCLOAK":
-                        GeneraleRetour b = await _keycloackService.AuthenticateAsync(username, password, IdDemande);
-                        if (!Tools.Tools.RetourIsSucces(b.status))
-                            return b;
-
-                        AuthRetourDto res_auth = JsonConvert.DeserializeObject<AuthRetourDto>(b.data);
-
-                        AuthSecurityRetourDto eKey = new AuthSecurityRetourDto
-                        {
-                            access_token = res_auth.access_token,
-                            expires_in = res_auth.expires_in,
-                            refresh_expires_in = res_auth.refresh_expires_in,
-                            refresh_token = res_auth.refresh_token,
-                            token_type = res_auth.token_type
-                        };
+                   
 
                         return (new GeneraleRetour { status = 200, detail = "Authentification effectuée avec succès", data = JsonConvert.SerializeObject(eKey) }); ;
                     default:

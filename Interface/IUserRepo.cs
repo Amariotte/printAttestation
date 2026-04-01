@@ -4,6 +4,10 @@ namespace ask.Interface
 {
     public interface IUserRepo : IbaseRepo<t_user>
     {
+
+
+
+
        
 
     }

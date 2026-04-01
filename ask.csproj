@@ -45,6 +45,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Dtos\request\auth\" />
     <Folder Include="Migrations\" />
   </ItemGroup>
 

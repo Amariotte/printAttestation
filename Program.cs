@@ -15,11 +15,11 @@ using InteroperabiliteProject.Dtos;
 using Microsoft.IdentityModel.Tokens;
 using InteroperabiliteProject.ServicesKeycloack.Dtos;
 using System.Security.Authentication;
-using InteroperabiliteProject.ServicesSecure;
 using InteroperabiliteProject.Tools;
 using Microsoft.OpenApi.Models;
 using System.Threading.RateLimiting;
 using ask.Dtos.RequestToSendDto;
+using ask.Services;
 
 
 namespace InteroperabiliteProject
@@ -253,7 +253,7 @@ namespace InteroperabiliteProject
             builder.Services.Configure<PARAM_MESSAGE>(builder.Configuration.GetSection("Messagerie"));
             builder.Services.Configure<SecurityConfig>(builder.Configuration.GetSection("security"));
             builder.Services.AddSingleton<EventService>();
-            builder.Services.AddScoped<ServiceSecurity>();
+            builder.Services.AddScoped<ServiceAuth>();
             builder.Services.AddScoped<KeycloackService>();
             builder.Services.AddScoped<SecureService>();
             builder.Services.AddScoped<ServiceAIF>();
