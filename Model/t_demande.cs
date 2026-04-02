@@ -4,7 +4,7 @@
     public class t_demande :t_base
     {
         public string? r_code{ get; set; }
-        public string? Description{ get; set; }
+        public string? r_description{ get; set; }
         public string? r_request{ get; set; }
         public string? r_response{ get; set; }
         public string? controleur{ get; set; }

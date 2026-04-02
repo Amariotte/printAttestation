@@ -4,13 +4,16 @@ using System.Text;
 using System.Net.Mail;
 using System.Net;
 using ask.Interface;
+using ask.Dtos.General;
+using InteroperabiliteProject.Dtos;
+using ask.Model;
 
 namespace ask.Services
 {
     public class ServiceMessagerie
     {
 
-        private readonly PARAM_MESSAGE _param_data;
+        private readonly ParamMessage _param_data;
         private readonly ILogger<ServiceMessagerie> _logger;
         private static readonly HttpClient _client = new HttpClient();
         private readonly IHistoSmsRepo _HistoSmsRepo;
@@ -18,7 +21,7 @@ namespace ask.Services
         private readonly ImodeleRepo _modeleRepo;
         private readonly IotpRepo _otpRepo;
 
-        public ServiceMessagerie(IOptions<PARAM_MESSAGE> param_data, ILogger<ServiceMessagerie> logger, ImodeleRepo modeleRepo, IotpRepo otpRepo, IHistoSmsRepo HistoSmsRepo, IHistoEmailRepo HistoMailRepo)
+        public ServiceMessagerie(IOptions<ParamMessage> param_data, ILogger<ServiceMessagerie> logger, ImodeleRepo modeleRepo, IotpRepo otpRepo, IHistoSmsRepo HistoSmsRepo, IHistoEmailRepo HistoMailRepo)
         {
             _param_data = param_data.Value;
             _logger = logger;
@@ -242,22 +245,22 @@ namespace ask.Services
 
                 t_histo_sms sms = new t_histo_sms
                 {
-                    sender = _param_data.sms.sender,
-                    text = text,
-                    recipient = dest,
-                    statut = statut_sms.EN_ATTENTE
+                    r_sender = _param_data.sms.sender,
+                    r_text = text,
+                    r_recipient = dest,
+                    r_statut = STATUT_SMS.ATTENTE
                 };
 
                 await _HistoSmsRepo.AddAsync(sms);
 
-                res = await sendSms(sms.Id.ToString(),sms.sender, sms.recipient, sms.text);
+                res = await sendSms(sms.r_id.ToString(),sms.r_sender, sms.r_recipient, sms.r_text);
 
                 if (Tools.Tools.RetourIsSucces(res.status))
-                    sms.statut = statut_sms.ENVOYE;
+                    sms.r_statut = STATUT_SMS.ENVOYE;
                 else
                 {
-                    sms.statut = statut_sms.ECHOUE;
-                    sms.raison_echec = res.detail;
+                    sms.r_statut = STATUT_SMS.ECHOUE;
+                    sms.r_raison_echec = res.detail;
                 }
 
                 await _HistoSmsRepo.UpdateAsync(sms);
@@ -285,23 +288,23 @@ namespace ask.Services
 
                 t_histo_email email = new t_histo_email
                 {
-                    sender_email = _param_data.smtp.sender_email,
-                    sender_name = _param_data.smtp.sender_name,
-                    body = text,
-                    subject = subject,
-                    recipients = dest,
-                    statut = statut_email.EN_ATTENTE
+                    r_sender_email = _param_data.smtp.sender_email,
+                    r_sender_name = _param_data.smtp.sender_name,
+                    r_body = text,
+                    r_subject = subject,
+                    r_recipients = dest,
+                    r_statut = STATUT_EMAIL.ATTENTE
                 };
                 
                 await _HistoMailRepo.AddAsync(email);
 
-                res = await sendEmail(email.recipients,email.subject, email.body);
+                res = await sendEmail(email.r_recipients, email.r_subject, email.r_body);
 
                 if (Tools.Tools.RetourIsSucces(res.status))
-                    email.statut = statut_email.ENVOYE;
+                    email.r_statut = STATUT_EMAIL.ENVOYE;
                 else
-                    email.statut = statut_email.ECHOUE;
-                    email.raison_echec = res.detail;
+                    email.r_statut = STATUT_EMAIL.ECHOUE;
+                    email.r_raison_echec = res.detail;
 
                 await _HistoMailRepo.UpdateAsync(email);
 
@@ -330,7 +333,7 @@ namespace ask.Services
             return text;
         }
 
-        public async Task<GeneraleRetour> sendMessageAuClient(type_modele type,string? tel,t_client? cli,t_otp? otp)
+        public async Task<GeneraleRetour> sendMessageALUtilisateur(TYPE_MODELE type,t_user? user,t_otp? otp)
         {
             try
             {
@@ -339,12 +342,11 @@ namespace ask.Services
                 var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     
-                    { "{{PrenomNomUtilisateur}}", $"{cli?.nom ?? ""} {cli?.prenom ?? ""}".Trim()},
-                    { "{{NomUtilisateur}}", cli?.nom  ?? string.Empty},
-                    { "{{PrenomUtilisateur}}", cli?.prenom ?? string.Empty },
-                    { "{{TelephoneUtilisateur}}", cli?.telephone ?? string.Empty},
-                    { "{{EmailUtilisateur}}", cli?.email  ?? string.Empty},
-                    { "{{Identifiant}}", cli?.security_username ?? string.Empty },
+                    { "{{PrenomNomUtilisateur}}", $"{user?.r_nom ?? ""} {user?.r_prenom ?? ""}".Trim()},
+                    { "{{NomUtilisateur}}", user?.r_nom  ?? string.Empty},
+                    { "{{PrenomUtilisateur}}", user?.r_prenom ?? string.Empty },
+                    { "{{TelephoneUtilisateur}}", user?.r_telephone ?? string.Empty},
+                    { "{{EmailUtilisateur}}", user?.r_email  ?? string.Empty},
                     { "{{Otp}}", otp?.codeOtp  ?? string.Empty},
                     { "{{DureeOtp}}", otp?.dureeValidite.ToString() ?? string.Empty}
                 };
@@ -354,23 +356,15 @@ namespace ask.Services
                 foreach (var modele in modeles)
                 {
 
-                    string subject = ReplacePlaceholders(modele.subject, placeholders);
-                    string body = ReplacePlaceholders(modele.body, placeholders);
+                    string subject = ReplacePlaceholders(modele.r_subject, placeholders);
+                    string body = ReplacePlaceholders(modele.r_body, placeholders);
 
 
-                    if (modele.plateforme == plateforme.SMS )
-                    {
-                        string dest = tel;
-                        if ( string.IsNullOrEmpty(dest))
-                            dest = cli.telephone;
+                    if (modele.r_plateforme == PLATEFORME_MESSAGERIE.SMS )
+                       await saveSms(user.r_telephone, body);
 
-                       await saveSms(dest, body);
-                    }
-
-                    if (modele.plateforme == plateforme.EMAIL)
-                    {
-                        await saveEmail(cli.email, subject, body);
-                    }
+                    if (modele.r_plateforme == PLATEFORME_MESSAGERIE.EMAIL)
+                        await saveEmail(user.r_email, subject, body);
 
                 }
 
@@ -383,61 +377,6 @@ namespace ask.Services
                 throw;
             }
         }
-
-
-
-        public async Task<GeneraleRetour> sendMessageAuRegister(t_register? r, t_otp? otp)
-        {
-            try
-            {
-
-
-                var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-
-                    { "{{NomUtilisateur}}", r?.nom  ?? string.Empty},
-                    { "{{PrenomNomUtilisateur}}", r?.nom  ?? string.Empty},
-                    { "{{PrenomUtilisateur}}", r?.nom ?? string.Empty },
-                    { "{{TelephoneUtilisateur}}", r?.telephone ?? string.Empty},
-                    { "{{EmailUtilisateur}}", r?.email  ?? string.Empty},
-                    { "{{Otp}}", otp?.codeOtp  ?? string.Empty},
-                    { "{{DureeOtp}}", otp?.dureeValidite.ToString() ?? string.Empty}
-                };
-
-                List<t_modele> modeles = await _modeleRepo.GetModelesByType(type_modele.CONFIRM_REGISTER);
-
-                foreach (var modele in modeles)
-                {
-
-                    string subject = ReplacePlaceholders(modele.subject, placeholders);
-                    string body = ReplacePlaceholders(modele.body, placeholders);
-
-
-                    if (modele.plateforme == plateforme.SMS)
-                    {
-                        await saveSms(r.telephone, body);
-                    }
-
-                    if (modele.plateforme == plateforme.EMAIL)
-                    {
-                        await saveEmail(r.email, subject, body);
-                    }
-
-                }
-
-
-                return new GeneraleRetour { status = 200 };
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "Erreur lors du traitement d'envoi de message");
-                throw;
-            }
-        }
-
-
-
-
 
 
     }

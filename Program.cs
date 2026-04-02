@@ -1,23 +1,19 @@
-using Serilog;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using ask.ContextDb;
-using ask.Event;
-using ask.Interface;
-using ask.Implementation;
-using Newtonsoft.Json;
-using InteroperabiliteProject.Controllers;
-using Microsoft.AspNetCore.HttpOverrides;
 using System.Net;
-using ask.Services;
-using Microsoft.IdentityModel.Tokens;
-using System.Security.Authentication;
-using ask.Tools;
-using Microsoft.OpenApi.Models;
+using System.Text;
 using System.Threading.RateLimiting;
-using ask.Dtos.RequestToSendDto;
-using InteroperabiliteProject.Interface;
+using ask.ContextDb;
 using ask.Dtos.General;
+using ask.Dtos.RequestToSendDto;
+using ask.Implementation;
+using ask.Interface;
+using ask.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Newtonsoft.Json;
+using Serilog;
 
 
 namespace ask
@@ -36,7 +32,26 @@ namespace ask
                 options.ForwardedProtoHeaderName = "X-Forwarded-Proto";
             });
 
-        
+
+            var key = Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Key"]);
+
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+                        ValidAudience = builder.Configuration["JwtSettings:Audience"],
+                        IssuerSigningKey = new SymmetricSecurityKey(key)
+                    };
+                });
+
+
+
             builder.Services.AddAuthorization();
             builder.Services.AddControllers(options =>
             {
@@ -89,23 +104,21 @@ namespace ask
                )
            );
 
-            //var test = builder.Configuration.GetSection("Aip");
-            //var Aipdata = JsonConvert.DeserializeObject<AIPDATA>(builder.Configuration.GetSection("Aip").ToString());
-
-            builder.Services.Configure<AIPDATA>(builder.Configuration.GetSection("Aip"));
+         
             builder.Services.Configure<ParamMessage>(builder.Configuration.GetSection("Messagerie"));
             builder.Services.Configure<SecurityConfig>(builder.Configuration.GetSection("security"));
             builder.Services.AddScoped<ServiceMessagerie>();
-            builder.Services.AddScoped<ReceptionAIPController>();
-            builder.Services.AddScoped<EnvoieController>();
+     
             builder.Services.AddTransient<IemployeRepo, EmployeRepo>();
             builder.Services.AddScoped<IotpRepo, OtpRepo>();
             builder.Services.AddScoped<IHistoSmsRepo, HistoSmsRepo>();
             builder.Services.AddScoped<IParametreSystemeRepo, ParametreSystemeRepo>();
             builder.Services.AddScoped<ImodeleRepo,ModeleRepo>();
-                      builder.Services.AddScoped<IDemandeRepo, DemandeRepo>();
-            builder.Services.AddScoped<ClientValidationService>();
+            builder.Services.AddScoped<IDemandeRepo, DemandeRepo>();
+            builder.Services.AddScoped<UserValidationService>();
             builder.Services.AddScoped<IUserRepo, UserRepo>();
+            builder.Services.AddScoped<IRefreshTokenRepo, RefreshTokenRepo>();
+            builder.Services.AddScoped<JwtService>();
 
         
             //builder.Services.AddScoped<IaliasRepo, AliasRepo>();

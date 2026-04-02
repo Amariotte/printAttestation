@@ -1007,9 +1007,9 @@ namespace ask.Controllers
 
                 fonctionDto fDto = new fonctionDto
                 {
-                    id = f.r_id,
-                    nom = f.r_nom,
-                    code = f.r_code,
+                    id = resQuery.r_id,
+                    nom = resQuery.r_nom,
+                    code = resQuery.r_code,
                 };
 
                 return StatusCode(200, fDto);

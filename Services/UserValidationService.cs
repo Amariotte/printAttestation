@@ -1,29 +1,29 @@
 ﻿using System.Text;
+using ask.ContextDb;
+using ask.Dtos.General; // <- pour GeneraleRetour / ProblemsDetails
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using InteroperabiliteProject.ContextDb;
-using ask.Dtos.General; // <- pour GeneraleRetour / ProblemsDetails
 
-public class ClientValidationService
+public class UserValidationService
 {
-    private readonly IDbContextFactory<InteropContext> _contextFactory;
-    private readonly ILogger<ClientValidationService> _logger;
+    private readonly IDbContextFactory<askContext> _contextFactory;
+    private readonly ILogger<UserValidationService> _logger;
 
     private const string HttpItemsClientKey = "Client";
 
-    public ClientValidationService(
-        IDbContextFactory<InteropContext> contextFactory,
-        ILogger<ClientValidationService> logger)
+    public UserValidationService(
+        IDbContextFactory<askContext> contextFactory,
+        ILogger<UserValidationService> logger)
     {
         _contextFactory = contextFactory;
         _logger = logger;
     }
 
-    public async Task<bool> ValidateAndAttachClient(HttpContext httpContext, string codeclient)
+    public async Task<bool> ValidateAndAttachClient(HttpContext httpContext, int userID)
     {
-        if (string.IsNullOrWhiteSpace(codeclient))
+        if (userID <= 0 )
         {
-            await WriteUnauthorizedAsync(httpContext, "Code client manquant ou vide.");
+            await WriteUnauthorizedAsync(httpContext, "L'identifiant du client est manquant ou vide.");
             return false;
         }
 
@@ -31,20 +31,20 @@ public class ClientValidationService
         {
             await using var db = await _contextFactory.CreateDbContextAsync(httpContext.RequestAborted);
 
-            var client = await db.t_client
+            var user = await db.t_user
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
-                    p => p.code == codeclient && p.is_delete != true,
+                    p => p.r_id == userID && p.r_is_delete != true,
                     httpContext.RequestAborted);
 
-            if (client is null)
+            if (user is null)
             {
-                await WriteUnauthorizedAsync(httpContext, "Client introuvable ou désactivé.");
+                await WriteUnauthorizedAsync(httpContext, "Utilisateur introuvable ou désactivé.");
                 return false;
             }
 
             // Stocke l'entité (ou un DTO si tu préfères) dans le contexte de la requête
-            httpContext.Items[HttpItemsClientKey] = client;
+            httpContext.Items[HttpItemsClientKey] = user;
             return true;
         }
         catch (OperationCanceledException)
@@ -54,7 +54,7 @@ public class ClientValidationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Client validation failed for codeclient {Code}", codeclient);
+            _logger.LogError(ex, "Client validation failed for userID {Code}", userID);
             await WriteServerErrorAsync(httpContext, "Erreur lors de la validation du client.");
             return false;
         }

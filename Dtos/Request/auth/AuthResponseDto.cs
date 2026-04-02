@@ -8,7 +8,7 @@
         public string refresh_token { get; set; }
         public int duree_token { get; set; }
         public int duree_refresh { get; set; }
-/        public Userdata userdata { get; set; }
+        public Userdata userdata { get; set; }
         public Accesdata accesdata { get; set; }
     }
 
@@ -21,7 +21,6 @@
 
     public class Accesdata
     {
-        public int r_id_app { get; set; }
         public List<int> roleId { get; set; }
         public List<int> adminRoleId { get; set; }
         public int scopeListId { get; set; }

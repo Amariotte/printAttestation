@@ -1,4 +1,5 @@
 using ask.ContextDb;
+using ask.Dtos;
 using ask.Dtos.General;
 using ask.Dtos.Request.auth;
 using ask.Dtos.Request.Auth;
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using static System.Collections.Specialized.BitVector32;
 
 namespace ask.Controllers
 {
@@ -20,31 +22,34 @@ namespace ask.Controllers
     {
         private readonly askContext _dbContext;
         private readonly IDbContextFactory<askContext> _dbFactory;
-        private readonly ServiceAuth _serviceAuth;
+        private readonly JwtService _jwtService;
         private readonly ServiceMessagerie _serviceMessagerie;
         private readonly IotpRepo _otpRepo;
         private readonly IUserRepo _userRepo;
         private readonly ParamMessage _paramdata;
         private readonly ILogger<AuthController> _logger;
+        private readonly IConfiguration _configuration;
 
         public AuthController(
             askContext dbContext,
             IDbContextFactory<askContext> dbFactory,
-            ServiceAuth serviceAuth,
+            JwtService jwtService,
             ServiceMessagerie serviceMessagerie,
             IotpRepo otpRepo,
             IUserRepo userRepo,
             Microsoft.Extensions.Options.IOptions<ParamMessage> paramdata,
-            ILogger<AuthController> logger)
+            ILogger<AuthController> logger,
+            IConfiguration configuration)
         {
             _dbContext = dbContext;
             _dbFactory = dbFactory;
-            _serviceAuth = serviceAuth;
+            _jwtService = jwtService;
             _serviceMessagerie = serviceMessagerie;
             _otpRepo = otpRepo;
             _userRepo = userRepo;
             _paramdata = paramdata.Value;
             _logger = logger;
+            _configuration = configuration;
         }
 
 
@@ -237,7 +242,7 @@ namespace ask.Controllers
                 }
 
                 var user = await _dbContext.t_user
-                    .FirstOrDefaultAsync(c => c.r_email == _body.username && c.r_is_delete != true);
+                    .FirstOrDefaultAsync(c => c.r_email == _body.email && c.r_is_delete != true);
 
                 if (user == null)
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(
@@ -249,19 +254,43 @@ namespace ask.Controllers
                         detail: "Identifiants invalides",
                         instance: HttpContext.Request.Path));
 
-                GeneraleRetour data_res_auth = await _serviceAuth.AuthentificationUserClient(_body.username, _body.password, IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(data_res_auth.status))
+                if (user.r_is_active != true)
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(
-                        detail: data_res_auth.detail,
+                        detail: "Le compte n'est pas actif",
                         instance: HttpContext.Request.Path));
 
-                AuthSecurityRetourDto res_auth = JsonConvert.DeserializeObject<AuthSecurityRetourDto>(data_res_auth.data);
+                // Charger les rôles de l'utilisateur
+                var userRoles = await _dbContext.t_user_roles
+                    .Include(ur => ur.r_roleTab)
+                    .Where(ur => ur.r_user_id_fk == user.r_id && ur.r_is_delete != true && ur.r_roleTab.r_is_delete != true)
+                    .ToListAsync();
 
-                if (string.IsNullOrEmpty(res_auth?.access_token))
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(
-                        detail: "Authentification échouée",
-                        instance: HttpContext.Request.Path));
+                string[] roleCodes = userRoles.Select(ur => ur.r_roleTab!.r_code).ToArray();
+                string[] adminRoleCodes = userRoles.Where(ur => ur.r_is_admin).Select(ur => ur.r_roleTab!.r_code).ToArray();
+                int[] roleIds = userRoles.Select(ur => ur.r_role_id_fk).ToArray();
+
+                // Charger les scopes associés aux rôles
+                var scopes = await _dbContext.t_role_scopes
+                    .Include(rs => rs.r_scopeTab)
+                    .Where(rs => roleIds.Contains(rs.r_role_id_fk) && rs.r_is_delete != true)
+                    .Select(rs => rs.r_scopeTab!.r_nom)
+                    .Distinct()
+                    .ToArrayAsync();
+
+                // Générer le JWT
+                JwtIssueOptions _dataJwt = new JwtIssueOptions
+                {
+                    UserId = user.r_id,
+                    UserEmail = user.r_email,
+                    Roles = roleCodes,
+                    AdminRoles = adminRoleCodes,
+                    Scopes = scopes,
+                };
+
+                string accessToken = _jwtService.GenerateJwtToken(_dataJwt);
+
+                // Générer le refresh token
+                t_refresh_token refreshTokenData = await _jwtService.GenerateRefreshToken(user.r_id);
 
                 // Enregistrer la session
                 var session = new t_session
@@ -269,22 +298,22 @@ namespace ask.Controllers
                     r_user_id_fk = user.r_id,
                     r_ip_address = HttpContext.Connection.RemoteIpAddress?.ToString(),
                     r_user_agent = Request.Headers["User-Agent"].ToString(),
-                    r_login_at = DateTime.Now,
+                    r_login_at = DateTime.UtcNow,
                     r_is_active = true
                 };
                 await _dbContext.t_session.AddAsync(session);
                 await _dbContext.SaveChangesAsync();
 
-                return Ok(new
+                int expirySeconds = int.TryParse(_configuration["JwtSettings:ExpiryInSecond"], out var sec) ? sec : 3600;
+                int refreshExpiry = (int)(refreshTokenData.r_expires_at!.Value - DateTime.UtcNow).TotalSeconds;
+
+                return Ok(new AuthSecurityRetourDto
                 {
-                    session = res_auth,
-                    user = new
-                    {
-                        id = user.r_id,
-                        nom = user.r_nom,
-                        email = user.r_email,
-                        telephone = user.r_telephone
-                    }
+                    access_token = accessToken,
+                    refresh_token = refreshTokenData.r_token,
+                    token_type = "Bearer",
+                    expires_in = expirySeconds,
+                    refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0,
                 });
             }
             catch (Exception ex)
@@ -331,14 +360,71 @@ namespace ask.Controllers
                         detail: "L'utilisateur n'existe pas dans notre système",
                         instance: HttpContext.Request.Path));
 
-                GeneraleRetour res = await _serviceAuth.RefreshToken(_body.refresh_token, RecupererToken(), IdDemande);
+                // Vérifier le refresh token en base
+                var existingRefresh = await _dbContext.t_refresh_token
+                    .FirstOrDefaultAsync(rt => rt.r_token == _body.refresh_token
+                                            && rt.r_user_id_fk == dataUser.r_id
+                                            && rt.r_is_revoked == false
+                                            && rt.r_is_delete != true);
 
-                if (!Tools.Tools.RetourIsSucces(res.status))
-                    return StatusCode(res.status, GeneraleRetour.BuildProblemResponse(res, instance: HttpContext.Request.Path));
+                if (existingRefresh == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(
+                        detail: "Refresh token invalide",
+                        instance: HttpContext.Request.Path));
 
-                AuthSecurityRetourDto res_auth = JsonConvert.DeserializeObject<AuthSecurityRetourDto>(res.data);
+                if (existingRefresh.r_expires_at < DateTime.UtcNow)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(
+                        detail: "Refresh token expiré",
+                        instance: HttpContext.Request.Path));
 
-                return Ok(res_auth);
+                // Révoquer l'ancien refresh token
+                existingRefresh.r_is_revoked = true;
+                existingRefresh.r_updated_at = DateTime.UtcNow;
+
+                // Charger les rôles et scopes
+                var userRoles = await _dbContext.t_user_roles
+                    .Include(ur => ur.r_roleTab)
+                    .Where(ur => ur.r_user_id_fk == dataUser.r_id && ur.r_is_delete != true && ur.r_roleTab.r_is_delete != true)
+                    .ToListAsync();
+
+                string[] roleCodes = userRoles.Select(ur => ur.r_roleTab!.r_code).ToArray();
+                string[] adminRoleCodes = userRoles.Where(ur => ur.r_is_admin).Select(ur => ur.r_roleTab!.r_code).ToArray();
+                int[] roleIds = userRoles.Select(ur => ur.r_role_id_fk).ToArray();
+
+                var scopes = await _dbContext.t_role_scopes
+                    .Include(rs => rs.r_scopeTab)
+                    .Where(rs => roleIds.Contains(rs.r_role_id_fk) && rs.r_is_delete != true)
+                    .Select(rs => rs.r_scopeTab!.r_nom)
+                    .Distinct()
+                    .ToArrayAsync();
+
+                // Générer un nouveau JWT et refresh token
+                var newAccessToken = _jwtService.GenerateJwtToken(new JwtIssueOptions
+                {
+                    UserId = dataUser.r_id,
+                    UserEmail = dataUser.r_email,
+                    Roles = roleCodes,
+                    AdminRoles = adminRoleCodes,
+                    Scopes = scopes,
+                });
+
+                var newRefreshToken = await _jwtService.GenerateRefreshToken(dataUser.r_id);
+                newRefreshToken.r_replaced_by = existingRefresh.r_token;
+
+                _dbContext.t_refresh_token.Update(existingRefresh);
+                await _dbContext.SaveChangesAsync();
+
+                int expirySeconds = int.TryParse(_configuration["JwtSettings:ExpiryInSecond"], out var secR) ? secR : 3600;
+                int refreshExpiry = (int)(newRefreshToken.r_expires_at!.Value - DateTime.UtcNow).TotalSeconds;
+
+                return Ok(new AuthSecurityRetourDto
+                {
+                    access_token = newAccessToken,
+                    refresh_token = newRefreshToken.r_token,
+                    token_type = "Bearer",
+                    expires_in = expirySeconds,
+                    refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0,
+                });
             }
             catch (Exception ex)
             {
@@ -430,7 +516,7 @@ namespace ask.Controllers
                         detail: "L'utilisateur est introuvable dans le système",
                         instance: HttpContext.Request.Path));
 
-                var o = await _otpRepo.genererOtp(user.r_id, user.r_id.ToString(), type_otp.RESET_PASSWORD, _paramdata.sms.validite_otp ?? 6);
+                var o = await _otpRepo.genererOtp(user.r_id, user.r_id.ToString(), TYPE_OTP.RESET_PASSWORD, _paramdata.sms.validite_otp ?? 6);
 
                 return Ok(new
                 {
@@ -619,5 +705,189 @@ namespace ask.Controllers
                 return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
             }
         }
+
+
+
+        [Authorize]
+        [HttpPost("photos")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadPhoto([FromForm] IFormFile? file)
+        {
+            const string _desc_route = "Modifier la photo de profil";
+
+            try
+            {
+
+
+               
+                if (file == null || file.Length == 0)
+                    return BadRequest(GeneraleRetour.BuildBadRequest("Aucune photo n'a été sélectionnée.", HttpContext.Request.Path));
+
+                // Configuration des tailles et extensions autorisées
+                string[] allowedExtensions = _configuration.GetSection("ImageSettings:AllowedExtensions").Get<string[]>() ?? new[] { ".jpg", ".jpeg", ".png" };
+                long maxLengthMo = long.TryParse(_configuration["ImageSettings:MaxLength"], out var result) ? result : 2;
+                long maxLengthBytes = maxLengthMo * 1024 * 1024;
+
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                if (!allowedExtensions.Contains(extension))
+                    return BadRequest(GeneraleRetour.BuildBadRequest($"Les extensions valables sont {string.Join(", ", allowedExtensions)}", HttpContext.Request.Path));
+
+                if (file.Length > maxLengthBytes)
+                    return BadRequest(GeneraleRetour.BuildBadRequest($"L'image dépasse la taille maximale autorisée de {maxLengthMo} Mo.", HttpContext.Request.Path));
+
+                // Recherche des infos client
+                var user = GetInfoUser();
+               
+             
+                // Création du dossier si besoin
+                string photoFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "photo");
+                if (!Directory.Exists(photoFolder))
+                    Directory.CreateDirectory(photoFolder);
+
+                // Enregistrement du fichier
+                string fileName = user.r_code + extension;
+                string filePath = Path.Combine(photoFolder, fileName);
+
+                await using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                string publicUrl = GetPublicUrl("photo", fileName);
+
+                _dbContext.t_user.Update(user);
+            
+                await _dbContext.SaveChangesAsync();
+
+                return Ok(new { url = publicUrl });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] Accès refusé : {ex.Message}");
+                return StatusCode(403, GeneraleRetour.BuildForbid("Permission refusée : " + ex.Message, HttpContext.Request.Path));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] Erreur interne : {ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(HttpContext.Request.Path));
+            }
+        }
+
+
+        [Authorize]
+        [HttpPost("comptes/{id}/photos/64")]
+        public async Task<IActionResult> UploadPhotoByBase64(string id, [FromBody] QueryUpdatePhoto _body)
+        {
+
+            string _desc_route = "Modifier la photo";
+            string IdDemande = RecupererIdDemandeEnCours();
+
+            try
+            {
+
+                string _photoFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "photo");
+
+                if (!(long.TryParse(_configuration["ImageSettings:MaxLength"], out long tailleMaximaleEnmo)))
+                    tailleMaximaleEnmo = 2; // par defaut 2 Mo
+
+                long tailleMaximale = tailleMaximaleEnmo * 1024 * 1024;
+
+                if (string.IsNullOrEmpty(id))
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le numéro de compte est requis", instance: HttpContext.Request.Path));
+
+                if (_body == null || string.IsNullOrEmpty(_body.FileBase64) || string.IsNullOrEmpty(_body.FileName))
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Les données de l'image sont manquantes.", instance: HttpContext.Request.Path));
+
+                string[] allowedExtensions = _configuration.GetSection("ImageSettings:AllowedExtensions").Get<string[]>();
+
+                // Vérification du type de fichier
+                var extension = Path.GetExtension(_body.FileName).ToLower();
+
+                if (!allowedExtensions.Contains(extension))
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: $"Les extensions valables sont {string.Join(",", allowedExtensions)}", instance: HttpContext.Request.Path));
+
+                // Décoder la chaîne Base64
+                byte[] imageBytes = Convert.FromBase64String(_body.FileBase64);
+
+                if (tailleMaximale > 0)
+                    if (imageBytes.Length > tailleMaximale)
+                        return BadRequest(GeneraleRetour.BuildBadRequest(detail: $"L'image dépasse la taille maximale autorisée de {tailleMaximaleEnmo} Mo.", instance: HttpContext.Request.Path));
+
+
+                Model.t_client resp_client = GetInfoClient();
+
+                t_compte _rech_compte = await _compteRepo.SearchCompteByIbanOrOther(id, resp_client.Id);
+                if (_rech_compte == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le compte est inconnu", instance: HttpContext.Request.Path));
+
+
+                t_alias _rech_alias = await _aliasRepo.SearchAliasByIban(_rech_compte.ibanOrOther);
+                if (_rech_alias == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le compte n'as pas d'alias dans le système", instance: HttpContext.Request.Path));
+
+
+
+                // Définir le chemin où l'image sera stockée
+                if (!Directory.Exists(_photoFolder))
+                {
+                    Directory.CreateDirectory(_photoFolder);
+                }
+
+
+                // Générer un nom de fichier unique et enregistrer l'image
+                var fileName = _rech_alias.valeurAlias + extension;
+
+                // Créer le chemin complet du fichier avec un nom unique
+                var filePath = Path.Combine(_photoFolder, fileName);
+
+                // Enregistrer le fichier sur le serveur
+                await System.IO.File.WriteAllBytesAsync(filePath, imageBytes);
+
+
+                var publicUrl = GetPublicUrl("photo", fileName);
+
+
+                // Modification sur Pi
+
+                QueryModificationAliasClientDto aliasUpd = new QueryModificationAliasClientDto
+                {
+
+                    photoClient = publicUrl,
+                    alias = _rech_alias.valeurAlias
+                };
+
+                GeneraleRetour e = await _serviceAlias.UpdateAlias(aliasUpd);
+
+                if (!Tools.Tools.RetourIsSucces(e.status))
+                    return StatusCode(e.status, GeneraleRetour.BuildProblemResponse(e, instance: HttpContext.Request.Path));
+
+                return Ok(new { url = publicUrl });
+
+            }
+
+            catch (FormatException)
+            {
+                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le format Base64 de l'image est invalide.", instance: HttpContext.Request.Path));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, GeneraleRetour.BuildForbid(detail: "Permission refusée : " + ex.Message, instance: HttpContext.Request.Path));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
     }
 }

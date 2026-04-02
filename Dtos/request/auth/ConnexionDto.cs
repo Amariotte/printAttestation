@@ -4,7 +4,7 @@ namespace ask.Dtos.Request.Auth
 {
     public class ConnexionDto
     {
-        public string username { get; set; }
+        public string email { get; set; }
         public string password { get; set; }
     }
 
@@ -12,8 +12,9 @@ namespace ask.Dtos.Request.Auth
     {
         public ConnexionDtoValidator()
         {
-            RuleFor(x => x.username)
-                .NotEmpty().WithMessage("L'username est obligatoire.");
+            RuleFor(x => x.email)
+                .NotEmpty().WithMessage("L'email est obligatoire.")
+                .EmailAddress().WithMessage("L'adresse e-mail n'est pas valide.");
 
             RuleFor(x => x.password)
                 .NotEmpty().WithMessage("Le mot de passe est obligatoire.");

@@ -1,23 +1,17 @@
-﻿using InteroperabiliteProject.Dtos;
-using InteroperabiliteProject.Model;
-using QRCoder;
-using System.Collections.Immutable;
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Azure.Core;
+using InteroperabiliteProject.Dtos;
+using QRCoder;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Drawing;
-using InteroperabiliteProject.DtoAppMobile;
+using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.Formats.Png;
-using ask.Dtos.RequestToSendDto;
-using InteroperabiliteProject.Tools;
-
-
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace ask.Tools
 {
@@ -409,6 +403,7 @@ namespace ask.Tools
         }
 
 
+        public static long ToUnixTimeSeconds(DateTime utc) => (long)Math.Floor((utc - DateTime.UnixEpoch).TotalSeconds);
 
 
         public static bool VerifieRegExp(string pattern, string chaine)
@@ -443,39 +438,8 @@ namespace ask.Tools
             return jsonDocument;
         }
 
+       
 
-  
-        public static JwtValueDto GetValueofdomainefromJWT(HttpRequest Request)
-        {
-            Request.Headers.TryGetValue("Authorization", out var headerValue);
-
-            var t = new JwtSecurityToken(headerValue.ToString().Replace("Bearer ", ""));
-
-            var getclaim = int.Parse(t.Claims.FirstOrDefault(p => p.Type == "iduser").Value);
-
-            if (getclaim == null)
-            {
-                return null;
-            }
-            else
-            {
-                var domaineClaim = int.Parse(t.Claims.FirstOrDefault(p => p.Type == "domaineid").Value);
-                if (domaineClaim == null)
-                {
-                    return null;
-
-                }
-                return new JwtValueDto { id_domaine = int.Parse(domaineClaim.ToString()), id_user = int.Parse(getclaim.ToString()) };
-            }
-        }
-        public static string GenerateEndToEndCode(AIPDATA dataConf)
-        {
-            return $"E{dataConf.codemembre}{DateTime.Now.ToString("yyyyMMddHHmmss")}{GenerateAlphaNumeriquevalue(14)}";
-        }
-
-
-
-   
 
         public static string Generatechiffrealeatoire(int nbre)
         {
@@ -516,12 +480,7 @@ namespace ask.Tools
             return (codeRetour.ToString() == "200");
         }
 
-        public static string GenererMessageId(string code_membre)
-        {
-            return $"M{code_membre}{GenerateAlphaNumeriquevalue(28)}";
-        }
-
-
+    
 
 
         public static (bool, string, QrCodeDto) DecodeCodeQr(string codeQr)
@@ -645,31 +604,7 @@ namespace ask.Tools
 
         }
 
-     
-        static string ComputeSha256Hash(string rawData)
-        {
-            // Créer une instance de SHA256
-            using (SHA256 sha256Hash = SHA256.Create())
-            {
-                // Calculer le hash à partir de la chaîne d'entrée
-                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(rawData));
-
-                // Convertir le tableau de bytes en chaîne hexadécimale
-                StringBuilder builder = new StringBuilder();
-                for (int i = 0; i < bytes.Length; i++)
-                {
-                    builder.Append(bytes[i].ToString("x2"));
-                }
-                return builder.ToString();
-            }
-        }
-
-
-    
-        public static string ConverIbanToNumCompte(this string data)
-        {
-            return data.Substring(15, 11);
-        }
+   
 
         public static string GenerationQR(string alias, string _code_pays, string canal, string montant, string txId)
         {
@@ -775,8 +710,7 @@ namespace ask.Tools
             return next;
         }
 
-
-
+     
         public static string CalculateCRC16(string exampleData)
         {
             byte[] data = Encoding.UTF8.GetBytes(exampleData);
