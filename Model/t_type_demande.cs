@@ -1,6 +1,4 @@
-﻿using InteroperabiliteProject.ServicceAIP;
-+
-namespace InteroperabiliteProject.Model
+﻿namespace ask.Model
 {
     public class t_type_demande :t_base
     {

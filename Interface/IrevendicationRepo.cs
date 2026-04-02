@@ -1,5 +1,5 @@
-﻿using InteroperabiliteProject.Model;
-using InteroperabiliteProject.ServicceAIP;
+﻿using ask.Dtos.General;
+using InteroperabiliteProject.Model;
 
 
 namespace InteroperabiliteProject.Interface

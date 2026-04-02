@@ -1,4 +1,5 @@
-﻿using ask.Dtos.RequestToReceiveDto;
+﻿using ask.Dtos.General;
+using ask.Dtos.RequestToReceiveDto;
 using ask.Dtos.RequestToSendDto;
 using AutoMapper;
 using InteroperabiliteProject.ContextDb;
@@ -7,7 +8,6 @@ using InteroperabiliteProject.Dtos.EnvoieController;
 using InteroperabiliteProject.Dtos.RevendicationAlias;
 using InteroperabiliteProject.Interface;
 using InteroperabiliteProject.Model;
-using InteroperabiliteProject.ServicceAIP;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;

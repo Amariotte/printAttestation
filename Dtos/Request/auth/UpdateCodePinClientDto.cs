@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using System.Text.RegularExpressions;
 
-namespace InteroperabiliteProject.DtoAppMobile.Securite
+namespace ask.Dtos.Request.auth
 {
     public class UpdateCodePinClientDto
     {

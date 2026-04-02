@@ -1,12 +1,11 @@
-﻿using ask.Dtos.RequestToSendDto;
+﻿using ask.Dtos.General;
+using ask.Dtos.Request.auth;
+using ask.Dtos.RequestToSendDto;
 using AutoMapper;
-using InteroperabiliteProject.DtoAppMobile.Securite;
 using InteroperabiliteProject.Dtos;
 using InteroperabiliteProject.Interface;
 using InteroperabiliteProject.Model;
-using InteroperabiliteProject.ServicceAIP;
 using InteroperabiliteProject.ServicesKeycloack;
-using InteroperabiliteProject.ServicesSecure.Dtos;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Net.Http;

@@ -19,6 +19,7 @@ using InteroperabiliteProject.Facturation.Dtos;
 using InteroperabiliteProject.DtoAIP;
 using ask.Dtos.RequestToSendDto;
 using ask.Dtos.RequestToReceiveDto;
+using ask.Dtos.General;
 
 
 namespace InteroperabiliteProject.ServicceAIP

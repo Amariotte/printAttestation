@@ -13,7 +13,6 @@ namespace ask.ContextDb
         public DbSet<t_user> t_user { get; set; }
  
         public DbSet<t_employe> t_employe { get; set; }
-        public DbSet<t_trace> t_trace { get; set; }
         public DbSet<t_demande> t_demande { get; set; }
         public DbSet<t_demande_ligne> t_demande_ligne { get; set; }
         public DbSet<t_histo_sms> t_histo_sms { get; set; }
@@ -23,10 +22,11 @@ namespace ask.ContextDb
         public DbSet<t_fonction> t_fonction { get; set; }
        
         public DbSet<t_route_scope> t_route_scope { get; set; }
-        public DbSet<t_user> t_user { get; set; }
         public DbSet<t_entite> t_entite { get; set; }
+        public DbSet<t_refresh_token> t_refresh_token { get; set; }
+        public DbSet<t_session> t_session { get; set; }
 
-        
+
         public DbSet<t_parametre_systeme> t_parametre_systeme { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -44,6 +44,16 @@ namespace ask.ContextDb
                 .HasOne(dl => dl.r_demandeTab)
                 .WithMany(dm => dm.r_t_demandeligne)
                 .HasForeignKey(dl => dl.r_demande_FK);
+
+            modelBuilder.Entity<t_refresh_token>()
+                .HasOne(rt => rt.r_userTab)
+                .WithMany()
+                .HasForeignKey(rt => rt.r_user_id_fk);
+
+            modelBuilder.Entity<t_session>()
+                .HasOne(s => s.r_userTab)
+                .WithMany()
+                .HasForeignKey(s => s.r_user_id_fk);
 
             //modelBuilder.Entity<t_alias>()
             //   .HasOne(dl => dl.t_client_tab)

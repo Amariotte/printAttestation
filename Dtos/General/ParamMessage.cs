@@ -1,16 +1,16 @@
-﻿namespace InteroperabiliteProject.Dtos
+﻿namespace ask.Dtos.General
 {
 
 
-    public class PARAM_MESSAGE
+    public class ParamMessage
     {
-        public SMSDATA? sms { get; set; }
-        public SMTPDATA? smtp { get; set; }
+        public ParamMessageSMS? sms { get; set; }
+        public ParamMessageSMTP? smtp { get; set; }
   
     }
 
 
-    public class SMSDATA
+    public class ParamMessageSMS
     {
         public string? login { get; set; }
         public string? baseUri { get; set; } 
@@ -21,7 +21,7 @@
        
     }
 
-    public class SMTPDATA
+    public class ParamMessageSMTP
     {
         public string? server { get; set; }
         public int port { get; set; } 

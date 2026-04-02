@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace InteroperabiliteProject.Model
+namespace ask.Model
 {
-    public class t_scoped:BaseClass
+    public class t_scoped:t_base
     {
         public string r_libelle { get; set; }
         public string r_description { get; set; }

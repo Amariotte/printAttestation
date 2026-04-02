@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using InteroperabiliteProject.ContextDb;
-using InteroperabiliteProject.ServicceAIP; // <- pour GeneraleRetour / ProblemsDetails
+using ask.Dtos.General; // <- pour GeneraleRetour / ProblemsDetails
 
 public class ClientValidationService
 {

@@ -2,19 +2,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ask.ContextDb;
-using ask.DtoAppMobile;
-using ask.DtoAppMobile.Alias;
-using ask.DtoAppMobile.Securite;
-using ask.Dtos;
+using ask.Dtos.General;
+using ask.Dtos.Request.auth;
 using ask.Dtos.Request.Auth;
-using ask.Event;
-using ask.Interface;
 using ask.Model;
-using ask.RequestToSendDto;
-using ask.ServicceAIP;
-using ask.ServicesSecure.Dtos;
 using AutoMapper;
 using FluentValidation;
+using InteroperabiliteProject.DtoAppMobile.Alias;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,7 +26,6 @@ namespace ask.Controllers
         private readonly IWebHostEnvironment _env;
 
         private readonly askContext _dbContext;
-        private readonly IdatasRepo _datarepo;
         private readonly IParticipantsRepo _participantrepo;
         private readonly ServiceAIF _ServiceAIF;
         private readonly IcompteRepo _compteRepo;
@@ -49,27 +42,26 @@ namespace ask.Controllers
        
         private readonly IConfiguration _configuration;
         private readonly AIPDATA _aipdata;
-        private readonly PARAM_MESSAGE _paramdata;
-        private readonly ILogger<MobileController> _logger;
+        private readonly ParamMessage _paramdata;
+        private readonly ILogger<askController> _logger;
         private readonly SecurityConfig _securityconfig;
         private readonly IDbContextFactory<askContext> _dbFactory;
 
 
         //private readonly ILogger _logger;
-        public askController(IrevendicationRepo revendicationrepo, ICodeErreurRepo codeErreurRepo, IDbContextFactory<InteropContext> dbFactory, IDemandeRepo demandeRepo, ItransfertAutoriseRepo transfertAutorepo, ItransfertRepo transfertRepo, Iannulation_transfert AnnulationTransfertRepo, EventService eventService, ServiceSecurity securityService, IOptions<SecurityConfig> securityconfig, ServiceAlias serviceAlias, ServiceTransfert serviceTransfert, ServiceMessagerie serviceMessagerie, ServiceEtat serviceEtat, IdatasRepo datarepo, IotpRepo otpRepo, InteropContext interopContext, IOptions<AIPDATA> aipdata, IOptions<PARAM_MESSAGE> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<MobileController> logger, ServiceAIF serviceAIF, IaliasRepo aliasRepo, IcompteRepo compteRepo, IParticipantsRepo participantrepo)
+        public askController(IDbContextFactory<askContext> dbFactory,askContext askContext, IOptions<ParamMessage> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<askController> logger)
         {
 
             _configuration = configuration;
             _dbFactory = dbFactory;
             _env = env;
-            _aipdata = aipdata.Value;
             _paramdata = paramdata.Value;
             _logger = logger;
             _securityconfig = securityconfig.Value;
             _ServiceAIF = serviceAIF;
             _serviceMessagerie = serviceMessagerie;
             _serviceEtat = serviceEtat;
-            _askContext = askContext;
+            _dbContext = askContext;
             _revendicationRepo = revendicationrepo;
             _codeErreurRepo = codeErreurRepo;
             _serviceSecurity = securityService;
@@ -102,11 +94,11 @@ namespace ask.Controllers
 
 
         [NonAction]
-        public Model.t_client GetInfoClient()
+        public Model.t_user GetInfoUser()
         {
-            if (HttpContext.Items.ContainsKey("Client"))
+            if (HttpContext.Items.ContainsKey("User"))
             {
-                return (Model.t_client)HttpContext.Items["Client"];
+                return (Model.t_user)HttpContext.Items["User"];
             }
             else
             {
@@ -138,867 +130,7 @@ namespace ask.Controllers
         }
 
 
-
-        [HttpPost("register")]
-        public async Task<IActionResult> Inscription([FromBody] InscriptionDto _body)
-        {
-            string _desc_route = "Inscription";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                var validator = new InscriptionDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-                    return BadRequest(problems);
-                }
-
-                /// Enregistrement dans la table des demandes d'inscriptions
-
-                t_register t = new t_register
-                {
-                    numerocompte = _body.numerocompte,
-                    nom = _body.nom,
-                    email = _body.email,
-                    telephone = _body.telephone,
-                    password = _body.password
-                };
-
-
-                await _interopContext.t_register.AddAsync(t);
-                await _interopContext.SaveChangesAsync();
-
-                GeneraleRetour b = await _serviceSecurity.Register(t, IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(b.status))
-                {
-                    t.motif_rejet = b.detail;
-                    t.statut = statut_register.REJETE;
-                    _interopContext.t_register.Update(t);
-                    await _interopContext.SaveChangesAsync();
-
-                    return StatusCode(b.status, GeneraleRetour.BuildProblemResponse(b, instance: HttpContext.Request.Path));
-                }
-
-                t.statut = statut_register.ACCEPTE;
-                _interopContext.t_register.Update(t);
-                await _interopContext.SaveChangesAsync();
-                return Ok("Inscription effectuée avec succès");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message.ToString()}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
-
-        [HttpPost("auth/register")]
-        public async Task<IActionResult> InscriptionAvecConfirmation([FromBody] InscriptionDto _body)
-        {
-            string _desc_route = "Inscription";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                var validator = new InscriptionDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-                    return BadRequest(problems);
-                }
-
-                /// Enregistrement dans la table des demandes d'inscriptions
-
-                t_register rg = new t_register
-                {
-                    numerocompte = _body.numerocompte,
-                    nom = _body.nom,
-                    email = _body.email,
-                    telephone = _body.telephone,
-                    password = _body.password,
-                    statut = statut_register.WAIT_CONFIRM
-                };
-
-                await _interopContext.t_register.AddAsync(rg);
-                await _interopContext.SaveChangesAsync();
-
-                t_otp o = await _otpRepo.genererOtp(0, rg.Id.ToString(), type_otp.CONFIRMATION_REGISTER, _paramdata.sms.validite_otp ?? 6);
-
-                await _serviceMessagerie.sendMessageAuRegister(rg, o);
-
-                return Ok(new { message = "OTP envoyé avec succès pour la confirmation de l'inscription.", challengeId = o.challengeId, contactMasked = Tools.Tools.MaskPhone(rg.telephone), emailMasked = Tools.Tools.MaskEmail(rg.email) }
-);
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message.ToString()}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
-        [HttpPost("auth/register/confirm")]
-        public async Task<IActionResult> ConfirmerInscription([FromBody] QueryConfirmationOtpRegisterDto _body)
-        {
-            string _desc_route = "Confirmation de l'inscription";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                var validator = new QueryConfirmationOtpRegisterDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-                    return BadRequest(problems);
-                }
-
-
-                (int res_otp, t_otp o) = await _otpRepo.verifieOtpAndChallenge(_body.otp, type_otp.CONFIRMATION_REGISTER, _body.challenge);
-
-                switch (res_otp)
-                {
-                    case 0:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Expiré", instance: HttpContext.Request.Path));
-                    case -1:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-                    case 1:
-                        break;
-                }
-                ;
-
-                Model.t_register rg = await _interopContext.t_register.Where(p => p.Id.ToString() == o.idOperationParent && p.is_delete != true).FirstOrDefaultAsync();
-
-                if (rg == null)
-                    return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-
-
-                rg.statut = statut_register.CONFIRMER;
-
-                _interopContext.t_register.Update(rg);
-                await _interopContext.SaveChangesAsync();
-
-                GeneraleRetour b = await _serviceSecurity.Register(rg, IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(b.status))
-                {
-                    rg.motif_rejet = b.detail;
-                    rg.statut = statut_register.REJETE;
-                    _interopContext.t_register.Update(rg);
-                    await _interopContext.SaveChangesAsync();
-
-                    return StatusCode(b.status, GeneraleRetour.BuildProblemResponse(b, instance: HttpContext.Request.Path));
-                }
-
-                rg.statut = statut_register.ACCEPTE;
-                _interopContext.t_register.Update(rg);
-                await _interopContext.SaveChangesAsync();
-                return Ok("Inscription effectuée avec succès");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message.ToString()}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
       
-
-        [HttpPost("auth/login")]
-        [AllowAnonymous]
-        public async Task<IActionResult> Authentification([FromBody] ConnexionDto _body)
-        {
-            string _desc_route = "Authentification";
-
-            try
-            {
-
-                string IdDemande = RecupererIdDemandeEnCours();
-
-                var validator = new ConnexionDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-                    return BadRequest(problems);
-                }
-
-
-                /// Recherche du client dans la base
-                var resp_query_client = await _interopContext.t_client
-                  .Where(c => c.security_username == _body.identifiant && c.is_delete != true)
-                  .FirstOrDefaultAsync();
-
-                if (resp_query_client == null)
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Authentification echouée", instance: HttpContext.Request.Path));
-
-                GeneraleRetour data_res_auth = await _serviceSecurity.AuthentificationUserClient(_body.identifiant, _body.password, IdDemande);
-
-
-                var resp_query_alias = await _interopContext.t_alias
-                .Where(c => c.r_client_id_fk == resp_query_client.Id && c.is_delete != true)
-                .Select(o => new { alias = o.valeurAlias, iban = o.iban }) // Ajoute le champ du compte ici
-                .ToListAsync();
-
-
-                var resp_query_compte = await _interopContext.t_compte
-                    .Where(c => c.r_client_id == resp_query_client.Id && c.is_delete != true)
-                    .Select(o => o.codeAgence + o.numeroCompte)
-                    .ToListAsync();
-
-
-                if (!Tools.Tools.RetourIsSucces(data_res_auth.status))
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: data_res_auth.detail, instance: HttpContext.Request.Path));
-
-                AuthSecurityRetourDto res_auth = JsonConvert.DeserializeObject<AuthSecurityRetourDto>(data_res_auth.data);
-
-                if (string.IsNullOrEmpty(res_auth.access_token))
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Authentification echouée", instance: HttpContext.Request.Path));
-
-
-                /// Retourne la session , les comptes et les alias
-                return Ok(new { session = res_auth, comptes = resp_query_compte, alias = resp_query_alias });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message.ToString()}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-        [Authorize]
-        [HttpPost("refresh-token")]
-        public async Task<IActionResult> RafraichirLeToken([FromBody] QueryRefreshToken _body)
-        {
-            string _desc_route = "Rafraichir le token";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-
-                var validator = new QueryRefreshTokenValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    return BadRequest(GeneraleRetour.BuildBadRequest(instance: HttpContext.Request.Path, detail: "Les données ne sont pas conformes", invalidParams: invalidParams));
-                }
-
-                Model.t_client data_client = GetInfoClient();
-
-                if (data_client == null)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le client n'existe pas dans notre système", instance: HttpContext.Request.Path));
-
-                GeneraleRetour res = await _serviceSecurity.RefreshToken(_body.refresh_token, RecupererToken(), IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(res.status))
-                    return StatusCode(res.status, GeneraleRetour.BuildProblemResponse(res, instance: HttpContext.Request.Path));
-
-
-                AuthSecurityRetourDto res_auth = JsonConvert.DeserializeObject<AuthSecurityRetourDto>(res.data);
-
-                return Ok(res_auth);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-        [NonAction]
-        [HttpPost("test")]
-        public async Task<IActionResult> TesterEnvoiMessage()
-        {
-            string _desc_route = "Tester";
-            string IdDemande = RecupererIdDemandeEnCours();
-            try
-            {
-
-                Model.t_client data_client = GetInfoClient();
-
-                t_otp o = await _otpRepo.genererOtp(data_client.Id, data_client.Id.ToString(), type_otp.RESET_CODE_PIN, _paramdata.sms.validite_otp ?? 6);
-
-               await _serviceMessagerie.sendMessageAuClient(type_modele.INITIALISATION_CODE_PIN, "", data_client, o);
-
-                return Ok("ok test");
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-        [Authorize]
-        [HttpPost("code-pin")]
-        public async Task<IActionResult> DefinirLeCodePin([FromBody] CodePinClientBodyDto _body)
-        {
-            string _desc_route = "Définition de code PIN";
-            string IdDemande = RecupererIdDemandeEnCours();
-            try
-            {
-
-                Model.t_client data_client = GetInfoClient();
-
-
-                int taille_code_pin = _securityconfig.length_pin > 0 ? _securityconfig.length_pin : 4;
-
-                var validator = new CodePinClientBodyDtoValidator(taille_code_pin);
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-
-                    return BadRequest(problems);
-                }
-
-                GeneraleRetour data_res = await _serviceSecurity.DefinirCodePIN(_body, RecupererToken(), IdDemande);
-
-                if (Tools.Tools.RetourIsSucces(data_res.status))
-                    return Ok("Enregistrement du code PIN effectué avec succès");
-                else
-                    return StatusCode(data_res.status, GeneraleRetour.BuildProblemResponse(data_res, instance: HttpContext.Request.Path));
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
-        [Authorize]
-        [HttpPut("code-pin")]
-        public async Task<IActionResult> ModifierLeCodePin([FromBody] UpdateCodePinClientDto _body)
-        {
-            string _desc_route = "Modification du code PIN";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                Model.t_client data_client = GetInfoClient();
-
-                int taille_code_pin = _securityconfig.length_pin;
-                if (taille_code_pin == 0)
-                    taille_code_pin = 4;
-
-                var validator = new UpdateCodePinClientDtoValidator(taille_code_pin);
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-                    return BadRequest(problems);
-                }
-
-
-                GeneraleRetour e = await _serviceSecurity.ModificationCodePin(data_client, _body, RecupererToken(), IdDemande); ;
-
-                if (!Tools.Tools.RetourIsSucces(e.status))
-                    return StatusCode(e.status, GeneraleRetour.BuildProblemResponse(e, instance: HttpContext.Request.Path));
-
-                return Ok("Modification du code PIN effectuée avec succès");
-
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-        [Authorize]
-        [HttpPost("code-pin/verify")]
-        public async Task<IActionResult> VerifierLeCodePin([FromBody] CodePinClientBodyDto _body)
-        {
-            string _desc_route = "Vérification du code PIN";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-
-                int taille_code_pin = _securityconfig.length_pin;
-                if (taille_code_pin == 0)
-                    taille_code_pin = 4;
-
-                var validator = new CodePinClientBodyDtoValidator(taille_code_pin);
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-                    return BadRequest(problems);
-                }
-
-
-                Model.t_client data_client = GetInfoClient();
-
-                GeneraleRetour e = await _serviceSecurity.VerificationCodePIN(_body, data_client.security_user_id, RecupererToken(), IdDemande);
-
-                if (Tools.Tools.RetourIsSucces(e.status))
-                    return Ok("Vérification du code PIN effectuée avec succès");
-                else
-                    return StatusCode(e.status, GeneraleRetour.BuildProblemResponse(e, instance: HttpContext.Request.Path));
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-        [Authorize]
-        [HttpPost("code-pin/reset/otp")]
-        public async Task<IActionResult> ReinistialisationDuCodePin()
-        {
-            string _desc_route = "Rénistialisation du code PIN";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                Model.t_client data_client = GetInfoClient();
-
-                if (data_client == null)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "L'utilisateur est introuvable dans le sytème", instance: HttpContext.Request.Path));
-
-                /// Envoi de OTP sur le numero
-                t_otp o = await _otpRepo.genererOtp(data_client.Id, data_client.Id.ToString(), type_otp.RESET_CODE_PIN, _paramdata.sms.validite_otp ?? 6);
-
-                await _serviceMessagerie.sendMessageAuClient(type_modele.INITIALISATION_CODE_PIN, data_client.telephone, data_client, o);
-
-
-                return Ok("OTP envoyé avec succès pour la réinitialisation du code PIN.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-        [Authorize]
-        [HttpPost("code-pin/reset/otp/confirm")]
-        public async Task<IActionResult> ConfirmReinistialisationDuCodePin([FromBody] QueryConfirmationOtpDto _body)
-        {
-            string _desc_route = "Réinistialisation du code PIN";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                var validator = new QueryConfirmationOtpDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problem = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-
-                    return BadRequest(problem);
-                }
-
-                /// Recherche du client dans la base
-                Model.t_client data_client = GetInfoClient();
-
-                if (data_client == null)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "L'utilisateur est introuvable dans le sytème", instance: HttpContext.Request.Path));
-
-
-                /// Vérifie si l'otp est lié
-                int res_otp = await _otpRepo.verifieOtp(data_client.Id, _body.otp, type_otp.RESET_CODE_PIN, data_client.Id.ToString());
-                switch (res_otp)
-                {
-                    case 0:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Expiré", instance: HttpContext.Request.Path));
-                    case -1:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-                    case 1:
-                        break;
-                };
-
-                ///// Réinistialiser du code PIN
-                GeneraleRetour e = await _serviceSecurity.RéinistialiserCodePin(RecupererToken(), IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(e.status))
-                    return StatusCode(e.status, GeneraleRetour.BuildProblemResponse(e, instance: HttpContext.Request.Path));
-
-
-                return Ok("Réinitialisation du code PIN effectuée avec succès.");
-            }
-
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
-        [Authorize]
-        [HttpPost("code-pin/reset")]
-        public async Task<IActionResult> ReinistialisationDuCodePinByApplication([FromBody] CodePinResetClientBodyDto _body)
-        {
-            string _desc_route = "Réinistialisation du code PIN";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-                int taille_code_pin = _securityconfig.length_pin > 0 ? _securityconfig.length_pin : 4;
-
-                string token = RecupererToken();
-
-                var validator = new CodePinResetClientBodyDtoValidator(taille_code_pin);
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problem = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-
-                    return BadRequest(problem);
-                }
-
-                /// Recherche du client dans la base
-                Model.t_client data_client = GetInfoClient();
-
-                if (data_client == null)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "L'utilisateur est introuvable dans le sytème", instance: HttpContext.Request.Path));
-
-
-                ///// Réinistialiser du code PIN
-                GeneraleRetour e = await _serviceSecurity.RéinistialiserCodePin(token, IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(e.status))
-                    return StatusCode(e.status, GeneraleRetour.BuildProblemResponse(e, instance: HttpContext.Request.Path));
-
-                CodePinClientBodyDto _body_pin = new CodePinClientBodyDto
-                {
-                    pin = _body.pin
-                };
-                
-                GeneraleRetour data_res = await _serviceSecurity.DefinirCodePIN(_body_pin, token, IdDemande);
-
-                if (Tools.Tools.RetourIsSucces(data_res.status))
-                    return Ok("Enregistrement du code PIN effectué avec succès");
-                else
-                    return StatusCode(data_res.status, GeneraleRetour.BuildProblemResponse(data_res, instance: HttpContext.Request.Path));
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-
-        }
-
-
-        [Authorize]
-        [HttpPut("password")]
-        public async Task<IActionResult> ModifierLeMotPasse([FromBody] UpdatePasswordClientDto _body)
-        {
-            string _desc_route = "Modification du code PIN";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                Model.t_client data_client = GetInfoClient();
-
-
-                var validator = new UpdatePasswordClientDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problems = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-                    return BadRequest(problems);
-                }
-
-
-                GeneraleRetour e = await _serviceSecurity.ModificationMotPasse(data_client, _body, RecupererToken(), IdDemande); ;
-
-                if (!Tools.Tools.RetourIsSucces(e.status))
-                    return StatusCode(e.status, GeneraleRetour.BuildProblemResponse(e, instance: HttpContext.Request.Path));
-
-                return Ok("Modification du mot de passe effectuée avec succès");
-
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-        [HttpPost("password/reset/otp")]
-        public async Task<IActionResult> ReinistialisationMotDePasse([FromBody] InitPasswordClientDto _body)
-        {
-            string _desc_route = "Rénistialisation du mot de passe";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                Model.t_client data_client = await _interopContext.t_client
-                    .Where(p => p.security_username == _body.identifiant && p.is_delete != true)
-                    .FirstOrDefaultAsync();
-
-                if (data_client == null)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "L'utilisateur est introuvable dans le sytème", instance: HttpContext.Request.Path));
-
-                t_otp o = await _otpRepo.genererOtp(data_client.Id, data_client.Id.ToString(), type_otp.RESET_PASSWORD, _paramdata.sms.validite_otp ?? 6);
-
-               await _serviceMessagerie.sendMessageAuClient(type_modele.MOT_PASSE_OUBLIE, data_client.telephone, data_client, o);
-
-                return Ok(new { message = "OTP envoyé avec succès pour la réinitialisation du mot de passe.", challengeId = o.challengeId, contactMasked = Tools.Tools.MaskPhone(data_client.telephone), emailMasked = Tools.Tools.MaskEmail(data_client.email) }
-);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
-        [HttpPost("password/reset/otp/confirm")]
-        public async Task<IActionResult> ConfirmReinistialisationMotDePasse([FromBody] QueryConfirmationOtpResetPwdDto _body)
-        {
-            string _desc_route = "Confirmation du réinistialisation du mot de passe";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                var validator = new QueryConfirmationOtpResetPwdDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    var problem = GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams
-                    );
-
-                    return BadRequest(problem);
-                }
-
-                /// Vérifie si l'otp est lié
-
-                (int res_otp, t_otp o) = await _otpRepo.verifieOtpAndChallenge(_body.otp, type_otp.RESET_PASSWORD, _body.challenge);
-
-                switch (res_otp)
-                {
-                    case 0:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Expiré", instance: HttpContext.Request.Path));
-                    case -1:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-                    case 1:
-                        break;
-                };
-
-                Model.t_client data_client = await _interopContext.t_client.Where(p => p.Id.ToString() == o.idOperationParent && p.is_delete != true).FirstOrDefaultAsync();
-
-
-                if (data_client == null)
-                    return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-
-
-                ///// Réinistialiser du mot de passe
-                GeneraleRetour e = await _serviceSecurity.ModificationMotPasseParInitialisation(data_client, _body.new_password, IdDemande);
-
-                if (!Tools.Tools.RetourIsSucces(e.status))
-                    return StatusCode(e.status, GeneraleRetour.BuildProblemResponse(e, instance: HttpContext.Request.Path));
-
-
-                return Ok("Mot de passe modifié avec succès.");
-            }
-
-            catch (Exception ex)
-            {
-                _logger.LogInformation("Step 5: ------------Exception ex");
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
-
-        [HttpGet("comptes/{codeclient}")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetListeDesComptes(string codeclient)
-        {
-            string _desc_route = "Liste des comptes client";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-
-                if (string.IsNullOrEmpty(codeclient))
-                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "La racine du client est requise", instance: HttpContext.Request.Path));
-
-                // Recuperer les rubriques comptables autorisées pour PI
-                List<ItemData> rub_comptables_autorisees = await _datarepo.getDataInListByCode<ItemData>(code_datas.RUBRIQUE_COMPTABLE_AUTORISEE.ToString());
-
-                var result = await _ServiceAIF.GetClientListeCompte(codeclient, IdDemande);
-
-                if (!result.operationStatus)
-                {
-                    return StatusCode(result.status,
-                       GeneraleRetour.BuildProblemResponse(new GeneraleRetour { status = result.status, detail = result.erreur }, instance: HttpContext.Request.Path));
-                }
-
-                var res_data = JsonConvert.DeserializeObject<MessageCompteListe>(result.data);
-                var filteredData = res_data.compte.Where(r => rub_comptables_autorisees
-                                           .Any(a => a.Code == r.rubriqueComptable))
-                              .ToList();
-
-                return Ok(filteredData);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
         [Authorize]
         [HttpGet("comptes/{id}/soldes")]
         public async Task<IActionResult> GetSoldeCompte(string id)
@@ -2016,24 +1148,24 @@ namespace ask.Controllers
         }
 
         [Authorize]
-        [HttpPost("contacts")]
-        public async Task<IActionResult> CreerUnContact([FromBody] ContactDto _body)
+        [HttpPost("fonctions")]
+        public async Task<IActionResult> CreateFunction([FromBody] fonctionDto _body)
         {
 
-            string _desc_route = "Créer un contact";
+            string _desc_route = "Créer une fonction";
 
             try
             {
 
-                Model.t_client data_client = GetInfoClient();
+                Model.t_user dataUser = GetInfoUser();
 
                 List<InvalidParam> invalidParams = new List<InvalidParam>();
 
                 if (string.IsNullOrEmpty(_body.nom))
-                    invalidParams.Add(new InvalidParam { name = "nom", reason = "Le nom du nouveau contact est manquant" });
+                    invalidParams.Add(new InvalidParam { name = "nom", reason = "Le nom est requis" });
 
-                if (string.IsNullOrEmpty(_body.alias))
-                    invalidParams.Add(new InvalidParam { name = "alias", reason = "L'alias du nouveau contact est manquant" });
+                if (string.IsNullOrEmpty(_body.code))
+                    invalidParams.Add(new InvalidParam { name = "code", reason = "Le code est requis" });
 
 
                 if (invalidParams.Count > 0)
@@ -2041,36 +1173,36 @@ namespace ask.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Les données ne sont pas conformes", instance: HttpContext.Request.Path, invalidParams: invalidParams));
                 }
 
-                var resp_query = await _interopContext.t_contact_client
-                    .Where(p => p.alias == _body.alias && p.r_client_id_fk == data_client.Id && p.is_delete != true)
+                var resp_query = await _dbContext.t_fonction
+                    .Where(e => e.r_code == _body.code && e.r_is_delete != true)
                     .FirstOrDefaultAsync();
 
                 /// Recherche de l'alias dans la base
                 if (resp_query != null)
-                    return StatusCode(403, GeneraleRetour.BuildForbid(detail: "L'alias existe déjà dans la liste des contacts", instance: HttpContext.Request.Path));
+                    return StatusCode(403, GeneraleRetour.BuildForbid(detail: "Le code de la fonction existe déjà dans la liste des fonctions", instance: HttpContext.Request.Path));
 
 
-                t_contact_client contact = new t_contact_client
+
+
+                t_fonction f = new t_fonction
                 {
-                    nom = _body.nom,
-                    confiance = _body.confiance,
-                    alias = _body.alias,
-                    r_client_id_fk = data_client.Id
+                    r_nom = _body.nom,
+                    r_code = _body.code,
                 };
 
 
-                _interopContext.t_contact_client.Add(contact);
-                _interopContext.SaveChanges();
+                _dbContext.t_fonction.Add(f);
+                _dbContext.SaveChanges();
 
-                ContactDto contactsDto = new ContactDto
+                fonctionDto fDto = new fonctionDto
+
                 {
-                    id = contact.Id,
-                    nom = contact.nom,
-                    alias = contact.alias,
-                    confiance = contact.confiance
+                    id = f.r_id,
+                    nom = f.r_nom,
+                    code = f.r_code,
                 };
 
-                return Ok(contactsDto);
+                return Ok(fDto);
 
             }
             catch (Exception ex)
@@ -2082,35 +1214,34 @@ namespace ask.Controllers
         }
 
         [Authorize]
-        [HttpDelete("contacts/{id}")]
-        public async Task<IActionResult> DeleteContact(int id)
+        [HttpDelete("fonctions/{id}")]
+        public async Task<IActionResult> SupprimerUneFonction(int id)
         {
 
-            string _desc_route = "Supprimer un contact";
+            string _desc_route = "Supprimer une fonction";
 
             try
             {
 
-                Model.t_client resp_query_client = GetInfoClient();
+                Model.t_user resp_query_client = GetInfoUser();
 
                 if (id <= 0)
-                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant du contact à supprimer est manquant", instance: HttpContext.Request.Path));
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de la fonction à supprimer est manquant", instance: HttpContext.Request.Path));
 
-                /// Recherche du contact dans la liste des contacts du client dans la base
-                var resp_query = await _interopContext.t_contact_client
-                    .Where(p => p.Id == id && p.r_client_id_fk == resp_query_client.Id && p.is_delete != true)
+                var resQuery = await _dbContext.t_fonction
+                    .Where(e => e.r_id == id  && e.r_is_delete != true)
                     .FirstOrDefaultAsync();
 
-                if (resp_query == null)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le contact n'existe pas dans la liste des contacts", instance: HttpContext.Request.Path));
+                if (resQuery == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "La fonction n'existe pas dans la liste des fonctions", instance: HttpContext.Request.Path));
 
 
-                resp_query.is_delete = true;
+                resQuery.r_is_delete = true;
 
-                _interopContext.t_contact_client.Update(resp_query);
-                _interopContext.SaveChanges();
+                _dbContext.t_fonction.Update(resQuery);
+                _dbContext.SaveChanges();
 
-                return StatusCode(204, "Contact supprimé avec succès");
+                return StatusCode(204, "Fonction supprimée avec succès");
 
             }
             catch (Exception ex)
@@ -2122,53 +1253,50 @@ namespace ask.Controllers
         }
 
         [Authorize]
-        [HttpPut("contacts/{id}")]
-        public async Task<IActionResult> UpdateContact(int id, [FromBody] ContactDto _body)
+        [HttpPut("fonctions/{id}")]
+        public async Task<IActionResult> UpdateContact(int id, [FromBody] fonctionDto _body)
         {
 
-            string _desc_route = "Modifier un contact";
+            string _desc_route = "Modifier une fonction";
 
             try
             {
-                Model.t_client data_client = GetInfoClient();
+                Model.t_user data_client = GetInfoUser);
 
 
                 if (id <= 0)
-                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant du contact à supprimer est manquant", instance: HttpContext.Request.Path));
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de la fonction à supprimer est manquant", instance: HttpContext.Request.Path));
 
-                /// Recherche du contact dans la liste des contacts du client dans la base
-                var resp_query = await _interopContext.t_contact_client
-                    .Where(p => p.Id == id && p.r_client_id_fk == data_client.Id && p.is_delete != true)
+                var resQuery = await _dbContext.t_fonction
+                    .Where(e => e.r_id == id && e.r_is_delete != true)
                     .FirstOrDefaultAsync();
 
-                if (resp_query == null)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le contact n'existe pas dans la liste des contacts", instance: HttpContext.Request.Path));
+                if (resQuery == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "La fonction n'existe pas dans la liste des fonctions", instance: HttpContext.Request.Path));
 
-                var resp_query_exist = await _interopContext.t_contact_client
-                  .Where(p => p.alias == _body.alias && p.r_client_id_fk == data_client.Id && p.is_delete != true && p.Id != id)
+                var resQueryExist = await _dbContext.t_fonction
+                  .Where(e => e.r_code == _body.code  && e.r_is_delete != true && e.r_id != id)
                   .FirstOrDefaultAsync();
 
                 /// Recherche de l'alias sur un autre contact dans la base
-                if (resp_query_exist != null)
+                if (resQueryExist != null)
                     return StatusCode(403, GeneraleRetour.BuildForbid(detail: "L'alias existe déjà dans la liste des contacts", instance: HttpContext.Request.Path));
 
 
-                if (!string.IsNullOrEmpty(_body.nom)) resp_query.nom = _body.nom;
-                if (!string.IsNullOrEmpty(_body.alias)) resp_query.alias = _body.alias;
-                if (_body.confiance != null) resp_query.confiance = _body.confiance;
+                if (!string.IsNullOrEmpty(_body.nom)) resQuery.r_nom = _body.nom;
+                if (!string.IsNullOrEmpty(_body.code)) resQuery.r_code = _body.code;
 
-                _interopContext.t_contact_client.Update(resp_query);
-                _interopContext.SaveChanges();
+                _dbContext.t_fonction.Update(resQuery);
+                _dbContext.SaveChanges();
 
-                ContactDto contactsDto = new ContactDto
+                fonctionDto fDto = new fonctionDto
                 {
-                    id = resp_query.Id,
-                    alias = resp_query.alias,
-                    nom = resp_query.nom,
-                    confiance = resp_query.confiance
+                    id = f.r_id,
+                    nom = f.r_nom,
+                    code = f.r_code,
                 };
 
-                return StatusCode(200, contactsDto);
+                return StatusCode(200, fDto);
 
             }
             catch (Exception ex)
@@ -2180,33 +1308,30 @@ namespace ask.Controllers
         }
 
         [Authorize]
-        [HttpGet("contacts")]
-        public async Task<IActionResult> GetContacts()
+        [HttpGet("fonctions")]
+        public async Task<IActionResult> GetFonctions()
         {
 
-            string _desc_route = "Liste des contacts";
+            string _desc_route = "Liste des fonctions";
 
             try
             {
-                Model.t_client resp_query_client = GetInfoClient();
+                Model.t_user dataUser = GetInfoUser();
 
-                /// Recherche des contacts dans la liste des contacts du client dans la base
-                var resp_query_contact = await _interopContext.t_contact_client
-                    .Where(p => p.r_client_id_fk == resp_query_client.Id && p.is_delete != true)
-                    .OrderBy(p => p.nom)
+                var respQuery = await _dbContext.t_fonction
+                    .Where(e => e.r_is_delete != true)
+                    .OrderBy(e=> e.r_nom)
                     .ToListAsync();
 
 
-                // Mapping des résultats à des objets ContactDto
-                var contactsDto = resp_query_contact.Select(c => new ContactDto
+                var fonctionsDto = respQuery.Select(f => new fonctionDto
                 {
-                    id = c.Id,
-                    nom = c.nom,
-                    alias = c.alias,
-                    confiance = c.confiance
+                    id = f.r_id,
+                    nom = f.r_nom,
+                    code = f.r_code
                 }).ToList();
 
-                return Ok(new { data = contactsDto, meta = new MetaDto { total = contactsDto.Count() } });
+                return Ok(new { data = fonctionsDto, meta = new MetaDto { total = fonctionsDto.Count() } });
             }
             catch (Exception ex)
             {
@@ -2217,49 +1342,7 @@ namespace ask.Controllers
             }
         }
 
-        [Authorize]
-        [HttpGet("getannexe/{id}")]
-        [HttpGet("annexes/{id}")]
-        public async Task<IActionResult> GetAnnexes(string id)
-        {
-            string _desc_route = "Liste des annexes";
-
-            try
-            {
-                var ret = await _interopContext.t_data.Where(p => p.code == id).Select(o => o.data).FirstOrDefaultAsync();
-                return Ok(new { data = ret, meta = new MetaDto { } });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-
-        }
-
-        [Authorize]
-        [HttpGet("annexes/rubriques")]
-        public async Task<IActionResult> ListeDesRubriquesAnnexes()
-        {
-            string _desc_route = "Liste des rubriques";
-
-            try
-            {
-
-                var result = await _interopContext.t_data
-                    .Select(o => new { o.code, o.description })
-                    .ToListAsync();
-
-                return Ok(new { data = result, meta = new MetaDto { total = result.Count() } });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-
-        }
-
+       
         [Authorize]
         [HttpGet("participants/{filter?}")]
         public async Task<IActionResult> GetParticipant(string? filter)

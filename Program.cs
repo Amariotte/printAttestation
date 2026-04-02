@@ -1,28 +1,26 @@
 using Serilog;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using InteroperabiliteProject.ContextDb;
-using InteroperabiliteProject.Event;
-using InteroperabiliteProject.Interface;
-using InteroperabiliteProject.Implementation;
+using ask.ContextDb;
+using ask.Event;
+using ask.Interface;
+using ask.Implementation;
 using Newtonsoft.Json;
 using InteroperabiliteProject.Controllers;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Net;
-using InteroperabiliteProject.ServicceAIP;
-using InteroperabiliteProject.ServicesKeycloack;
-using InteroperabiliteProject.Dtos;
+using ask.Services;
 using Microsoft.IdentityModel.Tokens;
-using InteroperabiliteProject.ServicesKeycloack.Dtos;
 using System.Security.Authentication;
-using InteroperabiliteProject.Tools;
+using ask.Tools;
 using Microsoft.OpenApi.Models;
 using System.Threading.RateLimiting;
 using ask.Dtos.RequestToSendDto;
-using ask.Services;
+using InteroperabiliteProject.Interface;
+using ask.Dtos.General;
 
 
-namespace InteroperabiliteProject
+namespace ask
 {
     public class Program
     {
@@ -250,22 +248,15 @@ namespace InteroperabiliteProject
             //var Aipdata = JsonConvert.DeserializeObject<AIPDATA>(builder.Configuration.GetSection("Aip").ToString());
 
             builder.Services.Configure<AIPDATA>(builder.Configuration.GetSection("Aip"));
-            builder.Services.Configure<PARAM_MESSAGE>(builder.Configuration.GetSection("Messagerie"));
+            builder.Services.Configure<ParamMessage>(builder.Configuration.GetSection("Messagerie"));
             builder.Services.Configure<SecurityConfig>(builder.Configuration.GetSection("security"));
-            builder.Services.AddSingleton<EventService>();
             builder.Services.AddScoped<ServiceAuth>();
-            builder.Services.AddScoped<KeycloackService>();
             builder.Services.AddScoped<SecureService>();
-            builder.Services.AddScoped<ServiceAIF>();
             builder.Services.AddScoped<ServiceMessagerie>();
-            builder.Services.AddScoped<ServiceAlias>();
             builder.Services.AddScoped<ServiceEtat>();
-            builder.Services.AddScoped<ServiceTransfert>();
             builder.Services.AddScoped<ReceptionAIPController>();
             builder.Services.AddScoped<EnvoieController>();
             builder.Services.AddTransient<IemployeRepo, AliasRepo>();
-            builder.Services.AddScoped<IscheduledRepo, ScheduledRepo>();
-            builder.Services.AddScoped<IoperationmasseRepo, OperationMasseRepo>();
             builder.Services.AddScoped<IcompteRepo, CompteRepo>();
             builder.Services.AddScoped<IotpRepo, OtpRepo>();
             builder.Services.AddScoped<IHistoSmsRepo, HistoSmsRepo>();
@@ -291,12 +282,12 @@ namespace InteroperabiliteProject
             builder.Services.AddScoped<Iannulation_transfert, annulation_transfertBaseRepo>();
             builder.Services.AddScoped<InotificationRepo, NotificationRepo>();
             builder.Services.AddScoped<ClientValidationService>();
+            builder.Services.AddScoped<IUserRepo, UserRepo>();
 
         
             //builder.Services.AddScoped<IaliasRepo, AliasRepo>();
             builder.Services.AddHttpClient();
             // Ajouter le service d'arrière-plan
-            builder.Services.AddHostedService<TimedHostedService>();
             //*************************************Gestion des dates avec postgressSQL***************************************
             AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
             //*************************************Gestion des dates avec postgressSQL***************************************

@@ -1,4 +1,5 @@
-﻿using ask.Dtos.RequestToReceiveDto;
+using ask.Dtos.General;
+using ask.Dtos.Request.auth;
 using ask.Dtos.RequestToSendDto;
 using ask.Interface;
 using ask.Model;
@@ -10,159 +11,132 @@ namespace ask.Services
 {
     public class ServiceAuth
     {
-
         private readonly ILogger<ServiceAuth> _logger;
         private readonly ServiceMessagerie _serviceMessagerie;
-         private readonly IUserRepo _userRepo;
+        private readonly SecureService _secureService;
+        private readonly IUserRepo _userRepo;
         private readonly IMapper _imapper;
         private readonly SecurityConfig _securityconfig;
+        private readonly ParamMessage _paramdata;
 
-        public ServiceAuth(ILogger<ServiceAuth> logger, IMapper imapper, SecureService SecureService,IOptions<SecurityConfig> securityConfig, ServiceAIF serviceAIF, ServiceMessagerie serviceMessagerie, IOptions<PARAM_MESSAGE> paramdata, IuserRepo userRepo )
+        public ServiceAuth(
+            ILogger<ServiceAuth> logger,
+            IMapper imapper,
+            SecureService secureService,
+            IOptions<SecurityConfig> securityConfig,
+            ServiceMessagerie serviceMessagerie,
+            IOptions<ParamMessage> paramdata,
+            IUserRepo userRepo)
         {
             _logger = logger;
-            _serviceMessagerie = serviceMessagerie;
+            _imapper = imapper;
+            _secureService = secureService;
             _securityconfig = securityConfig.Value;
+            _serviceMessagerie = serviceMessagerie;
+            _paramdata = paramdata.Value;
             _userRepo = userRepo;
-             _imapper = imapper;
         }
 
-        public async Task<GeneraleRetour> Register(t_register t, string? IdDemande)
-
+        public async Task<GeneraleRetour> Register(t_user user, string? IdDemande)
         {
-
             try
             {
+                // Vérification de l'existence de l'utilisateur
+                var existingUsers = await _userRepo.GetAllAsync();
+                var existingUser = existingUsers.data?
+                    .FirstOrDefault(u => u.r_email == user.r_email);
 
-                var retReqAIF = await _serviceAIF.GetClientCompte(t.numerocompte, IdDemande);
+                if (existingUser != null)
+                    return new GeneraleRetour { status = 403, detail = "L'utilisateur existe déjà dans le système" };
 
-                if (!retReqAIF.operationStatus)
-                    return (new GeneraleRetour { status = retReqAIF.status, detail = retReqAIF.erreur });
-
-                var ret_AIF = JsonConvert.DeserializeObject<Message>(retReqAIF.data);
-
-                var retReqAIP = await _serviceAIF.GetEquivalenceClientCompte(ret_AIF);
-
-                if (!retReqAIP.operationStatus)
-                    return (new GeneraleRetour { status = retReqAIP.status, detail = retReqAIP.erreur });
-
-                var ret_AIP = JsonConvert.DeserializeObject<ReponseAUneDemandeDeVerificationAIF>(retReqAIP.data);
-
-              
-                // Vérification du client
-                Model.t_client data_client = await _clientRepo.SearchClientByCodeClient(ret_AIF.client.codeClient);
-
-                if (data_client != null)
-                    return (new GeneraleRetour { status = 403, detail = "Le client existe dejà dans le système" });
-
-
-                t_register_plus _body = new t_register_plus {
-                    nom = t.nom,
-                    email = t.email,
-                    telephone = t.telephone,
-                    password = t.password,
-                    racine = ret_AIF.client.codeClient,
-                    identifiant = ret_AIF.client.codeClient
-                };
-
-
-                GeneraleRetour b = new GeneraleRetour();
+                // Création selon la méthode de sécurité configurée
+                GeneraleRetour b;
                 switch (_securityconfig.secure_method.ToUpper())
                 {
                     case "SECURE":
-                        b = await Register_Secure(_body, IdDemande);
-                        break;
-                    case "KEYCLOAK":
-                        b = await Register_keycloack(_body, IdDemande);
+                        var clientDto = new ClientSecureDto
+                        {
+                            username = user.r_email ?? string.Empty,
+                            password = user.r_password ?? string.Empty,
+                            nom = user.r_nom ?? string.Empty,
+                            prenom = user.r_prenom ?? string.Empty,
+                            email = user.r_email ?? string.Empty,
+                            telephone = user.r_telephone ?? string.Empty,
+                            racine = user.r_code ?? user.r_email ?? string.Empty,
+                            nomcomplet = $"{user.r_nom} {user.r_prenom}".Trim()
+                        };
+
+                        // Authentification admin pour créer le client
+                        var authAdmin = await _secureService.AuthenticateUserAsync(
+                            _securityconfig.Secure.user_admin,
+                            _securityconfig.Secure.pwd_admin,
+                            IdDemande);
+
+                        if (!Tools.Tools.RetourIsSucces(authAdmin.status))
+                            return authAdmin;
+
+                        var adminAuth = JsonConvert.DeserializeObject<AuthResponseSecureDto>(authAdmin.data);
+                        b = await _secureService.CreateClientAsync(clientDto, adminAuth.data.token, IdDemande);
                         break;
                     default:
-                        b = new GeneraleRetour { status = 500 };
+                        b = new GeneraleRetour { status = 500, detail = "Méthode de sécurité non supportée" };
                         break;
                 }
-
 
                 if (!Tools.Tools.RetourIsSucces(b.status))
                     return b;
 
+                var d = JsonConvert.DeserializeObject<UserSecurityData>(b.data);
 
-                UserSecurityData d = JsonConvert.DeserializeObject<UserSecurityData>(b.data);
+                // Mise à jour de l'utilisateur avec les données de sécurité
+                user.r_code = d.racine ?? d.username;
+                await _userRepo.AddAsync(user);
 
-
-                // Création du client si il n'existe pas dans le système
-
-                t_client cli = new t_client {
-                    numerocompte_register = t.numerocompte,
-                    telephone = _body.telephone,
-                    security_user_id = d.id,
-                    security_username = d.username,
-                    nom = d.nom,
-                    prenom = d.prenom,
-                    email = d.email,
-                    code = ret_AIF.client.codeClient
-                };
-             
-                await _clientRepo.AddAsync(cli);
-
-
-                 t_compte  data_compte = _imapper.Map<t_compte>(ret_AIF.compte);
-                 data_compte.r_client_id = cli.Id;
-                 data_compte.ibanOrOther = ret_AIF.compte.iban;
-                 data_compte.type = type.Iban;
-                 await _compteRepo.AddAsync(data_compte);
-
-                /// Envoi du message
-                await _serviceMessagerie.sendMessageAuClient(type_modele.INSCRIPTION, _body.telephone, cli,null);
-
-                return (new GeneraleRetour { status = 200 });
- 
+                return new GeneraleRetour { status = 200, detail = "Inscription effectuée avec succès" };
             }
-
             catch (Exception ex)
             {
-                _logger.LogError("Inscription", ex.Message,ex);
-                return (new GeneraleRetour { status = 500 });
+                _logger.LogError(ex, "Inscription échouée");
+                return new GeneraleRetour { status = 500, detail = "Une erreur est survenue lors de l'inscription" };
             }
-
         }
-
-
 
 
         public async Task<GeneraleRetour> ModificationMotPasse(t_user dataUser, UpdatePasswordClientDto _body, string token)
         {
             try
             {
-
-                dataUser.r_password = _body.new_password; 
-
-              
+                switch (_securityconfig.secure_method.ToUpper())
+                {
+                    case "SECURE":
+                        return await _secureService.UpdateMotPasseAsync(_body, token, null);
+                    default:
+                        return new GeneraleRetour { status = 500, detail = "Méthode de sécurité non supportée" };
+                }
             }
-
             catch (Exception ex)
             {
-                _logger.LogError($"[Modification de code pin] ===============================>{ex.ToString()}");
+                _logger.LogError($"[Modification de mot de passe] ===============================>{ex}");
                 throw;
             }
         }
 
 
-     
-        public async Task<GeneraleRetour> AuthentificationUserClient(string username,string password,string IdDemande)
+        public async Task<GeneraleRetour> AuthentificationUserClient(string username, string password, string IdDemande)
         {
             try
             {
-
-             switch (_securityconfig.secure_method.ToUpper())
+                switch (_securityconfig.secure_method.ToUpper())
                 {
-                
                     case "SECURE":
 
                         GeneraleRetour e = await _secureService.AuthenticateClientAsync(username, password, IdDemande);
                         if (!Tools.Tools.RetourIsSucces(e.status))
                             return e;
 
-                       AuthResponseSecureDto ret_secure = JsonConvert.DeserializeObject<AuthResponseSecureDto>(e.data);
+                        AuthResponseSecureDto ret_secure = JsonConvert.DeserializeObject<AuthResponseSecureDto>(e.data);
 
-                       AuthSecurityRetourDto data_auth = new AuthSecurityRetourDto
+                        AuthSecurityRetourDto data_auth = new AuthSecurityRetourDto
                         {
                             access_token = ret_secure.data.token,
                             expires_in = ret_secure.data.duree_token,
@@ -170,36 +144,32 @@ namespace ask.Services
                             refresh_token = ret_secure.data.refresh_token,
                             token_type = ret_secure.data.type,
                             is_pin_created = ret_secure.data.is_pin_created
-                       };
+                        };
 
-                       return (new GeneraleRetour { status = 200,data  = JsonConvert.SerializeObject(data_auth) }); ;
-                        break;
-                   
+                        return new GeneraleRetour
+                        {
+                            status = 200,
+                            detail = "Authentification effectuée avec succès",
+                            data = JsonConvert.SerializeObject(data_auth)
+                        };
 
-                        return (new GeneraleRetour { status = 200, detail = "Authentification effectuée avec succès", data = JsonConvert.SerializeObject(eKey) }); ;
                     default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus d'authentification"}); ;
-
+                        return new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus d'authentification" };
                 }
-
-
-
             }
             catch (Exception ex)
             {
-                _logger.LogError($"[AuthentificationUserClient] ===============================>{ex.ToString()}");
-
+                _logger.LogError($"[AuthentificationUserClient] ===============================>{ex}");
                 throw;
             }
         }
+
         public async Task<GeneraleRetour> AuthentificationUserApplication(string username, string password, string IdDemande)
         {
             try
             {
-
                 switch (_securityconfig.secure_method.ToUpper())
                 {
-
                     case "SECURE":
 
                         GeneraleRetour e = await _secureService.AuthenticateUserAsync(username, password, IdDemande);
@@ -218,142 +188,59 @@ namespace ask.Services
                             is_pin_created = ret_secure.data.is_pin_created
                         };
 
-                        return (new GeneraleRetour { status = 200, data = JsonConvert.SerializeObject(data_auth) }); ;
-                        break;
-                    case "KEYCLOAK":
-
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus d'authentification" }); ;
+                        return new GeneraleRetour
+                        {
+                            status = 200,
+                            data = JsonConvert.SerializeObject(data_auth)
+                        };
 
                     default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus d'authentification" }); ;
-
+                        return new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus d'authentification" };
                 }
-
-
-
             }
             catch (Exception ex)
             {
-                _logger.LogError($"[AuthentificationUserApplication] ===============================>{ex.ToString()}");
-
+                _logger.LogError($"[AuthentificationUserApplication] ===============================>{ex}");
                 throw;
             }
         }
 
-        public async Task<GeneraleRetour> SupprimerUtilisateurSecure(string tokken, string IdDemande)
+        public async Task<GeneraleRetour> SupprimerUtilisateurSecure(string token, string IdDemande)
         {
             try
             {
-
                 switch (_securityconfig.secure_method.ToUpper())
                 {
-
                     case "SECURE":
-                        await _secureService.SupprimerClientAsync(tokken, IdDemande);
-                        return (new GeneraleRetour { status = 204, detail = "Utilisateur supprimer avec succes" });
-                    //case "KEYCLOAK":
-
-                    //(bool bResKey, AuthRetourDto res_auth) = await _keycloackService.AuthenticateAsync(_securityconfig.keycloack.user_admin, _securityconfig.keycloack.pwd_admin);
-
-                    //if (bResKey == false)
-                    //    return (new GeneraleRetour { status = 403, detail = "Une erreur est survenue pendant le processus de vérification du code pin" });
-
-                    //var res_keyloack = await _keycloackService.VerifieCodePin(iduser, codepin, res_auth.access_token);
-
-                    //break;
+                        await _secureService.SupprimerClientAsync(token, IdDemande);
+                        return new GeneraleRetour { status = 204, detail = "Utilisateur supprimé avec succès" };
                     default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de vérification du code pin" });
-
+                        return new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de suppression" };
                 }
-
             }
             catch (Exception ex)
             {
-                _logger.LogError($"[VerificationCodePIN] ===============================>{ex.ToString()}");
+                _logger.LogError($"[SupprimerUtilisateurSecure] ===============================>{ex}");
                 throw;
             }
         }
 
-        public async Task<GeneraleRetour> VerificationCodePIN(CodePinClientBodyDto _bodyPIN, string iduser, string token, string IdDemande)
+        public async Task<GeneraleRetour> RefreshToken(string refresh_token, string token, string IdDemande)
         {
             try
             {
-
                 switch (_securityconfig.secure_method.ToUpper())
                 {
-
-                    case "SECURE":
-                        return await _secureService.VerifieCodePin(_bodyPIN, token, IdDemande);
-                    case "KEYCLOAK":
-
-
-                        GeneraleRetour b = await _keycloackService.AuthenticateAsync(_securityconfig.keycloack.user_admin, _securityconfig.keycloack.pwd_admin, IdDemande);
-                        if (!Tools.Tools.RetourIsSucces(b.status))
-                            return b;
-
-                        AuthRetourDto res_auth = JsonConvert.DeserializeObject<AuthRetourDto>(b.data);
-
-                        var res_keyloack = await _keycloackService.VerifieCodePin(iduser, _bodyPIN, res_auth.access_token);
-                        return (new GeneraleRetour { status = 200, detail = "Code pin verifié avec succès" });
-                     
-                    default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de vérification du code pin" });
-
-                }
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[VerificationCodePIN] ===============================>{ex.ToString()}");
-                throw;
-            }
-        }
-
-
-        public async Task<GeneraleRetour> DefinirCodePIN(CodePinClientBodyDto _bodyPIN,string token, string IdDemande)
-        {
-            try
-            {
-
-                switch (_securityconfig.secure_method.ToUpper())
-                {
-
-                    case "SECURE":
-                        return await _secureService.DefinirCodePin(_bodyPIN, token, IdDemande);
-                    case "KEYCLOAK":
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de vérification du code pin" });
-                    default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de vérification du code pin" });
-
-                }
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[VerificationCodePIN] ===============================>{ex.ToString()}");
-                throw;
-            }
-        }
-
-        public async Task<GeneraleRetour> RefreshToken(string resfresh_token, string token ,string IdDemande)
-        {
-            try
-            {
-
-                switch (_securityconfig.secure_method.ToUpper())
-                {
-
                     case "SECURE":
 
-                        GeneraleRetour e = await _secureService.RefereshToken(token, resfresh_token, IdDemande);
+                        GeneraleRetour e = await _secureService.RefereshToken(token, refresh_token, IdDemande);
                         if (!Tools.Tools.RetourIsSucces(e.status))
                             return e;
 
                         AuthResponseSecureDto ret_secure = JsonConvert.DeserializeObject<AuthResponseSecureDto>(e.data);
 
-
                         AuthSecurityRetourDto data_res = new AuthSecurityRetourDto
-                                             {
+                        {
                             access_token = ret_secure.data.token,
                             expires_in = ret_secure.data.duree_token,
                             refresh_expires_in = ret_secure.data.duree_refresh,
@@ -362,115 +249,82 @@ namespace ask.Services
                             is_pin_created = ret_secure.data.is_pin_created
                         };
 
-                        return (new GeneraleRetour { status = 200, detail = "Rafraîchissement effectué avec succès", data = JsonConvert.SerializeObject(data_res) }); ;
-
-                    case "KEYCLOAK":
-
-                       GeneraleRetour b = await _keycloackService.refreshtokenAsync( resfresh_token, IdDemande);
-                     
-                        if (!Tools.Tools.RetourIsSucces(b.status))
-                            return b;
-
-                        AuthRetourDto res_auth = JsonConvert.DeserializeObject<AuthRetourDto>(b.data);
-
-                        AuthSecurityRetourDto data_res_key = new AuthSecurityRetourDto
+                        return new GeneraleRetour
                         {
-                            access_token = res_auth.access_token,
-                            expires_in = res_auth.expires_in,
-                            refresh_expires_in = res_auth.refresh_expires_in,
-                            refresh_token = res_auth.refresh_token,
-                            token_type = res_auth.token_type,
-                            is_pin_created = res_auth.is_pin_created
-
+                            status = 200,
+                            detail = "Rafraîchissement effectué avec succès",
+                            data = JsonConvert.SerializeObject(data_res)
                         };
 
-                        return (new GeneraleRetour { status = 200, detail = "Rafraîchissement effectué avec succès", data = JsonConvert.SerializeObject(data_res_key) }); ;
                     default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de rafraîchissement du token" });
-
+                        return new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de rafraîchissement du token" };
                 }
-
             }
             catch (Exception ex)
             {
-                _logger.LogError($"[RefreshToken] ===============================>{ex.ToString()}");
+                _logger.LogError($"[RefreshToken] ===============================>{ex}");
                 throw;
             }
         }
 
-        public async Task<GeneraleRetour> RéinistialiserCodePin( string token, string IdDemande)
+        public async Task<GeneraleRetour> RéinistialiserCodePin(string token, string IdDemande)
         {
             try
             {
-
                 switch (_securityconfig.secure_method.ToUpper())
                 {
                     case "SECURE":
                         return await _secureService.ReinistialiserCodePinAsync(token, IdDemande);
                     default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de modification du code pin" });
-
+                        return new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de réinitialisation du code pin" };
                 }
             }
-
             catch (Exception ex)
             {
-                _logger.LogError($"[Réinistialisation de code pin] ===============================>{ex.ToString()}");
+                _logger.LogError($"[RéinistialiserCodePin] ===============================>{ex}");
                 throw;
             }
         }
 
-        public async Task<GeneraleRetour> ModificationMotPasseParInitialisation(Model.t_client data_client, string new_password,string IdDemande)
+        public async Task<GeneraleRetour> ModificationMotPasseParInitialisation(t_user dataUser, string new_password, string IdDemande)
         {
             try
             {
-                UpdateSecurePasswordClientByResetDto _body = new UpdateSecurePasswordClientByResetDto
+                var _body = new UpdateSecurePasswordClientByResetDto
                 {
-                    username = data_client.security_username,
+                    username = dataUser.r_email,
                     new_password = new_password
                 };
 
-
-                _logger.LogError($"[ModificationMotPasseParInitialisation] Utilisateur ===================>{_body.username}");
-
+                _logger.LogInformation("[ModificationMotPasseParInitialisation] Utilisateur ===================>{Username}", _body.username);
 
                 switch (_securityconfig.secure_method.ToUpper())
                 {
                     case "SECURE":
 
-
                         // Authentification du compte administrateur
-                        GeneraleRetour e = await _secureService.AuthenticateUserAsync(_securityconfig.Secure.user_admin, _securityconfig.Secure.pwd_admin, IdDemande);
+                        GeneraleRetour e = await _secureService.AuthenticateUserAsync(
+                            _securityconfig.Secure.user_admin,
+                            _securityconfig.Secure.pwd_admin,
+                            IdDemande);
 
                         if (!Tools.Tools.RetourIsSucces(e.status))
                             return e;
 
                         AuthResponseSecureDto res_auth = JsonConvert.DeserializeObject<AuthResponseSecureDto>(e.data);
-
                         string token_admin = res_auth.data.token;
 
-
                         return await _secureService.UpdateMotPasseByResetAsync(_body, token_admin, IdDemande);
-                
-                    default:
-                        return (new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de modification du code pin" });
 
+                    default:
+                        return new GeneraleRetour { status = 500, detail = "Une erreur est survenue pendant le processus de modification du mot de passe" };
                 }
             }
-
             catch (Exception ex)
             {
-                _logger.LogError($"[Modification de mot de passe par Initialisation] ===============================>{ex.ToString()}");
+                _logger.LogError($"[ModificationMotPasseParInitialisation] ===============================>{ex}");
                 throw;
             }
         }
-
-
-
-
     }
-
-
 }
-
-

@@ -1,8 +1,4 @@
-﻿using FluentValidation;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace InteroperabiliteProject.ServicceAIP
+﻿namespace ask.Dtos.General
 {
     public class GeneraleRetourService
     {

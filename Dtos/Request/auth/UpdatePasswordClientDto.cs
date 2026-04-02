@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 
 
-namespace InteroperabiliteProject.ServicesSecure.Dtos
+namespace ask.Dtos.Request.auth
 {
     public class UpdatePasswordClientDto
     {

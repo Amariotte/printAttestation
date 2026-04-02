@@ -1,7 +1,6 @@
-﻿
-using FluentValidation;
+﻿using FluentValidation;
 
-namespace InteroperabiliteProject.DtoAppMobile.Securite
+namespace ask.Dtos.Request.auth
 {
     public class QueryRefreshToken
     {

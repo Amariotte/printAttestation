@@ -1,5 +1,4 @@
 ﻿using ask.Services;
-using InteroperabiliteProject.ServicesKeycloack;
 
 namespace ask.Dtos.RequestToSendDto
 {
@@ -9,10 +8,9 @@ namespace ask.Dtos.RequestToSendDto
         public string pwd_client_default { get; set; }
         public string secure_method { get; set; }   //  secure ou Keyloack
         public int length_pin { get; set; }
-        public keyloackConfig keycloack { get; set; }
         public secureConfig Secure { get; set; }
         public RateLimiter RateLimiter { get; set; }
- 
+
 
     }
 

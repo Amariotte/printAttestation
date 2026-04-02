@@ -15,10 +15,11 @@ using SixLabors.ImageSharp.Drawing;
 using InteroperabiliteProject.DtoAppMobile;
 using SixLabors.ImageSharp.Formats.Png;
 using ask.Dtos.RequestToSendDto;
+using InteroperabiliteProject.Tools;
 
 
 
-namespace InteroperabiliteProject.Tools
+namespace ask.Tools
 {
     public static class Tools
     {
@@ -419,61 +420,8 @@ namespace InteroperabiliteProject.Tools
             return VerifieRegExp(pattern, chaine);
         }
 
-        public static bool aliasEstUnShid(string alias)
-        {
-            {
-                return Guid.TryParse(alias, out _);
-            }
-        }
 
 
-        public static string DeterminerTypeAlias(string alias)
-        {
-
-            if (string.IsNullOrEmpty(alias))
-                return "";
-
-            if (EstUnNumeroTelephone(alias))
-                return "MBNO";
-            else if (aliasEstUnShid(alias))
-                return "SHID";
-            else
-                return "MCOD";
-
-        }
-
-
-        public static string DeterminerTypeTransfert(string? alias)
-        {
-
-            if (string.IsNullOrEmpty(alias))
-                return "TRANSFERT PAR NUMERO DE COMPTE"; ;
-
-            if (EstUnNumeroTelephone(alias))
-                return "TRANSFERT PAR NUMERO DE TELEPHONE";
-            else if (aliasEstUnShid(alias))
-                return "TRANSFERT PAR ADRESSE";
-            else
-                return "";
-
-        }
-
-
-
-        public static Type_initie? DeterminerTypeInitiation(string? alias, string? iban, string? other)
-        {
-
-            if (!string.IsNullOrEmpty(alias))
-                return Type_initie.alias;
-
-            if (!string.IsNullOrEmpty(iban))
-                return Type_initie.iban;
-
-            if (!string.IsNullOrEmpty(other))
-                return Type_initie.other;
-
-            return null;
-        }
 
         public static bool VerifieRegExp(string pattern, string chaine)
         {
@@ -508,19 +456,7 @@ namespace InteroperabiliteProject.Tools
         }
 
 
-        public static string TransformeIbanEnNumCompte(string iban)
-        {
-            string num_cpte = iban;
-
-            if (num_cpte.Length == 28)
-            {
-                num_cpte = num_cpte.Substring(9);
-                num_cpte = num_cpte.Substring(0, num_cpte.Length - 2).ToString();
-                num_cpte = num_cpte.Substring(0, 5) + num_cpte.Substring(6);
-            }
-            return num_cpte;
-        }
-
+  
         public static JwtValueDto GetValueofdomainefromJWT(HttpRequest Request)
         {
             Request.Headers.TryGetValue("Authorization", out var headerValue);
@@ -551,28 +487,7 @@ namespace InteroperabiliteProject.Tools
 
 
 
-        public static bool canal_BesoinIDTrans(string canal)
-        {
-             string[] canal_BesoinIDTrans = { "000", "400", "733", "500", "521", "520", "631", "401" };
-            //string[] canal_BesoinIDTrans = { "400", "733", "500", "521", "520", "631", "401" };
-            return (canal_BesoinIDTrans.Contains(canal));
-
-        }
-
-        public static bool canalEstCanalDemandePaiement(string canal)
-        {
-            string[] canaux = { "500", "521", "520", "631", "401" };
-            return (canaux.Contains(canal));
-        }
-
-        public static bool canalEstCanalTransfertPaiement(string canal)
-        {
-            // 733  a supprimer
-            string[] canaux = { "731", "633", "999", "300", "000", "401", "733" };
-            return (canaux.Contains(canal));
-        }
-
-
+   
 
         public static string Generatechiffrealeatoire(int nbre)
         {
@@ -742,10 +657,7 @@ namespace InteroperabiliteProject.Tools
 
         }
 
-        public static string GenerateIdAlias()
-        {
-            return $"ALS{ComputeSha256Hash(DateTime.Now.ToString("ddddMMyyyyhhmmssff")).Substring(0, 14).ToUpper()}";
-        }
+     
         static string ComputeSha256Hash(string rawData)
         {
             // Créer une instance de SHA256
@@ -765,49 +677,7 @@ namespace InteroperabiliteProject.Tools
         }
 
 
-        public static (string, string) TraiterNumPiece(string _type, string? _num_piece, string? _num_passeport, string? _num_fiscale)
-
-        {
-
-            if (_type == "P" || _type == "C")
-            {
-
-                if (string.IsNullOrEmpty(_num_passeport))
-                    return ("NIDN", _num_piece);
-                else
-                    return ("CCPT", _num_passeport);
-
-            }
-            else
-            {
-                return ("TXID", _num_fiscale);
-            }
-        }
-
-
-
-        public static string TransformeCodeAIFenCodeAIP(string data)
-        {
-            switch (data)
-            {
-                case "P":
-                    return "P";
-
-                case "E":
-                    return "M";
-
-
-                case "S":
-                    return "M";
-
-
-                default:
-
-                    return "O";
-            }
-        }
-
-
+    
         public static string ConverIbanToNumCompte(this string data)
         {
             return data.Substring(15, 11);
