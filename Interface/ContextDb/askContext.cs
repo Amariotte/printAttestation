@@ -21,14 +21,13 @@ namespace ask.ContextDb
         public DbSet<t_direction> t_direction { get; set; }
         public DbSet<t_fonction> t_fonction { get; set; }
 
-        public DbSet<t_route_scope> t_route_scope { get; set; }
+        public DbSet<t_role_scopes> t_role_scopes { get; set; }
         public DbSet<t_entite> t_entite { get; set; }
         public DbSet<t_refresh_token> t_refresh_token { get; set; }
         public DbSet<t_session> t_session { get; set; }
         public DbSet<t_otp> t_otp { get; set; }
         public DbSet<t_role> t_role { get; set; }
         public DbSet<t_user_roles> t_user_roles { get; set; }
-        public DbSet<t_role_scopes> t_role_scopes { get; set; }
         public DbSet<t_scope> t_scope { get; set; }
 
 

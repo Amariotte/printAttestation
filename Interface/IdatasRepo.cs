@@ -1,7 +1,4 @@
-﻿using InteroperabiliteProject.Model;
-using InteroperabiliteProject.RequestToReceiveDto;
-
-namespace InteroperabiliteProject.Interface
+﻿namespace ask.Interface
 {
     public interface IdatasRepo : IbaseRepo<t_datas>
     {
