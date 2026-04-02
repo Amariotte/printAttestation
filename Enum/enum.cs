@@ -36,3 +36,11 @@ public enum TYPE_MODELE
     ENVOI_ACCESS = 1,
     MOT_PASSE_OUBLIE = 2,
 }
+
+
+
+public enum TYPE_OTP
+{
+    CONFIRMATION_REGISTER = 1,
+    RESET_PASSWORD = 2
+}

@@ -41,7 +41,7 @@ namespace InteroperabiliteProject.ServicceAIP
         private readonly IMapper _imapper;
         private readonly IdatasRepo _datarepo;
         private readonly ICodeErreurRepo _codeErreurRepo;
-        private readonly IParticipantsRepo _participantRepo;
+        private readonly IEntiteRepo _participantRepo;
         private readonly ItransfertAutoriseRepo _transfertAutorepo;
         private readonly ItransfertPlafondRepo _transfertPlafondrepo;
         private readonly Iannulation_transfert _annulationTransfertRepo;
@@ -50,7 +50,7 @@ namespace InteroperabiliteProject.ServicceAIP
         private readonly IscheduledRepo _scheduledrepo;
         private readonly JsonSerializerSettings jsonSerializerSettings;
 
-        public ServiceTransfert(ILogger<AliasRepo> logger, IDbContextFactory<InteropContext> dbContextFactory, ServiceAIF serviceAIF, IOptions<AIPDATA> aipdata, EnvoieController envoieController, EventService eventService, IemployeRepo aliasRepo, IParametreSystemeRepo parametreSystemeRepo, ICodeErreurRepo codeErreurRepo, ItransfertDispoRepo transfertDispoRepo, IclientRepo clientRepo, InotificationRepo notificationRepo, ItransfertRepo transfertRepo, IMapper imapper, IdatasRepo datarepo, ItransfertAutoriseRepo transfertAutorepo, ItransfertPlafondRepo transfertPlafondrepo, IscheduledRepo scheduledRepo, IParticipantsRepo participantRepo, IoperationmasseRepo opMasseRepo, Iannulation_transfert annulationTransfertRepo, IRetourFondRepo retourFondrepo
+        public ServiceTransfert(ILogger<AliasRepo> logger, IDbContextFactory<InteropContext> dbContextFactory, ServiceAIF serviceAIF, IOptions<AIPDATA> aipdata, EnvoieController envoieController, EventService eventService, IemployeRepo aliasRepo, IParametreSystemeRepo parametreSystemeRepo, ICodeErreurRepo codeErreurRepo, ItransfertDispoRepo transfertDispoRepo, IclientRepo clientRepo, InotificationRepo notificationRepo, ItransfertRepo transfertRepo, IMapper imapper, IdatasRepo datarepo, ItransfertAutoriseRepo transfertAutorepo, ItransfertPlafondRepo transfertPlafondrepo, IscheduledRepo scheduledRepo, IEntiteRepo participantRepo, IoperationmasseRepo opMasseRepo, Iannulation_transfert annulationTransfertRepo, IRetourFondRepo retourFondrepo
 )
         {
             _logger = logger;

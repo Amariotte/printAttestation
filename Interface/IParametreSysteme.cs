@@ -1,6 +1,7 @@
-﻿using InteroperabiliteProject.Model;
+﻿using ask;
+using ask.Model;
 
-namespace InteroperabiliteProject.Interface
+namespace ask.Interface
 {
     public interface IParametreSystemeRepo : IbaseRepo<t_parametre_systeme>
     {

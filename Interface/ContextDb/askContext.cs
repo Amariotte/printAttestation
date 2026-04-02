@@ -25,6 +25,7 @@ namespace ask.ContextDb
         public DbSet<t_entite> t_entite { get; set; }
         public DbSet<t_refresh_token> t_refresh_token { get; set; }
         public DbSet<t_session> t_session { get; set; }
+        public DbSet<t_otp> t_otp { get; set; }
 
 
         public DbSet<t_parametre_systeme> t_parametre_systeme { get; set; }

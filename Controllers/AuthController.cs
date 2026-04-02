@@ -7,8 +7,6 @@ using ask.Model;
 using ask.Services;
 using FluentValidation;
 using InteroperabiliteProject.DtoAppMobile;
-using InteroperabiliteProject.Interface;
-using InteroperabiliteProject.Model;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +20,7 @@ namespace ask.Controllers
     {
         private readonly askContext _dbContext;
         private readonly IDbContextFactory<askContext> _dbFactory;
+        private readonly ServiceAuth _serviceAuth;
         private readonly ServiceMessagerie _serviceMessagerie;
         private readonly IotpRepo _otpRepo;
         private readonly IUserRepo _userRepo;
@@ -31,6 +30,7 @@ namespace ask.Controllers
         public AuthController(
             askContext dbContext,
             IDbContextFactory<askContext> dbFactory,
+            ServiceAuth serviceAuth,
             ServiceMessagerie serviceMessagerie,
             IotpRepo otpRepo,
             IUserRepo userRepo,
@@ -39,6 +39,7 @@ namespace ask.Controllers
         {
             _dbContext = dbContext;
             _dbFactory = dbFactory;
+            _serviceAuth = serviceAuth;
             _serviceMessagerie = serviceMessagerie;
             _otpRepo = otpRepo;
             _userRepo = userRepo;
@@ -173,7 +174,7 @@ namespace ask.Controllers
                         invalidParams: invalidParams));
                 }
 
-                (int res_otp, var o) = await _otpRepo.verifieOtpAndChallenge(_body.otp, type_otp.CONFIRMATION_REGISTER, _body.challenge);
+                (int res_otp, var o) = await _otpRepo.verifieOtpAndChallenge(_body.otp, TYPE_OTP.CONFIRMATION_REGISTER, _body.challenge);
 
                 switch (res_otp)
                 {
@@ -477,7 +478,7 @@ namespace ask.Controllers
                         invalidParams: invalidParams));
                 }
 
-                (int res_otp, var o) = await _otpRepo.verifieOtpAndChallenge(_body.otp, type_otp.RESET_PASSWORD, _body.challenge);
+                (int res_otp, var o) = await _otpRepo.verifieOtpAndChallenge(_body.otp, TYPE_OTP.RESET_PASSWORD, _body.challenge);
 
                 switch (res_otp)
                 {

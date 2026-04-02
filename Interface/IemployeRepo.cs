@@ -2,7 +2,7 @@
 using ask.Model;
 
 
-namespace InteroperabiliteProject.Interface
+namespace ask.Interface
 {
     public interface IemployeRepo : IbaseRepo<t_employe>
     {

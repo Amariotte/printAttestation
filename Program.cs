@@ -36,160 +36,7 @@ namespace ask
                 options.ForwardedProtoHeaderName = "X-Forwarded-Proto";
             });
 
-            var secure_method = builder.Configuration.GetValue<string>("security:secure_method");
-            switch (secure_method)
-            {
-
-                case "KEYLOACK":
-
-                    var keyloackSetting = builder.Configuration.GetSection("security:keycloack");
-                    var keycloakAuthority = $"{keyloackSetting["Uri"]}realms/{keyloackSetting["realm"]}";
-
-                    builder.Services.AddSingleton<TokenValidationParameters>(sp =>
-                    {
-                        return new TokenValidationParameters
-                        {
-                            ValidateIssuerSigningKey = true,
-                            ValidateIssuer = true,
-                            ValidIssuer = keycloakAuthority,
-                            ValidateAudience = true,
-                            ValidAudience = keyloackSetting["audience"],
-                            ValidateLifetime = true,
-                            ClockSkew = TimeSpan.Zero,
-                            IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
-                            {
-
-                                var handler = new HttpClientHandler()
-                                {
-                                    SslProtocols = System.Security.Authentication.SslProtocols.Ssl2 | SslProtocols.Tls13,
-                                };
-
-                                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
-
-                                using var client = new HttpClient(handler);
-
-                                var jwks = client.GetStringAsync($"{keycloakAuthority}/protocol/openid-connect/certs").Result;
-                                var keysContainer = JsonConvert.DeserializeObject<KeysContainer>(jwks);
-
-                                Console.WriteLine(jwks);
-
-                                var key = keysContainer.Keys.FirstOrDefault(k => k.Kid == kid);
-
-                                if (key != null)
-                                {
-                                    var jsonWebKey = new JsonWebKey
-                                    {
-                                        Kty = key.Kty,
-                                        Kid = key.Kid,
-                                        E = key.E,
-                                        N = key.N,
-                                    };
-
-                                    return new[] { jsonWebKey };
-                                }
-                                return null;
-                            }
-                        };
-                    });
-
-                    // Configure l'authentification et ajoute la personnalisation des retours d'erreur
-                    builder.Services.AddAuthentication(options =>
-                    {
-                        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                    })
-                    .AddJwtBearer(options =>
-                    {
-                        var validationParameters = builder.Services.BuildServiceProvider().GetRequiredService<TokenValidationParameters>();
-
-                        options.Authority = keycloakAuthority;
-                        options.RequireHttpsMetadata = keyloackSetting.GetValue<bool>(keyloackSetting["RequireHttpsMetadata"]);
-                        options.Audience = keyloackSetting["audience"];
-                        options.TokenValidationParameters = validationParameters;
-
-
-                        options.Events = new JwtBearerEvents
-                        {
-
-
-                            OnChallenge = context =>
-                            {
-                                context.HandleResponse();
-                                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                                context.Response.ContentType = "application/json";
-
-                                var problem = GeneraleRetour.BuildUnauthorized(
-                                    detail: "Le token est manquant ou invalide.",
-                                    instance: context.Request.Path,
-                                    invalidParams: new List<InvalidParam> { new InvalidParam { name = "Authorization", reason = "Le token d'accès est requis ou invalide." } }
-                                    );
-
-                                var result = JsonConvert.SerializeObject(problem);
-                                return context.Response.WriteAsync(result);
-                            },
-                            OnForbidden = context =>
-                            {
-                                context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
-                                context.Response.ContentType = "application/json";
-
-
-                                var problem = GeneraleRetour.BuildUnauthorized(
-                                 detail: "Vous n'avez pas la permission d'accéder à cette ressource",
-                                 instance: context.Request.Path
-                                 );
-
-                                var result = JsonConvert.SerializeObject(problem);
-
-                                return context.Response.WriteAsync(result);
-                            },
-
-                            // Gérer l'expiration du token
-                            OnTokenValidated = context =>
-                            {
-                                var expirationTime = context.SecurityToken.ValidTo;
-
-                                if (expirationTime < DateTime.UtcNow)
-                                {
-                                    context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                                    context.Response.ContentType = "application/json";
-
-
-                                    var problem = GeneraleRetour.BuildUnauthorized(
-                                        detail: "Le token a expiré et n'est plus valide.",
-                                        instance: context.Request.Path,
-                                        invalidParams: new List<InvalidParam> { new InvalidParam { name = "Authorization", reason = "\"Le token a expiré et n'est plus valide." } }
-                                    );
-
-                                    var result = JsonConvert.SerializeObject(problem);
-                                    return context.Response.WriteAsync(result);
-                                }
-
-                                return Task.CompletedTask;
-                            },
-                            OnAuthenticationFailed = context =>
-                            {
-                                context.NoResult();
-                                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                                context.Response.ContentType = "application/json";
-
-                                var problem = GeneraleRetour.BuildProblemResponse500(
-                                 instance: context.Request.Path
-                             );
-
-                                var result = JsonConvert.SerializeObject(problem);
-
-
-                                return context.Response.WriteAsync(result);
-                            },
-                        };
-                    });
-
-
-                    break;
-
-            }
-
-
+        
             builder.Services.AddAuthorization();
             builder.Services.AddControllers(options =>
             {
@@ -228,11 +75,9 @@ namespace ask
                     }
                 });
             });
-            //  builder.Services.AddDbContext<InteropContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("PgConnection")), ServiceLifetime.Singleton);
 
-
-            builder.Services.AddDbContext<InteropContext>(options =>options.UseNpgsql(builder.Configuration.GetConnectionString("PgConnection")));
-            builder.Services.AddDbContextFactory<InteropContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("PgConnection")), ServiceLifetime.Scoped);
+            builder.Services.AddDbContext<askContext>(options =>options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")));
+            builder.Services.AddDbContextFactory<askContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")), ServiceLifetime.Scoped);
             builder.Services.AddCors(o =>
            o.AddPolicy
                ("Stockpolicie", b =>
@@ -250,47 +95,21 @@ namespace ask
             builder.Services.Configure<AIPDATA>(builder.Configuration.GetSection("Aip"));
             builder.Services.Configure<ParamMessage>(builder.Configuration.GetSection("Messagerie"));
             builder.Services.Configure<SecurityConfig>(builder.Configuration.GetSection("security"));
-            builder.Services.AddScoped<ServiceAuth>();
-            builder.Services.AddScoped<SecureService>();
             builder.Services.AddScoped<ServiceMessagerie>();
-            builder.Services.AddScoped<ServiceEtat>();
             builder.Services.AddScoped<ReceptionAIPController>();
             builder.Services.AddScoped<EnvoieController>();
-            builder.Services.AddTransient<IemployeRepo, AliasRepo>();
-            builder.Services.AddScoped<IcompteRepo, CompteRepo>();
+            builder.Services.AddTransient<IemployeRepo, EmployeRepo>();
             builder.Services.AddScoped<IotpRepo, OtpRepo>();
             builder.Services.AddScoped<IHistoSmsRepo, HistoSmsRepo>();
-            builder.Services.AddScoped<ICodeErreurRepo, CodeErreurRepo>();
             builder.Services.AddScoped<IParametreSystemeRepo, ParametreSystemeRepo>();
             builder.Services.AddScoped<ImodeleRepo,ModeleRepo>();
-            builder.Services.AddScoped<IHistoEmailRepo, HistoEmailRepo>();
-            builder.Services.AddScoped<ItransfertRepo, TransfertRepo>();
-            builder.Services.AddScoped<ItransfertDispoRepo, TransfertDispoRepo>();
-            builder.Services.AddScoped<IclientRepo, ClientRepo>();
-            builder.Services.AddScoped<IcreationAliasRepo, creationAliasRepo>();
-            builder.Services.AddScoped<ItransfertAutoriseRepo, TransfertAutoriseRepo>();
-            builder.Services.AddScoped<ItransfertPlafondRepo, TransfertPlafondRepo>();
-            builder.Services.AddScoped<IrevendicationRepo, RevendicationRepo>();
-            builder.Services.AddScoped<IreferenceRepo, ReferenceRepo>();
-            builder.Services.AddScoped<ITraceRepo, TraceRepo>();
-            builder.Services.AddScoped<IDemandeRepo, DemandeRepo>();
-            builder.Services.AddScoped<IRetourFondRepo, RetourFondRepo>();
-            builder.Services.AddScoped<IdemandeLigneRepo, DemandeligneRepo>();
-            builder.Services.AddScoped<IdatasRepo, DatasRepo>();
-            builder.Services.AddTransient<IParticipantsRepo, ParticipantsRepo>();
-            builder.Services.AddScoped<IwebhooksRepo, WebhooksRepo>();
-            builder.Services.AddScoped<Iannulation_transfert, annulation_transfertBaseRepo>();
-            builder.Services.AddScoped<InotificationRepo, NotificationRepo>();
+                      builder.Services.AddScoped<IDemandeRepo, DemandeRepo>();
             builder.Services.AddScoped<ClientValidationService>();
             builder.Services.AddScoped<IUserRepo, UserRepo>();
 
         
             //builder.Services.AddScoped<IaliasRepo, AliasRepo>();
             builder.Services.AddHttpClient();
-            // Ajouter le service d'arrière-plan
-            //*************************************Gestion des dates avec postgressSQL***************************************
-            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-            //*************************************Gestion des dates avec postgressSQL***************************************
             //************************************SERILOG************************************************************
             //// Configure Serilog
             //builder.Host.UseSerilog((context, configuration) =>
@@ -424,16 +243,8 @@ namespace ask
             app.UseHttpsRedirection();
 
             app.UseAuthentication();
-
-            switch (secure_method)
-            {
-                case "SECURE":
-                    app.UseMiddleware<JwtSecureMiddleware>();
-                    break;
-                case "KEYLOACK":
-                    app.UseMiddleware<JwtKeyloackMiddleware>();
-                    break;
-            }
+            app.UseMiddleware<JwtSecureMiddleware>();
+            
 
             app.UseAuthorization();
             //*******************************************TEST ENCODAG DES CARACTERE POUR LINUX**************************************
@@ -458,7 +269,7 @@ namespace ask
 
             //}
             // Initialisation du logger statique
-            RequettePI.Initialize(app.Services.GetRequiredService<ILoggerFactory>());
+           RequettePI.Initialize(app.Services.GetRequiredService<ILoggerFactory>());
            app.MapControllers().RequireRateLimiting("MobilePolicy"); ;
             //app.MapControllers() ;
          //   app.UseMiddleware<TraceMidleware>();

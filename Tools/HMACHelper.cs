@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 
-namespace InteroperabiliteProject.Tools
+namespace ask.Tools
 {
     public static class HMACHelper
     {

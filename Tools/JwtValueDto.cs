@@ -1,4 +1,4 @@
-﻿namespace InteroperabiliteProject.Tools
+﻿namespace ask.Tools
 {
     public class JwtValueDto
     {

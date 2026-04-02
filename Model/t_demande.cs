@@ -9,7 +9,7 @@
         public string? r_response{ get; set; }
         public string? controleur{ get; set; }
         public string? action{ get; set; }
-        public Statut? statut { get; set; }
+        public STATUT_DEMANDE? statut { get; set; }
 
         public string? reference { get; set; }
         public ICollection<t_demande_ligne> r_t_demandeligne { get; set; }

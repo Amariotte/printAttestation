@@ -1,17 +1,18 @@
 ﻿
-using InteroperabiliteProject.ContextDb;
-using InteroperabiliteProject.Interface;
-using InteroperabiliteProject.Model;
+using ask.ContextDb;
+using ask.Interface;
+using ask.Model;
+
 using Microsoft.EntityFrameworkCore;
 
 
-namespace InteroperabiliteProject.Implementation
+namespace ask.Implementation
 {
     public class ParametreSystemeRepo : BaseRepo<t_parametre_systeme>, IParametreSystemeRepo
     {
-        private readonly InteropContext _context;
+        private readonly askContext _context;
         private readonly DbSet<t_parametre_systeme> _dbset;
-        public ParametreSystemeRepo(InteropContext context) : base(context)
+        public ParametreSystemeRepo(askContext context) : base(context)
         {
             _context = context;
             _dbset = context.Set<t_parametre_systeme>();

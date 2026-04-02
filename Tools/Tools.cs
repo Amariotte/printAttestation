@@ -388,26 +388,14 @@ namespace ask.Tools
         }
     
 
-    public static type_modele? EquivalenceOtpEnModele(type_otp otpType)
+    public static TYPE_MODELE? EquivalenceOtpEnModele(TYPE_OTP otpType)
         {
             switch (otpType)
             {
-                case type_otp.RESET_PASSWORD:
-                    return type_modele.MOT_PASSE_OUBLIE;               
-                case type_otp.RESET_CODE_PIN:
-                    return type_modele.INITIALISATION_CODE_PIN;    
-                case type_otp.REJET_REVENDICATION:
-                    return type_modele.REJET_REVENDICATION;          
-                case type_otp.CREATION_ALIAS:
-                    return type_modele.CONFIRMATION_ALIAS_MBNO;
-                case type_otp.CONFIRMATION_TRANSFERT:
-                    return type_modele.CONFIRMATION_TRANSFERT;
-                case type_otp.CONFIRMATION_RTP:
-                    return type_modele.CONFIRMATION_RTP;
-                case type_otp.CONFIRMATION_PAIEMENT:
-                    return type_modele.CONFIRMATION_PAIEMENT;
-                case type_otp.SUPPRESSION_ALIAS:
-                    return type_modele.SUPPRESSION_ALIAS;
+                case TYPE_OTP.RESET_PASSWORD:
+                    return TYPE_MODELE.MOT_PASSE_OUBLIE;               
+                case TYPE_OTP.CONFIRMATION_REGISTER:
+                    return TYPE_MODELE.ENVOI_ACCESS;    
                 default:
                     return null;
             }

@@ -1,13 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace InteroperabiliteProject.Model
+namespace ask.Model
 {
-    public class t_otp :BaseClass
+    public class t_otp :t_base
     {
         public string? codeOtp { get; set; }
         public string? challengeId { get; set; }
         public string? idOperationParent { get; set; }
-        public type_otp type { get; set; } 
+        public TYPE_OTP type { get; set; } 
         public int dureeValidite { get; set; } = 5;// en minutes
 
         [ForeignKey("t_client")]
@@ -16,18 +16,6 @@ namespace InteroperabiliteProject.Model
 
     }
 
-    public enum type_otp
-    {
-        CREATION_ALIAS = 1,
-        CONFIRMATION_TRANSFERT = 2,
-        CONFIRMATION_RTP = 3,
-        CONFIRMATION_PAIEMENT = 4,
-        SUPPRESSION_ALIAS = 5,
-        REJET_REVENDICATION = 6,
-        RESET_CODE_PIN = 7,
-        RESET_PASSWORD = 8,
-        CONFIRMATION_REGISTER = 9
-    }
 
 
 
