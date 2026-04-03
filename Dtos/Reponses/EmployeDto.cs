@@ -12,6 +12,10 @@ namespace ask.Dtos.Reponses
         public string dateNaissance { get; set; }
         public string villeNaissance { get; set; }
         public int? directionId { get; set; }
-        public string directionNom { get; set; }
+        public int? fonctionId { get; set; }
+        public int? entiteId { get; set; }
+        public string? directionNom { get; set; }
+        public string? entiteNom { get; set; }
+        public string? fonctionNom { get; set; }
     }
 }

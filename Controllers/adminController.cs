@@ -2,7 +2,6 @@ using ask.ContextDb;
 using ask.Dtos.General;
 using ask.Dtos.Reponses;
 using ask.Model;
-using InteroperabiliteProject.DtoAppMobile.Alias;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -484,6 +483,9 @@ namespace ask.Controllers
                 if (!string.IsNullOrEmpty(_body.telephone)) resQuery.r_telephone = _body.telephone;
                 if (!string.IsNullOrEmpty(_body.dateNaissance)) resQuery.r_date_naiss = _body.dateNaissance;
                 if (!string.IsNullOrEmpty(_body.villeNaissance)) resQuery.r_ville_naiss = _body.villeNaissance;
+                if (_body.entiteId != null) resQuery.r_entite_id_fk = _body.entiteId;
+                if (_body.directionId != null) resQuery.r_entite_id_fk = _body.directionId;
+                if (_body.fonctionId != null) resQuery.r_fonction_id_fk = _body.fonctionId;
 
                 _dbContext.t_employe.Update(resQuery);
                 await _dbContext.SaveChangesAsync();
@@ -501,6 +503,10 @@ namespace ask.Controllers
                     villeNaissance = resQuery.r_ville_naiss,
                     directionId = resQuery.r_direction_FK,
                     directionNom = resQuery.r_directionTab?.r_nom,
+                    entiteId = resQuery.r_entite_id_fk,
+                    entiteNom = resQuery.r_entiteTab.r_nom,
+                    fonctionId = resQuery.r_fonction_id_fk,
+                    fonctionNom = resQuery.r_fonctionTab.r_libelle,
                 });
             }
             catch (Exception ex)
@@ -870,7 +876,7 @@ namespace ask.Controllers
 
         [Authorize]
         [HttpPost("fonctions")]
-        public async Task<IActionResult> CreateFunction([FromBody] fonctionDto _body)
+        public async Task<IActionResult> CreateFunction([FromBody] FonctionDto _body)
         {
 
             string _desc_route = "Créer une fonction";
@@ -881,8 +887,8 @@ namespace ask.Controllers
 
                 List<InvalidParam> invalidParams = new List<InvalidParam>();
 
-                if (string.IsNullOrEmpty(_body.nom))
-                    invalidParams.Add(new InvalidParam { name = "nom", reason = "Le nom est requis" });
+                if (string.IsNullOrEmpty(_body.libelle))
+                    invalidParams.Add(new InvalidParam { name = "libelle", reason = "Le nom est requis" });
 
                 if (string.IsNullOrEmpty(_body.code))
                     invalidParams.Add(new InvalidParam { name = "code", reason = "Le code est requis" });
@@ -902,11 +908,9 @@ namespace ask.Controllers
                     return StatusCode(403, GeneraleRetour.BuildForbid(detail: "Le code de la fonction existe déjà dans la liste des fonctions", instance: HttpContext.Request.Path));
 
 
-
-
                 t_fonction f = new t_fonction
                 {
-                    r_nom = _body.nom,
+                    r_libelle = _body.libelle,
                     r_code = _body.code,
                 };
 
@@ -914,11 +918,11 @@ namespace ask.Controllers
                 _dbContext.t_fonction.Add(f);
                 _dbContext.SaveChanges();
 
-                fonctionDto fDto = new fonctionDto
+                FonctionDto fDto = new FonctionDto
 
                 {
                     id = f.r_id,
-                    nom = f.r_nom,
+                    libelle = f.r_libelle,
                     code = f.r_code,
                 };
 
@@ -972,7 +976,7 @@ namespace ask.Controllers
 
         [Authorize]
         [HttpPut("fonctions/{id}")]
-        public async Task<IActionResult> UpdateFonction(int id, [FromBody] fonctionDto _body)
+        public async Task<IActionResult> UpdateFonction(int id, [FromBody] FonctionDto _body)
         {
 
             string _desc_route = "Modifier une fonction";
@@ -999,16 +1003,16 @@ namespace ask.Controllers
                     return StatusCode(403, GeneraleRetour.BuildForbid(detail: "L'alias existe déjà dans la liste des contacts", instance: HttpContext.Request.Path));
 
 
-                if (!string.IsNullOrEmpty(_body.nom)) resQuery.r_nom = _body.nom;
+                if (!string.IsNullOrEmpty(_body.libelle)) resQuery.r_libelle = _body.libelle;
                 if (!string.IsNullOrEmpty(_body.code)) resQuery.r_code = _body.code;
 
                 _dbContext.t_fonction.Update(resQuery);
                 _dbContext.SaveChanges();
 
-                fonctionDto fDto = new fonctionDto
+                FonctionDto fDto = new FonctionDto
                 {
                     id = resQuery.r_id,
-                    nom = resQuery.r_nom,
+                    libelle = resQuery.r_libelle,
                     code = resQuery.r_code,
                 };
 
@@ -1034,14 +1038,14 @@ namespace ask.Controllers
             {
                 var respQuery = await _dbContext.t_fonction
                     .Where(e => e.r_is_delete != true)
-                    .OrderBy(e => e.r_nom)
+                    .OrderBy(e => e.r_libelle)
                     .ToListAsync();
 
 
-                var fonctionsDto = respQuery.Select(f => new fonctionDto
+                var fonctionsDto = respQuery.Select(f => new FonctionDto
                 {
                     id = f.r_id,
-                    nom = f.r_nom,
+                    libelle = f.r_libelle,
                     code = f.r_code
                 }).ToList();
 
