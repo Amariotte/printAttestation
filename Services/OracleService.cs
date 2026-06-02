@@ -6,6 +6,7 @@ namespace OracleApi.Services
     {
         Task<bool> TestConnectionAsync();
         Task<List<Dictionary<string, object>>> ExecuteQueryAsync(string query);
+        Task<List<Dictionary<string, object>>> ExecuteQueryAsync(string query, Dictionary<string, object> parameters);
         Task<int> ExecuteNonQueryAsync(string query, Dictionary<string, object>? parameters = null);
     }
 
@@ -41,6 +42,11 @@ namespace OracleApi.Services
 
         public async Task<List<Dictionary<string, object>>> ExecuteQueryAsync(string query)
         {
+            return await ExecuteQueryAsync(query, new Dictionary<string, object>());
+        }
+
+        public async Task<List<Dictionary<string, object>>> ExecuteQueryAsync(string query, Dictionary<string, object> parameters)
+        {
             return await RetryOnNetworkErrorAsync(async () =>
             {
                 var results = new List<Dictionary<string, object>>();
@@ -54,6 +60,15 @@ namespace OracleApi.Services
                     command.CommandTimeout = CommandTimeoutSeconds;
                     command.InitialLONGFetchSize = -1;
                     command.FetchSize = 1024 * 1024;
+
+                    // Ajouter les paramètres si fournis
+                    if (parameters != null && parameters.Count > 0)
+                    {
+                        foreach (var param in parameters)
+                        {
+                            command.Parameters.Add(new OracleParameter(param.Key, param.Value ?? DBNull.Value));
+                        }
+                    }
 
                     using var reader = await command.ExecuteReaderAsync();
 

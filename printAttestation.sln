@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.4.11519.219 insiders
+VisualStudioVersion = 18.4.11519.219
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ask", "ask.csproj", "{F1510591-7FAA-F5DE-0054-10D6BC7A2C10}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "print_attestation", "print_attestation.csproj", "{F1510591-7FAA-F5DE-0054-10D6BC7A2C10}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

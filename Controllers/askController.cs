@@ -1,17 +1,11 @@
-﻿using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using ask.ContextDb;
+﻿using ask.ContextDb;
 using ask.Dtos.General;
-using ask.Model;
 using ask.Services;
-using AutoMapper;
-using FluentValidation;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using OracleApi.Services;
 
 namespace ask.Controllers
 {
@@ -22,16 +16,17 @@ namespace ask.Controllers
         private readonly IWebHostEnvironment _env;
 
         private readonly askContext _dbContext;
-     
+
         private readonly IConfiguration _configuration;
         private readonly ServiceAsaci _ServiceAsaci;
         private readonly ParamMessage _paramdata;
         private readonly ILogger<askController> _logger;
         private readonly IDbContextFactory<askContext> _dbFactory;
+        private readonly IOracleService _oracleService;
 
 
         //private readonly ILogger _logger;
-        public askController(IDbContextFactory<askContext> dbFactory,askContext askContext, ServiceAsaci ServiceAsaci, IOptions<ParamMessage> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<askController> logger)
+        public askController(IDbContextFactory<askContext> dbFactory,askContext askContext, ServiceAsaci ServiceAsaci, IOptions<ParamMessage> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<askController> logger, IOracleService oracleService)
         {
 
             _configuration = configuration;
@@ -41,7 +36,8 @@ namespace ask.Controllers
             _paramdata = paramdata.Value;
             _logger = logger;
             _dbContext = askContext;
-           
+            _oracleService = oracleService;
+
         }
 
      
@@ -57,29 +53,6 @@ namespace ask.Controllers
             {
                 return null;
             }
-        }
-
-        [NonAction]
-        public string RecupererToken()
-        {
-            if (Request.Headers.TryGetValue("Authorization", out var authorizationHeader))
-            {
-
-                string token = authorizationHeader.ToString();
-
-                if (token.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                    token = token.ToString().Substring("Bearer ".Length).Trim();
-
-                return token;
-            }
-
-            return "";
-        }
-
-        [NonAction]
-        public string RecupererIdDemandeEnCours()
-        {
-            return Request.Headers["id-dmd-header"].ToString();
         }
 
         /// <summary>
@@ -135,12 +108,10 @@ namespace ask.Controllers
 
 
       
-        [Authorize]
         [HttpGet("attestations/{cleRecherche}")]
         public async Task<IActionResult> GetAttestation(string cleRecherche)
         {
             string _desc_route = "Obtenir une attestation";
-            string IdDemande = RecupererIdDemandeEnCours();
 
             try
             {
@@ -154,46 +125,38 @@ namespace ask.Controllers
                 // Requête SQL sécurisée avec paramètre
                 string _sql = @"
                     SELECT NUMEPOLI, DATEFFAT, DATECHAT, MARQVEHI, TYPEVEHI, 
-                           NUMEIMMA, NUMECHAS, LIBERISQ, NUMATTDI
+                           NUMEIMMA, NUMECHAS, LIBERISQ, NUMATTDI,LIEN_PDF,LIEN__QR,LIEN_IMG
                     FROM attestation_risque
-                    WHERE (lien_pdf IS NOT NULL OR lien_img IS NOT NULL OR lien__qr IS NOT NULL)
-                      AND (NUMEIMMA = @cleRecherche OR NUMECHAS = @cleRecherche OR NUMATTDI = @cleRecherche)";
+                    WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
+                      AND (NUMEIMMA = :cleRecherche OR NUMECHAS = :cleRecherche OR NUMATTDI = :cleRecherche OR TO_CHAR(NUMEPOLI) = :cleRecherche)";
 
-                var connection = _dbContext.Database.GetDbConnection();
-                await connection.OpenAsync();
-
-                using var command = connection.CreateCommand();
-                command.CommandText = _sql;
-
-                // Ajouter le paramètre de manière sécurisée (protection contre SQL injection)
-                var parameter = command.CreateParameter();
-                parameter.ParameterName = "@cleRecherche";
-                parameter.Value = cleRecherche;
-                command.Parameters.Add(parameter);
-
-                using var reader = await command.ExecuteReaderAsync();
-                var results = new List<object>();
-
-                while (await reader.ReadAsync())
+                // Utilisation du service Oracle avec paramètres
+                var parameters = new Dictionary<string, object>
                 {
-                    results.Add(new
-                    {
-                        numeroPolicier = reader["NUMEPOLI"]?.ToString(),
-                        dateEffet = reader["DATEFFAT"],
-                        dateEcheance = reader["DATECHAT"],
-                        marqueVehicule = reader["MARQVEHI"]?.ToString(),
-                        typeVehicule = reader["TYPEVEHI"]?.ToString(),
-                        numeroImmatriculation = reader["NUMEIMMA"]?.ToString(),
-                        numeroChassis = reader["NUMECHAS"]?.ToString(),
-                        libelleRisque = reader["LIBERISQ"]?.ToString(),
-                        numeroAttestation = reader["NUMATTDI"]?.ToString()
-                    });
-                }
+                    { ":cleRecherche", cleRecherche }
+                };
 
-                await connection.CloseAsync();
+                var rows = await _oracleService.ExecuteQueryAsync(_sql, parameters);
 
-                if (!results.Any())
+                if (!rows.Any())
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
+
+                // Mapper les résultats
+                var results = rows.Select(row => new
+                {
+                    numPolice = row.ContainsKey("NUMEPOLI") ? row["NUMEPOLI"]?.ToString() : null,
+                    dateEffet = row.ContainsKey("DATEFFAT") ? row["DATEFFAT"] : null,
+                    dateEcheance = row.ContainsKey("DATECHAT") ? row["DATECHAT"] : null,
+                    marqueVehicule = row.ContainsKey("MARQVEHI") ? row["MARQVEHI"]?.ToString() : null,
+                    typeVehicule = row.ContainsKey("TYPEVEHI") ? row["TYPEVEHI"]?.ToString() : null,
+                    numImmatriculation = row.ContainsKey("NUMEIMMA") ? row["NUMEIMMA"]?.ToString() : null,
+                    numChassis = row.ContainsKey("NUMECHAS") ? row["NUMECHAS"]?.ToString() : null,
+                    nomAssure = row.ContainsKey("LIBERISQ") ? row["LIBERISQ"]?.ToString() : null,
+                    numAttestation = row.ContainsKey("NUMATTDI") ? row["NUMATTDI"]?.ToString() : null,
+                    urlPdf = row.ContainsKey("LIEN_PDF") ? row["LIEN_PDF"]?.ToString() : null,
+                    urlQr = row.ContainsKey("LIEN__QR") ? row["LIEN__QR"]?.ToString() : null,
+                    urlImage = row.ContainsKey("LIEN_IMG") ? row["LIEN_IMG"]?.ToString() : null,
+                }).ToList();
 
                 return Ok(results);
             }
@@ -241,46 +204,6 @@ namespace ask.Controllers
 
             }
         }
-
-        /// <summary>
-        /// Récupère les informations de l'attestation CEDEAO avec métadonnées (JSON)
-        /// </summary>
-        [HttpGet("attestations/{numAttestation}/cedeao/info")]
-        public async Task<IActionResult> GetAttestationCedeaoInfo(string numAttestation)
-        {
-            string _desc_route = "Récupération des informations de l'attestation Cedeao";
-
-            try
-            {
-                if (string.IsNullOrWhiteSpace(numAttestation))
-                    return BadRequest(GeneraleRetour.BuildNotFound(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
-
-                var result = await _ServiceAsaci.printCedeao(numAttestation);
-                if (result.status != 200)
-                {
-                    return StatusCode(result.status,
-                        GeneraleRetour.BuildProblemResponse(new GeneraleRetour { status = result.status, detail = result.detail }, instance: HttpContext.Request.Path));
-                }
-
-                var res_data = JsonConvert.DeserializeObject<dynamic>(result.data);
-
-                var response = new
-                {
-                    numeroAttestation = numAttestation,
-                    base64Image = res_data.base64?.ToString(),
-                    urlDownload = res_data.urlDownload?.ToString(),
-                    reference = res_data.reference?.ToString()
-                };
-
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
 
     }
 }

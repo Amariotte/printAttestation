@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
+using OracleApi.Services;
 using Serilog;
 
 
@@ -119,6 +120,7 @@ namespace ask
             builder.Services.AddScoped<IUserRepo, UserRepo>();
             builder.Services.AddScoped<IRefreshTokenRepo, RefreshTokenRepo>();
             builder.Services.AddScoped<JwtService>();
+            builder.Services.AddScoped<IOracleService, OracleService>();
 
 
             builder.Services.AddHttpClient();
