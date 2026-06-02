@@ -347,8 +347,8 @@ namespace ask.Services
                     { "{{PrenomUtilisateur}}", user?.r_prenom ?? string.Empty },
                     { "{{TelephoneUtilisateur}}", user?.r_telephone ?? string.Empty},
                     { "{{EmailUtilisateur}}", user?.r_email  ?? string.Empty},
-                    { "{{Otp}}", otp?.codeOtp  ?? string.Empty},
-                    { "{{DureeOtp}}", otp?.dureeValidite.ToString() ?? string.Empty}
+                    { "{{Otp}}", otp?.r_code_otp  ?? string.Empty},
+                    { "{{DureeOtp}}", otp?.r_duree_validite.ToString() ?? string.Empty}
                 };
 
                 List<t_modele> modeles = await _modeleRepo.GetModelesByType(type);

@@ -1,6 +1,10 @@
 ﻿namespace ask.Dtos.General
 {
+    public class ParamAsaci
+    {
+        public string? urlCedeao { get; set; }
 
+    }
 
     public class ParamMessage
     {

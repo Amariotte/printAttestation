@@ -1,7 +1,7 @@
 ﻿namespace ask.Model
 
 {
-    public class t_demande :t_base
+    public class t_log :t_base
     {
         public string? r_code{ get; set; }
         public string? r_description{ get; set; }
@@ -12,8 +12,6 @@
         public STATUT_DEMANDE? statut { get; set; }
 
         public string? reference { get; set; }
-        public ICollection<t_demande_ligne> r_t_demandeligne { get; set; }
-
         public DateTime? r_date_demande { get; set; }
         public DateTime? r_date_validation { get; set; }
 

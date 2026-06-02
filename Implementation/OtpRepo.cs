@@ -25,7 +25,7 @@ namespace ask.Implementation
 
                 // Désactiver tous les autres otp actif de l'opération
                 var otpActifs = await _context.t_otp
-                    .Where(o => o.r_is_active == true && o.r_is_delete != true && o.idOperationParent == IdOperationParent && o.r_client_id_fk == clientID)
+                    .Where(o => o.r_is_active == true && o.r_is_delete != true && o.r_operation_parent_id == IdOperationParent && o.r_user_id_fk == userID)
                     .ToListAsync();
 
                 if (otpActifs.Count > 0)
@@ -43,12 +43,12 @@ namespace ask.Implementation
 
                 t_otp new_otp = new t_otp
                 {
-                    codeOtp = otp,
-                    idOperationParent = IdOperationParent,
-                    r_client_id_fk = clientID,
-                    challengeId = Guid.NewGuid().ToString("N"),
-                    type = type,
-                    dureeValidite = duree_validite,
+                    r_code_otp = otp,
+                    r_operation_parent_id = IdOperationParent,
+                    r_user_id_fk = userID,
+                    r_challenge_id = Guid.NewGuid().ToString("N"),
+                    r_type = type,
+                    r_duree_validite = duree_validite,
                 };
 
                 await _context.t_otp.AddAsync(new_otp);
@@ -69,21 +69,21 @@ namespace ask.Implementation
             {
 
                 t_otp o = _context.t_otp
-                    .Where(o => (o.codeOtp == code_otp && o.r_is_delete != true && o.idOperationParent == IdOperationParent && o.type == type && o.r_client_id_fk == clientID))
+                    .Where(o => (o.r_code_otp == code_otp && o.r_is_delete != true && o.r_operation_parent_id == IdOperationParent && o.r_type == type && o.r_user_id_fk == userID))
                     .FirstOrDefault();
 
 
                 if (o == null)
                     return -1; // OTP NOK
 
-                if (o.r_isactive == false)
+                if (o.r_is_active == false)
                     return -1; // OTP NOK
 
-                TimeSpan DureeDeValidation = TimeSpan.FromMinutes(o.dureeValidite);
+                TimeSpan DureeDeValidation = TimeSpan.FromMinutes(o.r_duree_validite);
 
-                if (DateTime.Now - o.r_createdon <= DureeDeValidation)
+                if (DateTime.Now - o.r_created_at <= DureeDeValidation)
                 {
-                    o.r_isactive = false;
+                    o.r_is_active = false;
                      _context.t_otp.Update(o); // Désactivé l'otp
                     return 1; // OTP OK
                 }
@@ -105,7 +105,7 @@ namespace ask.Implementation
             {
 
                 t_otp o = _context.t_otp
-                    .Where(o => (o.codeOtp == code_otp && o.r_is_delete != true && o.challengeId == ChallengeId && o.type == type))
+                    .Where(o => (o.r_code_otp == code_otp && o.r_is_delete != true && o.r_challenge_id == ChallengeId && o.r_type == type))
                     .FirstOrDefault();
 
 
@@ -115,7 +115,7 @@ namespace ask.Implementation
                 if (o.r_is_active == false)
                     return (-1,null); // OTP NOK
 
-                TimeSpan DureeDeValidation = TimeSpan.FromMinutes(o.dureeValidite);
+                TimeSpan DureeDeValidation = TimeSpan.FromMinutes(o.r_duree_validite);
 
                 if (DateTime.Now - o.r_created_at <= DureeDeValidation)
                 {

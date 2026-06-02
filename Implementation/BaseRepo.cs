@@ -1,7 +1,7 @@
 ﻿
 using ask.ContextDb;
+using ask.Dtos.Reponses;
 using ask.Model;
-using ask.ResponseDto;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -23,15 +23,14 @@ namespace ask.Implementation
             {
                 return new ErreurRepos<T>
                 {
-                    actionresult = true,
-                    Code = "SCS003",
-                    descriptionResult = $"ENREGISTREMENT {typeof(T)}",
+                    success = true,
+                    description = $"ENREGISTREMENT {typeof(T)}",
                     data = await _dbSet.Where(p => p.r_id == id && p.r_is_delete == false).FirstOrDefaultAsync(),
                 };
             }
             catch (Exception ex)
             {
-                return new ErreurRepos<T> { actionresult = false, descriptionResult = "Exception systeme veuillez contacter l'administrateur", data = null, Code = "Ecc001" };
+                return new ErreurRepos<T> { success = false, description = "Exception systeme veuillez contacter l'administrateur", data = null };
             }
         }
         public async Task <ErreurRepos<IEnumerable<T>>> GetAllAsync()
@@ -40,15 +39,14 @@ namespace ask.Implementation
             {
                 return new ErreurRepos<IEnumerable<T>>
                 {
-                    actionresult = true,
-                    Code = "SCS003",
-                    descriptionResult = $"LISTE DES {typeof(T)}",
+                    success = true,
+                    description = $"LISTE DES {typeof(T)}",
                     data = await _dbSet.Where(p => p.r_is_delete != true).ToListAsync(),
                 };
             }
             catch (Exception ex)
             {
-                return new ErreurRepos<IEnumerable<T>> { actionresult = false, descriptionResult = "Exception systeme veuillez contacter l'administrateur", data = null, Code = "Ecc001" };
+                return new ErreurRepos<IEnumerable<T>> { success = false, description = "Exception systeme veuillez contacter l'administrateur", data = null };
             }
         }
         public async Task<ErreurRepos<T>> AddAsync(T entity)
@@ -62,15 +60,14 @@ namespace ask.Implementation
                 await _context.SaveChangesAsync();
                 return new ErreurRepos<T>
                 {
-                    actionresult = true,
-                    Code = "SCS005",
-                    descriptionResult = "Ajout effectué avec succés",
+                    success = true,
+                    description = "Ajout effectué avec succés",
                     data = null,
                 };
             }
             catch (Exception ex)
             {
-                return new ErreurRepos<T> { actionresult = false, descriptionResult = "Exception systeme veuillez contacter l'administrateur", data = null, Code = "Ecc001" };
+                return new ErreurRepos<T> { success = false, description = "Exception systeme veuillez contacter l'administrateur", data = null};
             }
 
         }
@@ -84,15 +81,14 @@ namespace ask.Implementation
                 await _context.SaveChangesAsync();
                 return new ErreurRepos<T>
                 {
-                    actionresult = true,
-                    Code = "SCS004",
-                    descriptionResult = "Mise à jour effectuée avec succes",
+                    success = true,
+                    description = "Mise à jour effectuée avec succes",
                     data = null,
                 };
             }
             catch (Exception ex)
             {
-                return new ErreurRepos<T> { actionresult = false, descriptionResult = "Exception systeme veuillez contacter l'administrateur", data = null, Code = "Ecc001" };
+                return new ErreurRepos<T> { success = false, description = "Exception systeme veuillez contacter l'administrateur", data = null };
             }
 
         }
@@ -105,9 +101,8 @@ namespace ask.Implementation
                 {
                     return new ErreurRepos<T>
                     {
-                        actionresult = false,
-                        Code = "Err002",
-                        descriptionResult = "Entité inexistante",
+                        success = false,
+                        description = "Entité inexistante",
                         data = null,
                     };
                 }
@@ -116,15 +111,14 @@ namespace ask.Implementation
                 await _context.SaveChangesAsync();
                 return new ErreurRepos<T>
                 {
-                    actionresult = true,
-                    Code = "SCS006",
-                    descriptionResult = "Suppression effectué avec succes",
+                    success = true,
+                    description = "Suppression effectué avec succes",
                     data = null,
                 };
             }
             catch (Exception ex)
             {
-                return new ErreurRepos<T> { actionresult = false, descriptionResult = "Exception systeme veuillez contacter l'administrateur", data = null, Code = "Ecc001" };
+                return new ErreurRepos<T> { success = false, description = "Exception systeme veuillez contacter l'administrateur", data = null };
             }
 
         }
@@ -139,9 +133,8 @@ namespace ask.Implementation
                     await _context.SaveChangesAsync();
                     return new ErreurRepos<T>
                     {
-                        actionresult = true,
-                        Code = "SCS003",
-                        descriptionResult = "Operation effectuée",
+                        success = true,
+                        description = "Operation effectuée",
                         data = null,
                     };
                 }
@@ -149,16 +142,15 @@ namespace ask.Implementation
                 {
                     return new ErreurRepos<T>
                     {
-                        actionresult = false,
-                        Code = "Err005",
-                        descriptionResult = "Donnée inexistante",
+                        success = false,
+                        description = "Donnée inexistante",
                         data = null,
                     };
                 }
             }
             catch (Exception ex)
             {
-                return new ErreurRepos<T> { actionresult = false, descriptionResult = "Exception systeme veuillez contacter l'administrateur", data = null, Code = "Ecc001" };
+                return new ErreurRepos<T> { success = false, description = "Exception systeme veuillez contacter l'administrateur", data = null };
             }
         }
 
@@ -174,9 +166,8 @@ namespace ask.Implementation
                 {
                     return new ErreurRepos<IEnumerable<T>>
                     {
-                        actionresult = true,
-                        Code = "SCS000",
-                        descriptionResult = "Aucune entité à insérer.",
+                        success = true,
+                        description = "Aucune entité à insérer.",
                         data = list
                     };
                 }
@@ -197,9 +188,8 @@ namespace ask.Implementation
 
                 return new ErreurRepos<IEnumerable<T>>
                 {
-                    actionresult = true,
-                    Code = "SCS006",
-                    descriptionResult = $"Ajout de {list.Count} entité(s) effectué avec succès.",
+                    success = true,
+                    description = $"Ajout de {list.Count} entité(s) effectué avec succès.",
                     data = list
                 };
             }
@@ -207,9 +197,8 @@ namespace ask.Implementation
             {
                 return new ErreurRepos<IEnumerable<T>>
                 {
-                    actionresult = false,
-                    Code = "Ecc001",
-                    descriptionResult = "Exception système, veuillez contacter l'administrateur.",
+                    success = false,
+                    description = "Exception système, veuillez contacter l'administrateur.",
                     data = null
                 };
             }

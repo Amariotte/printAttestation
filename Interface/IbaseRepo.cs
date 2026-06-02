@@ -1,7 +1,7 @@
 ﻿
 
+using ask.Dtos.Reponses;
 using ask.Model;
-using ask.ResponseDto;
 
 namespace ask
 {

@@ -21,7 +21,7 @@ namespace ask.Implementation
             {
 
                 return await _context.t_modele
-                    .Where(o => o.r_is_delete != true && o.type == type && o.r_is_active == true)
+                    .Where(o => o.r_is_delete != true && o.r_type == type && o.r_is_active == true)
                     .ToListAsync();
 
             }

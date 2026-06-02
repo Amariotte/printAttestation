@@ -3,10 +3,10 @@ using System.Text;
 using System.Threading.RateLimiting;
 using ask.ContextDb;
 using ask.Dtos.General;
-using ask.Dtos.RequestToSendDto;
 using ask.Implementation;
 using ask.Interface;
 using ask.Services;
+using InteroperabiliteProject.Implementation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -91,8 +91,8 @@ namespace ask
                 });
             });
 
-            builder.Services.AddDbContext<askContext>(options =>options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")));
-            builder.Services.AddDbContextFactory<askContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")), ServiceLifetime.Scoped);
+            builder.Services.AddDbContext<askContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("localConnectionPostgre")));
+            builder.Services.AddDbContextFactory<askContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("localConnectionPostgre")), ServiceLifetime.Scoped);
             builder.Services.AddCors(o =>
            o.AddPolicy
                ("Stockpolicie", b =>
@@ -104,36 +104,29 @@ namespace ask
                )
            );
 
-         
+            builder.Services.Configure<ParamAsaci>(builder.Configuration.GetSection("Asaci"));
             builder.Services.Configure<ParamMessage>(builder.Configuration.GetSection("Messagerie"));
             builder.Services.Configure<SecurityConfig>(builder.Configuration.GetSection("security"));
-            builder.Services.AddScoped<ServiceMessagerie>();
-     
-            builder.Services.AddTransient<IemployeRepo, EmployeRepo>();
+
             builder.Services.AddScoped<IotpRepo, OtpRepo>();
             builder.Services.AddScoped<IHistoSmsRepo, HistoSmsRepo>();
-            builder.Services.AddScoped<IParametreSystemeRepo, ParametreSystemeRepo>();
-            builder.Services.AddScoped<ImodeleRepo,ModeleRepo>();
-            builder.Services.AddScoped<IDemandeRepo, DemandeRepo>();
+            builder.Services.AddScoped<IHistoEmailRepo, HistoEmailRepo>();
+
+            builder.Services.AddScoped<ImodeleRepo, ModeleRepo>();
+            builder.Services.AddScoped<ServiceAsaci>();
+            builder.Services.AddScoped<ServiceMessagerie>();
             builder.Services.AddScoped<UserValidationService>();
             builder.Services.AddScoped<IUserRepo, UserRepo>();
             builder.Services.AddScoped<IRefreshTokenRepo, RefreshTokenRepo>();
             builder.Services.AddScoped<JwtService>();
 
-        
-            //builder.Services.AddScoped<IaliasRepo, AliasRepo>();
-            builder.Services.AddHttpClient();
-            //************************************SERILOG************************************************************
-            //// Configure Serilog
-            //builder.Host.UseSerilog((context, configuration) =>
-            //                configuration.ReadFrom.Configuration(context.Configuration));
 
-            // Configurer Serilog
-            // Configurer Serilog
+            builder.Services.AddHttpClient();
+            
             Log.Logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(builder.Configuration)
                 .WriteTo.Console() // Pour la sortie console
-                .WriteTo.File("/Journalisation/bceao/Naomi-.txt", rollingInterval: RollingInterval.Day) // Pour la sortie fichier
+                .WriteTo.File("/log/print-attestation/log-.txt", rollingInterval: RollingInterval.Day) // Pour la sortie fichier
                 .CreateLogger();
             // Remplacer le logger par défaut par Serilog
             builder.Host.UseSerilog();
@@ -202,12 +195,12 @@ namespace ask
             }
             //******************************************Modifier le server qui apparait dans la reponse pour la securité************************************
             app.Use(async (context, next) =>
-                {
-                    //context.Response.Headers.Remove("x-powered-by");
-                    context.Response.Headers["server"] = "XXX-XXX-XXX";
-                    await next();
+            {
+                //context.Response.Headers.Remove("x-powered-by");
+                context.Response.Headers["server"] = "XXX-XXX-XXX";
+                await next();
 
-                });
+            });
 
             // Middleware pour gérer les erreurs 404
             app.Use(async (context, next) =>
@@ -250,14 +243,14 @@ namespace ask
                 await next();
             });
 
-           
+
             app.UseCors("Stockpolicie");
             app.UseSerilogRequestLogging();
             app.UseHttpsRedirection();
 
             app.UseAuthentication();
             app.UseMiddleware<JwtSecureMiddleware>();
-            
+
 
             app.UseAuthorization();
             //*******************************************TEST ENCODAG DES CARACTERE POUR LINUX**************************************
@@ -281,11 +274,9 @@ namespace ask
             //    dbContext.Database.Migrate();
 
             //}
-            // Initialisation du logger statique
-           RequettePI.Initialize(app.Services.GetRequiredService<ILoggerFactory>());
-           app.MapControllers().RequireRateLimiting("MobilePolicy"); ;
+            app.MapControllers().RequireRateLimiting("MobilePolicy"); ;
             //app.MapControllers() ;
-         //   app.UseMiddleware<TraceMidleware>();
+            //   app.UseMiddleware<TraceMidleware>();
             app.Run("http://*:5002");
         }
     }
