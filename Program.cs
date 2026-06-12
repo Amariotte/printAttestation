@@ -54,12 +54,7 @@ namespace ask
 
 
             builder.Services.AddAuthorization();
-            builder.Services.AddControllers(options =>
-            {
-                options.Filters.Add<RouteNameFilter>();
-            });
-
-
+            builder.Services.AddControllers();
 
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -92,8 +87,16 @@ namespace ask
                 });
             });
 
-            builder.Services.AddDbContext<askContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("localConnectionPostgre")));
-            builder.Services.AddDbContextFactory<askContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("localConnectionPostgre")), ServiceLifetime.Scoped);
+            builder.Services.AddDbContext<askContext>(options => 
+                options.UseMySql(
+                    builder.Configuration.GetConnectionString("MySqlConnection"),
+                    ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("MySqlConnection"))
+                ));
+            builder.Services.AddDbContextFactory<askContext>(options => 
+                options.UseMySql(
+                    builder.Configuration.GetConnectionString("MySqlConnection"),
+                    ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("MySqlConnection"))
+                ), ServiceLifetime.Scoped);
             builder.Services.AddCors(o =>
            o.AddPolicy
                ("Stockpolicie", b =>
@@ -109,7 +112,6 @@ namespace ask
             builder.Services.Configure<ParamMessage>(builder.Configuration.GetSection("Messagerie"));
             builder.Services.Configure<SecurityConfig>(builder.Configuration.GetSection("security"));
 
-            builder.Services.AddScoped<IotpRepo, OtpRepo>();
             builder.Services.AddScoped<IHistoSmsRepo, HistoSmsRepo>();
             builder.Services.AddScoped<IHistoEmailRepo, HistoEmailRepo>();
 

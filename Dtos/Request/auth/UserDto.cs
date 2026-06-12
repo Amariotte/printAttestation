@@ -2,24 +2,25 @@
 
 namespace ask.Dtos.Request.auth
 {
-    public class InscriptionDto
+    public class UserDto
     {
-        public string? numerocompte { get; set; }
         public string? nom { get; set; }
+        public string? prenom { get; set; }
         public string? email { get; set; }
         public string? telephone { get; set; }
-        public string? password { get; set; }
+
+        public TYPE_USER type { get; set; } = TYPE_USER.USER;
     }
 
-    public class InscriptionDtoValidator : AbstractValidator<InscriptionDto>
+    public class UserDtoValidator : AbstractValidator<UserDto>
     {
-        public InscriptionDtoValidator()
+        public UserDtoValidator()
         {
-            RuleFor(x => x.numerocompte)
-                .NotEmpty().WithMessage("Le numéro de compte est obligatoire.");
-
             RuleFor(x => x.nom)
-                .NotEmpty().WithMessage("Le nom est obligatoire.");
+               .NotEmpty().WithMessage("Le nom est obligatoire.");
+
+            RuleFor(x => x.prenom)
+                .NotEmpty().WithMessage("Le prenom est obligatoire.");
 
             RuleFor(x => x.telephone)
                 .NotEmpty().WithMessage("Le numéro de téléphone est obligatoire.")
@@ -28,8 +29,6 @@ namespace ask.Dtos.Request.auth
                 .EmailAddress().WithMessage("L'adresse e-mail n'est pas valide.")
                 .When(x => !string.IsNullOrWhiteSpace(x.email));
 
-            RuleFor(x => x.password)
-             .NotEmpty().WithMessage("Le mot de passe est obligatoire.");
         }
     }
 }

@@ -53,7 +53,7 @@ namespace ask.Implementation
         {
             try
             {
-                entity.r_created_at = DateTime.Now;
+                entity.r_created_at = DateTime.UtcNow;
 
 
                 _dbSet.Add(entity);
@@ -75,7 +75,7 @@ namespace ask.Implementation
         {
             try
             {
-                entity.r_updated_at = DateTime.Now;
+                entity.r_updated_at = DateTime.UtcNow;
 
                 _dbSet.Update(entity);
                 await _context.SaveChangesAsync();

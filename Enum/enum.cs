@@ -1,15 +1,4 @@
-﻿using System.Text.Json;
-
-
-public enum STATUT_DEMANDE
-{
-    ATTENTE = 1,
-    VALIDEE = 2,
-    ANNULEE = 3,
-    CLOTUREE = 4
-}
-
-
+﻿
 public enum STATUT_EMAIL
 {
     ATTENTE = 1,
@@ -24,6 +13,12 @@ public enum STATUT_SMS
     ECHOUE = 3
 }
 
+public enum TYPE_USER
+{
+    ADMIN = 1,
+    USER = 2
+}
+
 
 public enum PLATEFORME_MESSAGERIE
 {
@@ -33,14 +28,16 @@ public enum PLATEFORME_MESSAGERIE
 
 public enum TYPE_MODELE
 {
-    ENVOI_ACCESS = 1,
-    MOT_PASSE_OUBLIE = 2,
+    REGISTER_SUCCESS = 1,
+    RESET_PASSWORD = 2,
+    COMPTE_DESACTIVE = 3,
+    COMPTE_ACTIVE = 4
 }
 
 
 
-public enum TYPE_OTP
+public enum STATUT_USER
 {
-    CONFIRMATION_REGISTER = 1,
-    RESET_PASSWORD = 2
+    ACTIVE = 1,
+    DESACTIVE = 2
 }

@@ -101,7 +101,6 @@ namespace ask.Services
                 new Claim(JwtRegisteredClaimNames.Iat, Tools.Tools.ToUnixTimeSeconds(now).ToString(), ClaimValueTypes.Integer64),
                 new Claim("iduser", opt.UserId.ToString()),
                 new Claim("email", opt.UserEmail),
-                new Claim("scopes", opt.Scopes.Length > 0 ? string.Join(' ', opt.Scopes) : string.Empty),
             };
 
             // Rôles : un claim par rôle

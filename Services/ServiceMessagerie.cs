@@ -19,16 +19,14 @@ namespace ask.Services
         private readonly IHistoSmsRepo _HistoSmsRepo;
         private readonly IHistoEmailRepo _HistoMailRepo;
         private readonly ImodeleRepo _modeleRepo;
-        private readonly IotpRepo _otpRepo;
 
-        public ServiceMessagerie(IOptions<ParamMessage> param_data, ILogger<ServiceMessagerie> logger, ImodeleRepo modeleRepo, IotpRepo otpRepo, IHistoSmsRepo HistoSmsRepo, IHistoEmailRepo HistoMailRepo)
+        public ServiceMessagerie(IOptions<ParamMessage> param_data, ILogger<ServiceMessagerie> logger, ImodeleRepo modeleRepo, IHistoSmsRepo HistoSmsRepo, IHistoEmailRepo HistoMailRepo)
         {
             _param_data = param_data.Value;
             _logger = logger;
             _HistoSmsRepo = HistoSmsRepo;
             _HistoMailRepo = HistoMailRepo;
             _modeleRepo = modeleRepo;
-            _otpRepo = otpRepo;
         }
 
         public async Task<GeneraleRetour> sendSms(string msgid, string sender,string dest, string text)
@@ -256,7 +254,9 @@ namespace ask.Services
                 res = await sendSms(sms.r_id.ToString(),sms.r_sender, sms.r_recipient, sms.r_text);
 
                 if (Tools.Tools.RetourIsSucces(res.status))
+                {
                     sms.r_statut = STATUT_SMS.ENVOYE;
+                }
                 else
                 {
                     sms.r_statut = STATUT_SMS.ECHOUE;
@@ -301,10 +301,14 @@ namespace ask.Services
                 res = await sendEmail(email.r_recipients, email.r_subject, email.r_body);
 
                 if (Tools.Tools.RetourIsSucces(res.status))
+                {
                     email.r_statut = STATUT_EMAIL.ENVOYE;
+                }
                 else
+                {
                     email.r_statut = STATUT_EMAIL.ECHOUE;
                     email.r_raison_echec = res.detail;
+                }
 
                 await _HistoMailRepo.UpdateAsync(email);
 
@@ -333,7 +337,7 @@ namespace ask.Services
             return text;
         }
 
-        public async Task<GeneraleRetour> sendMessageALUtilisateur(TYPE_MODELE type,t_user? user,t_otp? otp)
+        public async Task<GeneraleRetour> sendMessageALUtilisateur(TYPE_MODELE type,t_user? user,string? pass)
         {
             try
             {
@@ -347,8 +351,7 @@ namespace ask.Services
                     { "{{PrenomUtilisateur}}", user?.r_prenom ?? string.Empty },
                     { "{{TelephoneUtilisateur}}", user?.r_telephone ?? string.Empty},
                     { "{{EmailUtilisateur}}", user?.r_email  ?? string.Empty},
-                    { "{{Otp}}", otp?.r_code_otp  ?? string.Empty},
-                    { "{{DureeOtp}}", otp?.r_duree_validite.ToString() ?? string.Empty}
+                    { "{{MotDePasse}}", pass ?? string.Empty},
                 };
 
                 List<t_modele> modeles = await _modeleRepo.GetModelesByType(type);

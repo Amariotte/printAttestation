@@ -1,11 +1,14 @@
 ﻿using ask.ContextDb;
 using ask.Dtos.General;
 using ask.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using OracleApi.Services;
+using PdfSharp.Diagnostics;
 
 namespace ask.Controllers
 {
@@ -107,7 +110,7 @@ namespace ask.Controllers
         }
 
 
-      
+        [Authorize]
         [HttpGet("attestations/{cleRecherche}")]
         public async Task<IActionResult> GetAttestation(string cleRecherche)
         {
@@ -128,7 +131,8 @@ namespace ask.Controllers
                            NUMEIMMA, NUMECHAS, LIBERISQ, NUMATTDI,LIEN_PDF,LIEN__QR,LIEN_IMG
                     FROM attestation_risque
                     WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
-                      AND (NUMEIMMA = :cleRecherche OR NUMECHAS = :cleRecherche OR NUMATTDI = :cleRecherche OR TO_CHAR(NUMEPOLI) = :cleRecherche)";
+                      AND (NUMEIMMA = :cleRecherche OR NUMECHAS = :cleRecherche OR NUMATTDI = :cleRecherche OR TO_CHAR(NUMEPOLI) = :cleRecherche)
+                      ORDER BY DATECHAT DESC";
 
                 // Utilisation du service Oracle avec paramètres
                 var parameters = new Dictionary<string, object>
@@ -158,6 +162,7 @@ namespace ask.Controllers
                     urlImage = row.ContainsKey("LIEN_IMG") ? row["LIEN_IMG"]?.ToString() : null,
                 }).ToList();
 
+
                 return Ok(results);
             }
             catch (Exception ex)
@@ -167,6 +172,7 @@ namespace ask.Controllers
             }
         }
 
+        [Authorize]
         [HttpGet("attestations/{numAttestation}/cedeao/print")]
         public async Task<IActionResult> PrintAttestationCedeao(string numAttestation)
         {
@@ -196,6 +202,45 @@ namespace ask.Controllers
 
                 // Retourner l'image directement
                 return File(imageBytes, "image/png", $"Cedeao_{numAttestation}.png");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+
+            }
+        }
+
+
+
+        [Authorize]
+        [HttpGet("attestations/{numAttestation}/cedeao")]
+        public async Task<IActionResult> AttestationCedeao(string numAttestation)
+        {
+            string _desc_route = "Impression de l'attestation Cedeao";
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(numAttestation))
+                    return BadRequest(GeneraleRetour.BuildNotFound(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
+
+                var result = await _ServiceAsaci.printCedeao(numAttestation);
+                if (result.status != 200)
+                {
+                    return StatusCode(result.status,
+                        GeneraleRetour.BuildProblemResponse(new GeneraleRetour { status = result.status, detail = result.detail }, instance: HttpContext.Request.Path));
+                }
+
+                var res_data = JsonConvert.DeserializeObject<dynamic>(result.data);
+
+                // Convertir Base64 en image
+                string base64 = res_data.base64?.ToString();
+
+                if (string.IsNullOrWhiteSpace(base64))
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'image Base64 est manquante dans la réponse", instance: HttpContext.Request.Path));
+
+                return Ok(new{base64 = base64 });
+
             }
             catch (Exception ex)
             {

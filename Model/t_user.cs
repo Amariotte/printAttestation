@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
 namespace ask.Model
@@ -9,15 +8,9 @@ namespace ask.Model
     /// </summary>
     [Index(nameof(r_email), IsUnique = true, Name = "IX_User_Email")]
     [Index(nameof(r_telephone), Name = "IX_User_Telephone")]
-    [Index(nameof(r_code), Name = "IX_User_Code")]
     public class t_user : t_base
     {
-        /// <summary>
-        /// Code unique de l'utilisateur
-        /// </summary>
-        [MaxLength(50)]
-        public string? r_code { get; set; }
-
+      
         /// <summary>
         /// Nom de famille de l'utilisateur
         /// </summary>
@@ -69,6 +62,7 @@ namespace ask.Model
         /// </summary>
         public int r_failed_login_attempts { get; set; } = 0;
 
+        public bool r_password_change_required { get; set; } = true;
         /// <summary>
         /// Date de verrouillage du compte (si applicable)
         /// </summary>
@@ -77,16 +71,13 @@ namespace ask.Model
         /// <summary>
         /// Email vérifié
         /// </summary>
-        public bool r_email_verified { get; set; } = false;
-
-        /// <summary>
-        /// Téléphone vérifié
+  
         /// </summary>
-        public bool r_phone_verified { get; set; } = false;
+        public STATUT_USER r_statut { get; set; } = STATUT_USER.ACTIVE;
+        public TYPE_USER r_type { get; set; } = TYPE_USER.USER;
 
         // Relations de navigation
         public ICollection<t_refresh_token>? r_refresh_tokens { get; set; }
         public ICollection<t_session>? r_sessions { get; set; }
-        public ICollection<t_user_scopes>? r_user_scopes { get; set; }
     }
 }

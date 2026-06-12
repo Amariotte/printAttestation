@@ -23,7 +23,7 @@ namespace ask.Model
         /// Date et heure de création (UTC)
         /// </summary>
         [JsonIgnore]
-        public DateTime r_created_at { get; set; } = DateTime.UtcNow;
+        public DateTime? r_created_at { get; set; } = DateTime.UtcNow;
 
         /// <summary>
         /// Date et heure de dernière modification (UTC)

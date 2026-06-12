@@ -19,9 +19,6 @@ namespace ask.ContextDb
         public DbSet<t_modele> t_modele { get; set; } = null!;
         public DbSet<t_refresh_token> t_refresh_token { get; set; } = null!;
         public DbSet<t_session> t_session { get; set; } = null!;
-        public DbSet<t_otp> t_otp { get; set; } = null!;
-        public DbSet<t_scope> t_scope { get; set; } = null!;
-        public DbSet<t_user_scopes> t_user_scopes { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -40,9 +37,7 @@ namespace ask.ContextDb
                       .HasForeignKey(s => s.r_user_id_fk)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasMany(u => u.r_user_scopes)
-                      .WithOne()
-                      .OnDelete(DeleteBehavior.Cascade);
+      
             });
 
             // Configuration t_refresh_token
@@ -65,43 +60,13 @@ namespace ask.ContextDb
                       .HasDatabaseName("IX_Session_UserId_IsActive_LoginAt");
             });
 
-            // Configuration t_otp
-            modelBuilder.Entity<t_otp>(entity =>
-            {
-                entity.HasOne(o => o.r_userTab)
-                      .WithMany()
-                      .HasForeignKey(o => o.r_user_id_fk)
-                      .OnDelete(DeleteBehavior.SetNull);
+       
 
-                // Index composite pour recherche OTP valides
-                entity.HasIndex(o => new { o.r_challenge_id, o.r_type, o.r_created_at })
-                      .HasDatabaseName("IX_OTP_ChallengeId_Type_CreatedAt");
-            });
-
-            // Configuration t_scope
-            modelBuilder.Entity<t_scope>(entity =>
-            {
-                entity.HasMany(s => s.r_user_scopes)
-                      .WithOne()
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            // Configuration t_user_scopes (table de jointure)
-            modelBuilder.Entity<t_user_scopes>(entity =>
-            {
-                // Index composite pour recherche de scopes par utilisateur
-                entity.HasIndex(us => new { us.r_user_id_fk, us.r_scope_id_fk })
-                      .IsUnique()
-                      .HasDatabaseName("IX_UserScopes_UserId_ScopeId");
-            });
-
+           
             // Query filters globaux pour soft delete
             modelBuilder.Entity<t_user>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_refresh_token>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_session>().HasQueryFilter(e => !e.r_is_delete);
-            modelBuilder.Entity<t_otp>().HasQueryFilter(e => !e.r_is_delete);
-            modelBuilder.Entity<t_scope>().HasQueryFilter(e => !e.r_is_delete);
-            modelBuilder.Entity<t_user_scopes>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_histo_sms>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_histo_email>().HasQueryFilter(e => !e.r_is_delete);
         }
@@ -130,13 +95,43 @@ namespace ask.ContextDb
         private void UpdateTimestamps()
         {
             var entries = ChangeTracker.Entries()
-                .Where(e => e.Entity is t_base && (e.State == EntityState.Modified));
+                .Where(e => e.Entity is t_base && (e.State == EntityState.Modified || e.State == EntityState.Added));
 
             foreach (var entry in entries)
             {
                 if (entry.Entity is t_base entity)
                 {
-                    entity.r_updated_at = DateTime.UtcNow;
+                    // Convertir tous les DateTime en UTC
+                    ConvertDateTimesToUtc(entry);
+
+                    if (entry.State == EntityState.Modified)
+                    {
+                        entity.r_updated_at = DateTime.UtcNow;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Convertit tous les DateTime d'une entité en UTC pour PostgreSQL
+        /// </summary>
+        private void ConvertDateTimesToUtc(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+        {
+            foreach (var property in entry.Properties)
+            {
+                if (property.Metadata.ClrType == typeof(DateTime) || property.Metadata.ClrType == typeof(DateTime?))
+                {
+                    if (property.CurrentValue != null && property.CurrentValue is DateTime dateTime)
+                    {
+                        if (dateTime.Kind == DateTimeKind.Local)
+                        {
+                            property.CurrentValue = dateTime.ToUniversalTime();
+                        }
+                        else if (dateTime.Kind == DateTimeKind.Unspecified)
+                        {
+                            property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+                        }
+                    }
                 }
             }
         }

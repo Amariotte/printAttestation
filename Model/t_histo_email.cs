@@ -59,7 +59,7 @@ namespace ask.Model
         /// <summary>
         /// Date d'envoi effectif
         /// </summary>
-        public DateTime? r_sent_at { get; set; }
+     //   public DateTime? r_sent_at { get; set; }
 
         /// <summary>
         /// Copie conforme (CC)

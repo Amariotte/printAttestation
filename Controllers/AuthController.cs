@@ -1,8 +1,10 @@
+using System.Data;
 using ask.ContextDb;
 using ask.Dtos;
 using ask.Dtos.General;
 using ask.Dtos.Request.auth;
 using ask.Dtos.Request.Auth;
+using ask.Dtos.Response.auth;
 using ask.Interface;
 using ask.Model;
 using ask.Services;
@@ -21,7 +23,6 @@ namespace ask.Controllers
         private readonly IDbContextFactory<askContext> _dbFactory;
         private readonly JwtService _jwtService;
         private readonly ServiceMessagerie _serviceMessagerie;
-        private readonly IotpRepo _otpRepo;
         private readonly IUserRepo _userRepo;
         private readonly ParamMessage _paramdata;
         private readonly ILogger<AuthController> _logger;
@@ -32,7 +33,6 @@ namespace ask.Controllers
             IDbContextFactory<askContext> dbFactory,
             JwtService jwtService,
             ServiceMessagerie serviceMessagerie,
-            IotpRepo otpRepo,
             IUserRepo userRepo,
             Microsoft.Extensions.Options.IOptions<ParamMessage> paramdata,
             ILogger<AuthController> logger,
@@ -42,7 +42,6 @@ namespace ask.Controllers
             _dbFactory = dbFactory;
             _jwtService = jwtService;
             _serviceMessagerie = serviceMessagerie;
-            _otpRepo = otpRepo;
             _userRepo = userRepo;
             _paramdata = paramdata.Value;
             _logger = logger;
@@ -52,11 +51,7 @@ namespace ask.Controllers
 
         #region Helpers
 
-        [NonAction]
-        public string RecupererIdDemandeEnCours()
-        {
-            return Request.Headers["id-dmd-header"].ToString();
-        }
+    
 
         [NonAction]
         public string RecupererToken()
@@ -88,14 +83,13 @@ namespace ask.Controllers
         /// </summary>
         [HttpPost("register")]
         [AllowAnonymous]
-        public async Task<IActionResult> Inscription([FromBody] InscriptionDto _body)
+        public async Task<IActionResult> Inscription([FromBody] UserDto _body)
         {
             string _desc_route = "Inscription";
-            string IdDemande = RecupererIdDemandeEnCours();
 
             try
             {
-                var validator = new InscriptionDtoValidator();
+                var validator = new UserDtoValidator();
                 var results = validator.Validate(_body);
 
                 if (!results.IsValid)
@@ -118,25 +112,42 @@ namespace ask.Controllers
 
                 if (existingUser != null)
                     return Conflict(GeneraleRetour.BuildProblemResponse(
-                        new GeneraleRetour { status = 409, detail = "Un utilisateur avec cet email existe déjà" },
+                        new GeneraleRetour { 
+                            status = 409, 
+                            detail = "Un compte existe déjà avec cette adresse email. Veuillez utiliser une autre adresse ou vous connecter."
+                        },
                         instance: HttpContext.Request.Path));
+
+
+                string myPass = Tools.Tools.GeneratePassword();
 
                 var user = new t_user
                 {
                     r_nom = _body.nom,
+                    r_prenom = _body.prenom,
                     r_email = _body.email,
                     r_telephone = _body.telephone,
-                    r_password = BCrypt.Net.BCrypt.HashPassword(_body.password)
+                    r_statut = STATUT_USER.ACTIVE,
+                    r_password_change_required = true,
+                    r_password = BCrypt.Net.BCrypt.HashPassword(myPass)
                 };
+
+
 
                 await _dbContext.t_user.AddAsync(user);
                 await _dbContext.SaveChangesAsync();
 
-                return Ok(new
+                await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.REGISTER_SUCCESS, user, myPass);
+
+
+                var response = new InscriptionResponseDto
                 {
-                    message = "Inscription effectuée avec succès.",
-                    userId = user.r_id
-                });
+                    message = $"Un e-mail a été envoyé avec succès à l'adresse {Tools.Tools.MaskEmail(user.r_email)}. Veuillez consulter votre boîte de réception pour poursuivre la procédure.",
+                    emailMasked = Tools.Tools.MaskEmail(user.r_email),
+                };
+
+                return Ok(response);
+
             }
             catch (Exception ex)
             {
@@ -146,67 +157,7 @@ namespace ask.Controllers
         }
 
 
-        /// <summary>
-        /// POST api/auth/register/confirm
-        /// Confirmation de l'inscription via un OTP.
-        /// </summary>
-        [HttpPost("register/confirm")]
-        [AllowAnonymous]
-        public async Task<IActionResult> ConfirmerInscription([FromBody] QueryConfirmationOtpRegisterDto _body)
-        {
-            string _desc_route = "Confirmation de l'inscription";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-                var validator = new QueryConfirmationOtpRegisterDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    return BadRequest(GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams));
-                }
-
-                (int res_otp, var o) = await _otpRepo.verifieOtpAndChallenge(_body.otp, TYPE_OTP.CONFIRMATION_REGISTER, _body.challenge);
-
-                switch (res_otp)
-                {
-                    case 0:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Expiré", instance: HttpContext.Request.Path));
-                    case -1:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-                    case 1:
-                        break;
-                }
-
-                var user = await _dbContext.t_user
-                    .FirstOrDefaultAsync(p => p.r_id == o.r_user_id_fk && p.r_is_delete != true);
-
-                if (user == null)
-                    return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-
-                user.r_is_active = true;
-                _dbContext.t_user.Update(user);
-                await _dbContext.SaveChangesAsync();
-
-                return Ok(new { message = "Inscription confirmée avec succès." });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
+   
 
         /// <summary>
         /// POST api/auth/login
@@ -217,7 +168,6 @@ namespace ask.Controllers
         public async Task<IActionResult> Authentification([FromBody] ConnexionDto _body)
         {
             string _desc_route = "Authentification";
-            string IdDemande = RecupererIdDemandeEnCours();
 
             try
             {
@@ -256,20 +206,14 @@ namespace ask.Controllers
                         detail: "Le compte n'est pas actif",
                         instance: HttpContext.Request.Path));
 
-            
-                // Charger les scopes associés
-                var scopes = await _dbContext.t_user_scopes
-                    .Where(rs => rs.r_userTab!.r_id == user.r_id && rs.r_is_delete != true)
-                    .Select(rs => rs.r_scopeTab!.r_nom)
-                    .Distinct()
-                    .ToArrayAsync();
+       
 
                 // Générer le JWT
                 JwtIssueOptions _dataJwt = new JwtIssueOptions
                 {
                     UserId = user.r_id,
                     UserEmail = user.r_email,
-                    Scopes = scopes,
+                    Roles = [user.r_type.ToString()]
                 };
 
                 string accessToken = _jwtService.GenerateJwtToken(_dataJwt);
@@ -299,7 +243,20 @@ namespace ask.Controllers
                     token_type = "Bearer",
                     expires_in = expirySeconds,
                     refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0,
+                    password_change_required = user.r_password_change_required,
+               
+                    user = new UserResponseDto
+                    {
+                        id = user.r_id,
+                        nom = user.r_nom,
+                        prenom = user.r_prenom,
+                        email = user.r_email,
+                        telephone = user.r_telephone,
+                        role = user.r_type.ToString(),
+                        actif = (user.r_statut == STATUT_USER.ACTIVE),
+                    }
                 });
+
             }
             catch (Exception ex)
             {
@@ -318,7 +275,6 @@ namespace ask.Controllers
         public async Task<IActionResult> RafraichirLeToken([FromBody] QueryRefreshToken _body)
         {
             string _desc_route = "Rafraîchir le token";
-            string IdDemande = RecupererIdDemandeEnCours();
 
             try
             {
@@ -366,21 +322,13 @@ namespace ask.Controllers
                 existingRefresh.r_is_revoked = true;
                 existingRefresh.r_updated_at = DateTime.UtcNow;
 
-                // Charger les  scopes
-                
-                var scopes = await _dbContext.t_user_scopes
-                    .Include(us => us.r_scopeTab)
-                    .Where(us => us.r_user_id_fk == dataUser.r_id && us.r_is_delete != true)
-                    .Select(us => us.r_scopeTab!.r_nom)
-                    .Distinct()
-                    .ToArrayAsync();
 
                 // Générer un nouveau JWT et refresh token
                 var newAccessToken = _jwtService.GenerateJwtToken(new JwtIssueOptions
                 {
                     UserId = dataUser.r_id,
                     UserEmail = dataUser.r_email,
-                    Scopes = scopes,
+                    Roles = [dataUser.r_type.ToString()]
                 });
 
                 var newRefreshToken = await _jwtService.GenerateRefreshToken(dataUser.r_id);
@@ -395,10 +343,21 @@ namespace ask.Controllers
                 return Ok(new AuthSecurityRetourDto
                 {
                     access_token = newAccessToken,
-                    refresh_token = newRefreshToken.r_token,
+                    refresh_token = newRefreshToken?.r_token,
                     token_type = "Bearer",
                     expires_in = expirySeconds,
                     refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0,
+                    password_change_required = dataUser?.r_password_change_required ?? false,
+                    user = new UserResponseDto
+                    {
+                        id = dataUser.r_id,
+                        nom = dataUser.r_nom,
+                        prenom = dataUser.r_prenom,
+                        email = dataUser.r_email,
+                        telephone = dataUser.r_telephone,
+                        role = dataUser.r_type.ToString(),
+                        actif = (dataUser.r_statut == STATUT_USER.ACTIVE),
+                    }
                 });
             }
             catch (Exception ex)
@@ -415,14 +374,13 @@ namespace ask.Controllers
         /// </summary>
         [Authorize]
         [HttpPut("password")]
-        public async Task<IActionResult> ModifierLeMotPasse([FromBody] UpdatePasswordClientDto _body)
+        public async Task<IActionResult> ModifierLeMotPasse([FromBody] UpdatePasswordUserDto _body)
         {
             string _desc_route = "Modification du mot de passe";
-            string IdDemande = RecupererIdDemandeEnCours();
 
             try
             {
-                var validator = new UpdatePasswordClientDtoValidator();
+                var validator = new UpdatePasswordUserDtoValidator();
                 var results = validator.Validate(_body);
 
                 if (!results.IsValid)
@@ -451,7 +409,9 @@ namespace ask.Controllers
                         instance: HttpContext.Request.Path));
 
                 dataUser.r_password = BCrypt.Net.BCrypt.HashPassword(_body.new_password);
-                dataUser.r_updated_at = DateTime.Now;
+                dataUser.r_updated_at = DateTime.UtcNow;
+                dataUser.r_password_change_required = false;
+
                 _dbContext.t_user.Update(dataUser);
                 await _dbContext.SaveChangesAsync();
 
@@ -469,100 +429,45 @@ namespace ask.Controllers
         /// POST api/auth/password/reset/otp
         /// Envoyer un OTP pour la réinitialisation du mot de passe.
         /// </summary>
-        [HttpPost("password/reset/otp")]
+        [HttpPost("password-reset")]
         [AllowAnonymous]
-        public async Task<IActionResult> ReinitalisationMotDePasse([FromBody] InitPasswordClientDto _body)
+        public async Task<IActionResult> ReinitalisationMotDePasse([FromBody] InitPasswordUserDto _body)
         {
             string _desc_route = "Réinitialisation du mot de passe";
-            string IdDemande = RecupererIdDemandeEnCours();
 
             try
             {
-                if (string.IsNullOrWhiteSpace(_body?.identifiant))
+                if (string.IsNullOrWhiteSpace(_body?.email))
                     return BadRequest(GeneraleRetour.BuildBadRequest(
-                        detail: "L'identifiant est requis",
+                        detail: "L'email est requis",
                         instance: HttpContext.Request.Path));
 
                 var user = await _dbContext.t_user
-                    .FirstOrDefaultAsync(p => p.r_email == _body.identifiant && p.r_is_delete != true);
+                    .FirstOrDefaultAsync(p => p.r_email == _body.email && p.r_is_delete != true);
 
                 if (user == null)
                     return NotFound(GeneraleRetour.BuildNotFound(
-                        detail: "L'utilisateur est introuvable dans le système",
+                        detail: "L'email est introuvable dans le système",
                         instance: HttpContext.Request.Path));
 
-                var o = await _otpRepo.genererOtp(user.r_id, user.r_id.ToString(), TYPE_OTP.RESET_PASSWORD, _paramdata.sms.validite_otp ?? 6);
 
-                return Ok(new
-                {
-                    message = "OTP envoyé avec succès pour la réinitialisation du mot de passe.",
-                    challengeId = o.r_challenge_id,
-                    contactMasked = Tools.Tools.MaskPhone(user.r_telephone),
-                    emailMasked = Tools.Tools.MaskEmail(user.r_email)
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
+                string myPass = Tools.Tools.GeneratePassword();
 
-
-        /// <summary>
-        /// POST api/auth/password/reset/otp/confirm
-        /// Confirmer la réinitialisation du mot de passe via OTP.
-        /// </summary>
-        [HttpPost("password/reset/otp/confirm")]
-        [AllowAnonymous]
-        public async Task<IActionResult> ConfirmReinitialisationMotDePasse([FromBody] QueryConfirmationOtpResetPwdDto _body)
-        {
-            string _desc_route = "Confirmation de la réinitialisation du mot de passe";
-            string IdDemande = RecupererIdDemandeEnCours();
-
-            try
-            {
-                var validator = new QueryConfirmationOtpResetPwdDtoValidator();
-                var results = validator.Validate(_body);
-
-                if (!results.IsValid)
-                {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
-
-                    return BadRequest(GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams));
-                }
-
-                (int res_otp, var o) = await _otpRepo.verifieOtpAndChallenge(_body.otp, TYPE_OTP.RESET_PASSWORD, _body.challenge);
-
-                switch (res_otp)
-                {
-                    case 0:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Expiré", instance: HttpContext.Request.Path));
-                    case -1:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-                    case 1:
-                        break;
-                }
-
-                var user = await _dbContext.t_user
-                    .FirstOrDefaultAsync(p => p.r_id.ToString() == o.r_operation_parent_id && p.r_is_delete != true);
-
-                if (user == null)
-                    return StatusCode(403, GeneraleRetour.BuildForbid(detail: "OTP Invalide", instance: HttpContext.Request.Path));
-
-                user.r_password = BCrypt.Net.BCrypt.HashPassword(_body.new_password);
-                user.r_updated_at = DateTime.Now;
+                user.r_password = BCrypt.Net.BCrypt.HashPassword(myPass);
+                user.r_password_change_required = true;
                 _dbContext.t_user.Update(user);
                 await _dbContext.SaveChangesAsync();
 
-                return Ok(new { message = "Mot de passe modifié avec succès." });
+                await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.RESET_PASSWORD, user, myPass);
+
+                var response = new InscriptionResponseDto
+                {
+                    message = $"Un e-mail a été envoyé avec succès à l'adresse {Tools.Tools.MaskEmail(user.r_email)}. Veuillez consulter votre boîte de réception pour poursuivre la procédure.",
+                    emailMasked = Tools.Tools.MaskEmail(user.r_email),
+                };
+
+                return Ok(response);
+
             }
             catch (Exception ex)
             {
@@ -616,7 +521,7 @@ namespace ask.Controllers
                 if (refreshToken != null)
                 {
                     refreshToken.r_is_revoked = true;
-                    refreshToken.r_updated_at = DateTime.Now;
+                    refreshToken.r_updated_at = DateTime.UtcNow;
                     _dbContext.t_refresh_token.Update(refreshToken);
                 }
 
@@ -629,7 +534,7 @@ namespace ask.Controllers
                 if (session != null)
                 {
                     session.r_is_active = false;
-                    session.r_logout_at = DateTime.Now;
+                    session.r_logout_at = DateTime.UtcNow;
                     _dbContext.t_session.Update(session);
                 }
 
@@ -663,15 +568,15 @@ namespace ask.Controllers
                         detail: "Utilisateur non authentifié",
                         instance: HttpContext.Request.Path));
 
-                return Ok(new
+                return Ok(new UserResponseDto
                 {
-                    id = dataUser.r_id,
                     nom = dataUser.r_nom,
+                    id = dataUser.r_id,
                     prenom = dataUser.r_prenom,
                     email = dataUser.r_email,
                     telephone = dataUser.r_telephone,
-                    photo = dataUser.r_photo,
-                    is_active = dataUser.r_is_active
+                    role =  dataUser.r_type.ToString(),
+                    actif = (dataUser.r_statut == STATUT_USER.ACTIVE),
                 });
             }
             catch (Exception ex)
