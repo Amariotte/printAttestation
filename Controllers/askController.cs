@@ -1,4 +1,5 @@
-﻿using ask.ContextDb;
+﻿using System.Net;
+using ask.ContextDb;
 using ask.Dtos.General;
 using ask.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -111,13 +112,16 @@ namespace ask.Controllers
 
 
         [Authorize]
-        [HttpGet("attestations/{cleRecherche}")]
-        public async Task<IActionResult> GetAttestation(string cleRecherche)
+        [HttpGet("attestations/{cleRechercheEncode}")]
+        public async Task<IActionResult> GetAttestation(string cleRechercheEncode)
         {
             string _desc_route = "Obtenir une attestation";
 
             try
             {
+
+                string cleRecherche =  WebUtility.UrlDecode(cleRechercheEncode);
+
                 if (string.IsNullOrWhiteSpace(cleRecherche))
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
 
@@ -127,11 +131,15 @@ namespace ask.Controllers
 
                 // Requête SQL sécurisée avec paramètre
                 string _sql = @"
-                    SELECT NUMEPOLI, DATEFFAT, DATECHAT, MARQVEHI, TYPEVEHI, 
-                           NUMEIMMA, NUMECHAS, LIBERISQ, NUMATTDI,LIEN_PDF,LIEN__QR,LIEN_IMG
+                    SELECT (TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI)) NUMEPOLI, DATEFFAT, DATECHAT, MARQVEHI, TYPEVEHI, 
+                           NUMEIMMA, NUMECHAS, LIBERISQ, NUMATTDI,LIEN_PDF,LIEN__QR,LIEN_IMG,CODEINTE
                     FROM attestation_risque
                     WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
-                      AND (NUMEIMMA = :cleRecherche OR NUMECHAS = :cleRecherche OR NUMATTDI = :cleRecherche OR TO_CHAR(NUMEPOLI) = :cleRecherche)
+                      AND (NUMEIMMA = :cleRecherche OR 
+                           NUMECHAS = :cleRecherche OR 
+                           NUMATTDI = :cleRecherche OR 
+                           TO_CHAR(NUMEPOLI) = :cleRecherche OR 
+                        (TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI)) = :cleRecherche)
                       ORDER BY DATECHAT DESC";
 
                 // Utilisation du service Oracle avec paramètres

@@ -126,13 +126,14 @@ namespace ask.Tools
             if (key.Length < 3 || key.Length > 50)
                 return false;
 
-            // Autoriser uniquement : lettres (majuscules/minuscules), chiffres, tirets, underscores, espaces
-            // Interdire les caractères spéciaux SQL dangereux
-            if (!System.Text.RegularExpressions.Regex.IsMatch(key, @"^[a-zA-Z0-9\-_ ]+$"))
+            // Autorise lettres, chiffres, espaces, -, _, /, ., (, )
+            if (!System.Text.RegularExpressions.Regex.IsMatch(
+                    key,
+                    @"^[a-zA-Z0-9\-_ /\.()]+$"))
                 return false;
 
-            // Interdire les mots-clés SQL dangereux (case insensitive)
-            string[] sqlKeywords = { "DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "EXEC", "EXECUTE", "UNION", "SELECT", "--", "/*", "*/", ";", "SCRIPT", "JAVASCRIPT" };
+            string[] sqlKeywords ={"DROP","DELETE","INSERT", "UPDATE", "ALTER","EXEC","EXECUTE","UNION","SELECT","SCRIPT","JAVASCRIPT"};
+
             string upperKey = key.ToUpperInvariant();
 
             foreach (var keyword in sqlKeywords)
