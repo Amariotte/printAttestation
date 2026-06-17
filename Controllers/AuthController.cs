@@ -244,17 +244,7 @@ namespace ask.Controllers
                     expires_in = expirySeconds,
                     refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0,
                     password_change_required = user.r_password_change_required,
-               
-                    user = new UserResponseDto
-                    {
-                        id = user.r_id,
-                        nom = user.r_nom,
-                        prenom = user.r_prenom,
-                        email = user.r_email,
-                        telephone = user.r_telephone,
-                        role = user.r_type.ToString(),
-                        actif = (user.r_statut == STATUT_USER.ACTIVE),
-                    }
+                    user = Tools.Tools.BuildUserToUserResponseDto(user),
                 });
 
             }
@@ -348,16 +338,7 @@ namespace ask.Controllers
                     expires_in = expirySeconds,
                     refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0,
                     password_change_required = dataUser?.r_password_change_required ?? false,
-                    user = new UserResponseDto
-                    {
-                        id = dataUser.r_id,
-                        nom = dataUser.r_nom,
-                        prenom = dataUser.r_prenom,
-                        email = dataUser.r_email,
-                        telephone = dataUser.r_telephone,
-                        role = dataUser.r_type.ToString(),
-                        actif = (dataUser.r_statut == STATUT_USER.ACTIVE),
-                    }
+                    user = Tools.Tools.BuildUserToUserResponseDto(dataUser),
                 });
             }
             catch (Exception ex)
@@ -567,17 +548,7 @@ namespace ask.Controllers
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(
                         detail: "Utilisateur non authentifié",
                         instance: HttpContext.Request.Path));
-
-                return Ok(new UserResponseDto
-                {
-                    nom = dataUser.r_nom,
-                    id = dataUser.r_id,
-                    prenom = dataUser.r_prenom,
-                    email = dataUser.r_email,
-                    telephone = dataUser.r_telephone,
-                    role =  dataUser.r_type.ToString(),
-                    actif = (dataUser.r_statut == STATUT_USER.ACTIVE),
-                });
+                return Ok(Tools.Tools.BuildUserToUserResponseDto(dataUser));
             }
             catch (Exception ex)
             {

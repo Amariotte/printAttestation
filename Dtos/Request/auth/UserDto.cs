@@ -9,7 +9,7 @@ namespace ask.Dtos.Request.auth
         public string? email { get; set; }
         public string? telephone { get; set; }
 
-        public TYPE_USER type { get; set; } = TYPE_USER.USER;
+        public TYPE_USER roleId { get; set; } = TYPE_USER.Utilisateur;
     }
 
     public class UserDtoValidator : AbstractValidator<UserDto>

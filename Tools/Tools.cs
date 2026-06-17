@@ -1,7 +1,10 @@
-﻿using System.Security.Cryptography;
+﻿using System.Data;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using ask.Dtos.Response.auth;
+using ask.Model;
 
 
 namespace ask.Tools
@@ -170,53 +173,37 @@ namespace ask.Tools
 
        
 
-   
-     public static bool EstUnNumeroTelephone(string chaine)
-        {
-            string pattern = @"^\+(?:223|226|228|229|225|221|227|245)\d{8,12}$";
-            return VerifieRegExp(pattern, chaine);
-        }
-
-
         public static long ToUnixTimeSeconds(DateTime utc) => (long)Math.Floor((utc - DateTime.UnixEpoch).TotalSeconds);
 
 
-        public static bool VerifieRegExp(string pattern, string chaine)
-        {
-            try
-            {
-                bool isValid = Regex.IsMatch(chaine, pattern);
-                return isValid;
-            }
-            catch (Exception ex)
-
-            { return false; }
-
-        }
-
       
-        public static JsonDocument ConvertObjectToJsonDocument<T>(T obj)
-        {
-            // Sérialiser l'objet en chaîne JSON
-            string jsonString = JsonSerializer.Serialize(obj);
-
-            // Créer un JsonDocument à partir de la chaîne JSON
-            JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
-
-            return jsonDocument;
-        }
-
-       
-
+    
+    
         public static bool RetourIsSucces(int codeRetour)
         {
             return (codeRetour.ToString().Substring(0, 1) == "2");
         }
-        public static bool RetourIsSuccesTransfert(int codeRetour)
+
+
+        public static UserResponseDto BuildUserToUserResponseDto(t_user u)
         {
-            return (codeRetour.ToString() == "200");
+            return new UserResponseDto
+            {
+                id = u.r_id,
+                nom = u.r_nom,
+                prenom = u.r_prenom,
+                email = u.r_email,
+                telephone = u.r_telephone,
+                roleId = u.r_type,
+                role = u.r_type.ToString(),
+                actif = (u.r_statut == STATUT_USER.ACTIVE),
+            };
         }
 
-    }
+
+
+       
+
+}
 
 }

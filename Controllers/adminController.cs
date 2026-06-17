@@ -1,3 +1,4 @@
+using System.Data;
 using ask.ContextDb;
 using ask.Dtos.General;
 using ask.Dtos.Reponses;
@@ -193,34 +194,48 @@ namespace ask.Controllers
 
 
         #region ========================= UTLISATEURS =========================
-
         [Authorize]
         [HttpGet("users")]
-        public async Task<IActionResult> GetUsers()
+        public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int limit = 10)
         {
             const string _desc_route = "Liste des utilisateurs";
 
             try
             {
-                var respQuery = await _dbContext.t_user
-                    .Where(e => e.r_is_delete != true)
+                if (page <= 0) page = 1;
+                if (limit <= 0) limit = 10;
+                if (limit > 500) limit = 500; // sécurité pour éviter de récupérer trop d'éléments
+
+                var baseQuery = _dbContext.t_user
+                    .Where(e => e.r_is_delete != true);
+
+                // total avant pagination
+                var total = await baseQuery.CountAsync();
+
+                var users = await baseQuery
+                    .OrderBy(u => u.r_id)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
                     .ToListAsync();
 
+                var usersDto = users.Select(m => Tools.Tools.BuildUserToUserResponseDto(m)).ToList();
 
+                var totalPages = total == 0 ? 0 : (int)Math.Ceiling(total / (double)limit);
 
-                var usersDto = respQuery.Select(m => new UserResponseDto
+                int? prevPage = page > 1 && totalPages > 0 ? page - 1 : 1;
+                int? nextPage = page < totalPages ? page + 1 : totalPages;
+
+                var meta = new
                 {
-                    id = m.r_id,
-                    nom = m.r_nom,
-                    prenom = m.r_prenom,
-                    email = m.r_email,
-                    telephone = m.r_telephone,
-                    role = m.r_type.ToString(),
-                    actif = (m.r_statut == STATUT_USER.ACTIVE)
-                }).ToList();
+                    total = total,
+                    currentPage = page,
+                    limit = limit,
+                    prevPage = prevPage,
+                    nextPage = nextPage,
+                    totalPages = totalPages
+                };
 
-
-                return Ok(new { data = usersDto, meta = new { total = usersDto.Count } });
+                return Ok(new { data = usersDto, meta = meta });
             }
             catch (Exception ex)
             {
@@ -276,7 +291,7 @@ namespace ask.Controllers
                     r_prenom = _body.prenom,
                     r_email = _body.email,
                     r_telephone = _body.telephone,
-                    r_type = _body.type,
+                    r_type = _body.roleId,
                     r_statut = STATUT_USER.ACTIVE,
                     r_password_change_required = true,
                     r_password = BCrypt.Net.BCrypt.HashPassword(myPass)
@@ -304,6 +319,86 @@ namespace ask.Controllers
                 return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
             }
         }
+
+
+
+        [Authorize]
+        [HttpPut("users/{id}")]
+        public async Task<IActionResult> ModifierUnUtilisateur(int id,[FromBody] UserDto _body)
+        {
+            const string _desc_route = "Modifier un utilisateur";
+
+            try
+            {
+                var validator = new UserDtoValidator();
+                var results = validator.Validate(_body);
+
+                if (!results.IsValid)
+                {
+                    var invalidParams = results.Errors.Select(error => new InvalidParam
+                    {
+                        name = error.PropertyName,
+                        reason = error.ErrorMessage
+                    }).ToList();
+
+                    return BadRequest(GeneraleRetour.BuildBadRequest(
+                        detail: "Les données ne sont pas conformes",
+                        instance: HttpContext.Request.Path,
+                        invalidParams: invalidParams));
+                }
+
+
+                var User = await _dbContext.t_user
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.r_id == id && u.r_is_delete != true);
+
+
+                if (User == null)
+                {
+                    return NotFound(GeneraleRetour.BuildNotFound(
+                       detail: "L'utilisateur est introuvable",
+                       instance: HttpContext.Request.Path
+                    ));
+                }
+
+
+
+                var existingUser = await _dbContext.t_user
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.r_email == _body.email && u.r_is_delete != true && u.r_id != User.r_id);
+
+                if (existingUser != null)
+                    return Conflict(GeneraleRetour.BuildProblemResponse(
+                        new GeneraleRetour
+                        {
+                            status = 409,
+                            detail = "Un compte existe déjà avec cette adresse email. Veuillez utiliser une autre adresse ou vous connecter."
+                        },
+                        instance: HttpContext.Request.Path));
+
+
+                string myPass = Tools.Tools.GeneratePassword();
+
+
+                User.r_nom = _body.nom;
+                User.r_prenom = _body.prenom;
+                User.r_email = _body.email;
+                User.r_telephone = _body.telephone;
+                User.r_type = _body.roleId;
+
+                _dbContext.t_user.Update(User);
+                await _dbContext.SaveChangesAsync();
+
+                return Ok(Tools.Tools.BuildUserToUserResponseDto(User));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
 
         [Authorize]
         [HttpPut("users/{id}/desactivations")]
@@ -334,18 +429,9 @@ namespace ask.Controllers
                     _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, resQuery,null);
 
                 }
-               
 
-                return Ok(new UserResponseDto
-                {
-                    id = resQuery.r_id,
-                    nom = resQuery.r_nom,
-                    prenom = resQuery.r_prenom,
-                    email = resQuery.r_email,
-                    telephone = resQuery.r_telephone,
-                    role = resQuery.r_type.ToString(),
-                    actif = (resQuery.r_statut == STATUT_USER.ACTIVE)
-                });
+                
+                return Ok(Tools.Tools.BuildUserToUserResponseDto(resQuery));
             }
             catch (Exception ex)
             {
@@ -384,16 +470,7 @@ namespace ask.Controllers
 
                 }
 
-                return Ok(new UserResponseDto
-                {
-                    id = resQuery.r_id,
-                    nom = resQuery.r_nom,
-                    prenom = resQuery.r_prenom,
-                    email = resQuery.r_email,
-                    telephone = resQuery.r_telephone,
-                    role = resQuery.r_type.ToString(),
-                    actif = (resQuery.r_statut == STATUT_USER.ACTIVE)
-                });
+                return Ok(Tools.Tools.BuildUserToUserResponseDto(resQuery));
             }
             catch (Exception ex)
             {

@@ -74,7 +74,7 @@ namespace ask.Model
   
         /// </summary>
         public STATUT_USER r_statut { get; set; } = STATUT_USER.ACTIVE;
-        public TYPE_USER r_type { get; set; } = TYPE_USER.USER;
+        public TYPE_USER r_type { get; set; } = TYPE_USER.Utilisateur;
 
         // Relations de navigation
         public ICollection<t_refresh_token>? r_refresh_tokens { get; set; }
