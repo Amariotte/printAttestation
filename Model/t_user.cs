@@ -18,12 +18,7 @@ namespace ask.Model
         [MaxLength(100)]
         public string r_nom { get; set; } = string.Empty;
 
-        /// <summary>
-        /// URL ou chemin de la photo de profil
-        /// </summary>
-        [MaxLength(500)]
-        public string? r_photo { get; set; }
-
+      
         /// <summary>
         /// Numéro de téléphone (format international recommandé)
         /// </summary>
@@ -52,21 +47,10 @@ namespace ask.Model
         [MaxLength(255)]
         public string r_password { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Date de dernière connexion (UTC)
-        /// </summary>
-        public DateTime? r_last_login_at { get; set; }
-
-        /// <summary>
-        /// Nombre de tentatives de connexion échouées
-        /// </summary>
-        public int r_failed_login_attempts { get; set; } = 0;
+    
 
         public bool r_password_change_required { get; set; } = true;
-        /// <summary>
-        /// Date de verrouillage du compte (si applicable)
-        /// </summary>
-        public DateTime? r_locked_until { get; set; }
+      
 
         /// <summary>
         /// Email vérifié
