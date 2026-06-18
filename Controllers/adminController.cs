@@ -9,6 +9,7 @@ using ask.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using print_attestation.Dtos.Reponses;
 
 namespace ask.Controllers
 {
@@ -202,10 +203,11 @@ namespace ask.Controllers
 
             try
             {
-                if (page <= 0) page = 1;
-                if (limit <= 0) limit = 10;
-                if (limit > 500) limit = 500; // sécurité pour éviter de récupérer trop d'éléments
 
+
+                var pagination = new PaginationParams(page, limit);
+
+            
                 var baseQuery = _dbContext.t_user
                     .Where(e => e.r_is_delete != true);
 
@@ -214,28 +216,14 @@ namespace ask.Controllers
 
                 var users = await baseQuery
                     .OrderBy(u => u.r_id)
-                    .Skip((page - 1) * limit)
-                    .Take(limit)
+                    .Skip((pagination.Skip))
+                    .Take(pagination.Take)
                     .ToListAsync();
 
                 var usersDto = users.Select(m => Tools.Tools.BuildUserToUserResponseDto(m)).ToList();
 
-                var totalPages = total == 0 ? 0 : (int)Math.Ceiling(total / (double)limit);
+                return Ok(PaginatedResponse<UserResponseDto>.Create(usersDto, total, page, limit));
 
-                int? prevPage = page > 1 && totalPages > 0 ? page - 1 : 1;
-                int? nextPage = page < totalPages ? page + 1 : totalPages;
-
-                var meta = new
-                {
-                    total = total,
-                    currentPage = page,
-                    limit = limit,
-                    prevPage = prevPage,
-                    nextPage = nextPage,
-                    totalPages = totalPages
-                };
-
-                return Ok(new { data = usersDto, meta = meta });
             }
             catch (Exception ex)
             {

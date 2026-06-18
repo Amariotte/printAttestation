@@ -25,17 +25,15 @@ namespace ask.Controllers
         private readonly ServiceAsaci _ServiceAsaci;
         private readonly ParamMessage _paramdata;
         private readonly ILogger<askController> _logger;
-        private readonly IDbContextFactory<askContext> _dbFactory;
         private readonly IOracleService _oracleService;
 
 
         //private readonly ILogger _logger;
-        public askController(IDbContextFactory<askContext> dbFactory,askContext askContext, ServiceAsaci ServiceAsaci, IOptions<ParamMessage> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<askController> logger, IOracleService oracleService)
+        public askController(askContext askContext, ServiceAsaci ServiceAsaci, IOptions<ParamMessage> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<askController> logger, IOracleService oracleService)
         {
 
             _configuration = configuration;
             _ServiceAsaci = ServiceAsaci;
-            _dbFactory = dbFactory;
             _env = env;
             _paramdata = paramdata.Value;
             _logger = logger;

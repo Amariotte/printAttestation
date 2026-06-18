@@ -20,17 +20,13 @@ namespace ask.Controllers
     public class AuthController : ControllerBase
     {
         private readonly askContext _dbContext;
-        private readonly IDbContextFactory<askContext> _dbFactory;
         private readonly JwtService _jwtService;
         private readonly ServiceMessagerie _serviceMessagerie;
-        private readonly IUserRepo _userRepo;
-        private readonly ParamMessage _paramdata;
         private readonly ILogger<AuthController> _logger;
         private readonly IConfiguration _configuration;
 
         public AuthController(
             askContext dbContext,
-            IDbContextFactory<askContext> dbFactory,
             JwtService jwtService,
             ServiceMessagerie serviceMessagerie,
             IUserRepo userRepo,
@@ -39,11 +35,8 @@ namespace ask.Controllers
             IConfiguration configuration)
         {
             _dbContext = dbContext;
-            _dbFactory = dbFactory;
             _jwtService = jwtService;
             _serviceMessagerie = serviceMessagerie;
-            _userRepo = userRepo;
-            _paramdata = paramdata.Value;
             _logger = logger;
             _configuration = configuration;
         }
