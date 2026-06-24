@@ -1,4 +1,6 @@
 using Oracle.ManagedDataAccess.Client;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace OracleApi.Services
 {
@@ -56,7 +58,7 @@ namespace OracleApi.Services
                 {
                     await connection.OpenAsync();
 
-                    using var command = new OracleCommand(query, connection);
+                    using var command = new OracleCommand(SanitizeQuery(query), connection);
                     command.CommandTimeout = CommandTimeoutSeconds;
                     command.InitialLONGFetchSize = -1;
                     command.FetchSize = 1024 * 1024;
@@ -69,6 +71,8 @@ namespace OracleApi.Services
                             command.Parameters.Add(new OracleParameter(param.Key, param.Value ?? DBNull.Value));
                         }
                     }
+
+                   
 
                     using var reader = await command.ExecuteReaderAsync();
 
@@ -109,7 +113,7 @@ namespace OracleApi.Services
                 using var connection = new OracleConnection(_connectionString);
                 await connection.OpenAsync();
 
-                using var command = new OracleCommand(query, connection);
+                using var command = new OracleCommand(SanitizeQuery(query), connection);
                 command.CommandTimeout = CommandTimeoutSeconds;
 
                 if (parameters != null)
@@ -118,6 +122,19 @@ namespace OracleApi.Services
                     {
                         command.Parameters.Add(new OracleParameter(param.Key, param.Value));
                     }
+                }
+
+                // Logger la requête et ses paramètres avant exécution
+                try
+                {
+                    var paramList = command.Parameters.Cast<OracleParameter>()
+                        .Select(p => $"{p.ParameterName}={p.Value ?? "NULL"}");
+                    var paramString = paramList.Any() ? string.Join(", ", paramList) : "(aucun)";
+                    _logger.LogInformation("Execution Oracle - Query: {Query}. Parameters: {Parameters}", command.CommandText, paramString);
+                }
+                catch (Exception logEx)
+                {
+                    _logger.LogWarning(logEx, "Impossible de formatter les paramètres de la requête pour le logging.");
                 }
 
                 int rowsAffected = await command.ExecuteNonQueryAsync();
@@ -170,6 +187,21 @@ namespace OracleApi.Services
                 12571 => true, // TNS: packet writer failure
                 _ => false
             };
+        }
+
+        // Nettoie la requête pour éviter les caractères invalides (ex: ';' final) qui provoquent ORA-00911
+        private string SanitizeQuery(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return query;
+
+            // Trim et retirer BOM éventuel
+            query = query.Trim().Trim('\uFEFF', '\u200B');
+
+            // Supprime les points-virgules terminaux et espaces
+            query = Regex.Replace(query, @"[;\s]+$", string.Empty);
+
+            return query;
         }
     }
 }

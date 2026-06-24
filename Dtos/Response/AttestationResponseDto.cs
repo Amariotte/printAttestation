@@ -9,6 +9,7 @@ namespace ask.Dtos.Response
         public DateTime? dateEcheance { get; set; }
         public string? marqueVehicule { get; set; }
         public string? typeVehicule { get; set; }
+        public string? nomIntermediaire { get; set; }
         public string? numImmatriculation { get; set; }
         public string? numChassis { get; set; }
         public string? nomAssure { get; set; }
