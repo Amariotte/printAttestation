@@ -1,17 +1,13 @@
 ﻿using System.Net;
 using ask.ContextDb;
 using ask.Dtos.General;
-using ask.Dtos.Request.auth;
-using ask.Dtos.Response.auth;
+using ask.Dtos.Response;
 using ask.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using OracleApi.Services;
-using PdfSharp.Diagnostics;
 
 namespace ask.Controllers
 {
@@ -111,7 +107,7 @@ namespace ask.Controllers
         }
 
 
-        [HttpGet("attestations/{cleRechercheEncode}")]
+        [HttpGet("attestationsX/{cleRechercheEncode}")]
         public async Task<IActionResult> GetAttestation(string cleRechercheEncode,[FromQuery] int page = 1,[FromQuery] int limit = 10)
         {
             string _desc_route = "Obtenir une attestation";
@@ -130,7 +126,7 @@ namespace ask.Controllers
                 if (!Tools.Tools.IsValidSearchKey(cleRechercheEncode))
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format de recherche invalide", instance: HttpContext.Request.Path));
 
-                int offset = (page - 1) * pageSize;
+                int offset = (page - 1) * pagination.limit;
 
                 // Requête pour le total
                 string countSql = @"
@@ -152,34 +148,41 @@ namespace ask.Controllers
                 if (total == 0)
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
 
-                // Requête paginée (Oracle 12c+)
+
+
+                // Pagination compatible Oracle 11g using ROWNUM
                 string pageSql = @"
-            SELECT (TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI)) NUMEPOLI, DATEFFAT, DATECHAT, MARQVEHI, TYPEVEHI, 
-                   NUMEIMMA, NUMECHAS, LIBERISQ, NUMATTDI, LIEN_PDF, LIEN__QR, LIEN_IMG, CODEINTE
-            FROM attestation_risque
-            WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
-              AND (NUMEIMMA = :cleRecherche OR 
-                   NUMECHAS = :cleRecherche OR 
-                   NUMATTDI = :cleRecherche OR 
-                   TO_CHAR(NUMEPOLI) = :cleRecherche OR 
-                   (TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI)) = :cleRecherche)
-            ORDER BY DATECHAT DESC
-            OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY";
+                            SELECT * FROM (
+                                          SELECT t.*, ROWNUM rn
+                                                  FROM (
+    SELECT TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI) AS NUMEPOLI, DATEFFAT, DATECHAT, MARQVEHI, TYPEVEHI,
+           NUMEIMMA, NUMECHAS, LIBERISQ, NUMATTDI, LIEN_PDF, LIEN__QR, LIEN_IMG, CODEINTE
+    FROM attestation_risque
+    WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
+      AND (NUMEIMMA = :cleRecherche OR NUMECHAS = :cleRecherche OR NUMATTDI = :cleRecherche OR TO_CHAR(NUMEPOLI) = :cleRecherche OR (TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI)) = :cleRecherche)
+    ORDER BY DATECHAT DESC
+  ) t
+  WHERE ROWNUM <= :maxRow
+)
+WHERE rn > :offset";
+
+
+
 
                 var pageParams = new Dictionary<string, object>
-        {
-            { ":cleRecherche", cleRechercheEncode },
-            { ":offset", offset },
-            { ":pageSize", pagination.limit }
-        };
+                {
+                    { ":cleRecherche", cleRechercheEncode },
+                    { ":offset", offset },
+                    { ":maxRow", offset + pagination.limit }
+                };
 
                 var rows = await _oracleService.ExecuteQueryAsync(pageSql, pageParams);
 
-                var items = rows.Select(row => new
+                var items = rows.Select(row => new Dtos.Response.AttestationResponseDto
                 {
                     numPolice = row.ContainsKey("NUMEPOLI") ? row["NUMEPOLI"]?.ToString() : null,
-                    dateEffet = row.ContainsKey("DATEFFAT") ? row["DATEFFAT"] : null,
-                    dateEcheance = row.ContainsKey("DATECHAT") ? row["DATECHAT"] : null,
+                    dateEffet = row.ContainsKey("DATEFFAT") ? (row["DATEFFAT"] as DateTime?) : null,
+                    dateEcheance = row.ContainsKey("DATECHAT") ? (row["DATECHAT"] as DateTime?) : null,
                     marqueVehicule = row.ContainsKey("MARQVEHI") ? row["MARQVEHI"]?.ToString() : null,
                     typeVehicule = row.ContainsKey("TYPEVEHI") ? row["TYPEVEHI"]?.ToString() : null,
                     numImmatriculation = row.ContainsKey("NUMEIMMA") ? row["NUMEIMMA"]?.ToString() : null,
@@ -194,7 +197,7 @@ namespace ask.Controllers
               
 
 
-                return Ok(PaginatedResponse<UserResponseDto>.Create(items, total, page, limit));
+                return Ok(PaginatedResponse<AttestationResponseDto>.Create(items, total, page, pagination.limit));
             }
             catch (Exception ex)
             {
@@ -204,7 +207,7 @@ namespace ask.Controllers
         }
 
         [Authorize]
-        [HttpGet("attestationsX/{cleRechercheEncode}")]
+        [HttpGet("attestations/{cleRechercheEncode}")]
         public async Task<IActionResult> GetAttestation(string cleRechercheEncode)
         {
             string _desc_route = "Obtenir une attestation";
@@ -246,11 +249,11 @@ namespace ask.Controllers
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
 
                 // Mapper les résultats
-                var results = rows.Select(row => new
+                var results = rows.Select(row => new Dtos.Response.AttestationResponseDto
                 {
                     numPolice = row.ContainsKey("NUMEPOLI") ? row["NUMEPOLI"]?.ToString() : null,
-                    dateEffet = row.ContainsKey("DATEFFAT") ? row["DATEFFAT"] : null,
-                    dateEcheance = row.ContainsKey("DATECHAT") ? row["DATECHAT"] : null,
+                    dateEffet = row.ContainsKey("DATEFFAT") ? (row["DATEFFAT"] as DateTime?) : null,
+                    dateEcheance = row.ContainsKey("DATECHAT") ? (row["DATECHAT"] as DateTime?) : null,
                     marqueVehicule = row.ContainsKey("MARQVEHI") ? row["MARQVEHI"]?.ToString() : null,
                     typeVehicule = row.ContainsKey("TYPEVEHI") ? row["TYPEVEHI"]?.ToString() : null,
                     numImmatriculation = row.ContainsKey("NUMEIMMA") ? row["NUMEIMMA"]?.ToString() : null,

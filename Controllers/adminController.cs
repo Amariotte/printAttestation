@@ -9,7 +9,6 @@ using ask.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using print_attestation.Dtos.Reponses;
 
 namespace ask.Controllers
 {
@@ -271,7 +270,7 @@ namespace ask.Controllers
                         instance: HttpContext.Request.Path));
 
 
-                string myPass = Tools.Tools.GeneratePassword();
+                string myPass = Tools.Tools.GeneratePassword(12, true, true, true, false);
 
                 var user = new t_user
                 {
@@ -365,7 +364,7 @@ namespace ask.Controllers
                         instance: HttpContext.Request.Path));
 
 
-                string myPass = Tools.Tools.GeneratePassword();
+                string myPass = Tools.Tools.GeneratePassword(includeSpecialChars: false);
 
 
                 User.r_nom = _body.nom;

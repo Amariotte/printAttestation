@@ -112,7 +112,7 @@ namespace ask.Controllers
                         instance: HttpContext.Request.Path));
 
 
-                string myPass = Tools.Tools.GeneratePassword();
+                string myPass = Tools.Tools.GeneratePassword(12, true, true, true, false);
 
                 var user = new t_user
                 {
@@ -425,7 +425,7 @@ namespace ask.Controllers
                         instance: HttpContext.Request.Path));
 
 
-                string myPass = Tools.Tools.GeneratePassword();
+                string myPass = Tools.Tools.GeneratePassword(12, true, true, true, false);
 
                 user.r_password = BCrypt.Net.BCrypt.HashPassword(myPass);
                 user.r_password_change_required = true;
