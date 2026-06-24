@@ -7,6 +7,7 @@ namespace ask.Dtos.Response
         public string? numPolice { get; set; }
         public DateTime? dateEffet { get; set; }
         public DateTime? dateEcheance { get; set; }
+        public DateTime? dateCreation { get; set; }
         public string? marqueVehicule { get; set; }
         public string? typeVehicule { get; set; }
         public string? nomIntermediaire { get; set; }

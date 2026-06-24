@@ -231,12 +231,12 @@ namespace ask.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format de recherche invalide", instance: HttpContext.Request.Path));
 
                 // Requête SQL sécurisée avec paramètre
-                string _sql = @"SELECT TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) AS NUMEPOLI,a.DATEFFAT,a.DATECHAT,a.MARQVEHI,a.TYPEVEHI,a.NUMEIMMA,a.NUMECHAS,a.LIBERISQ,a.NUMATTDI,a.LIEN_PDF,a.LIEN__QR,a.LIEN_IMG,a.CODEINTE,i.RAISOCIN
+                string _sql = @"SELECT TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) AS NUMEPOLI,a.DATEFFAT,a.DATECHAT,a.MARQVEHI,a.TYPEVEHI,a.NUMEIMMA,a.NUMECHAS,a.PROPATTE,a.NUMATTDI,a.LIEN_PDF,a.LIEN__QR,a.LIEN_IMG,a.CODEINTE,i.RAISOCIN,a.CREE__LE
                                        FROM attestation_risque a LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
                                        WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
                                          AND ( a.NUMEIMMA = :cleRecherche OR a.NUMECHAS = :cleRecherche OR a.NUMATTDI = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) = :cleRecherche)
                                          AND TRUNC(a.DATECHAT) >= TRUNC(SYSDATE)
-                                         ORDER BY a.DATECHAT DESC;";
+                                         ORDER BY a.CREE__LE DESC,a.DATECHAT DESC,a.DATEFFAT DESC;";
 
                 // Utilisation du service Oracle avec paramètres
                 var parameters = new Dictionary<string, object>
@@ -255,11 +255,12 @@ namespace ask.Controllers
                     numPolice = row.ContainsKey("NUMEPOLI") ? row["NUMEPOLI"]?.ToString() : null,
                     dateEffet = row.ContainsKey("DATEFFAT") ? (row["DATEFFAT"] as DateTime?) : null,
                     dateEcheance = row.ContainsKey("DATECHAT") ? (row["DATECHAT"] as DateTime?) : null,
+                    dateCreation = row.ContainsKey("CREE__LE") ? (row["CREE__LE"] as DateTime?) : null,
                     marqueVehicule = row.ContainsKey("MARQVEHI") ? row["MARQVEHI"]?.ToString() : null,
                     typeVehicule = row.ContainsKey("TYPEVEHI") ? row["TYPEVEHI"]?.ToString() : null,
                     numImmatriculation = row.ContainsKey("NUMEIMMA") ? row["NUMEIMMA"]?.ToString() : null,
                     numChassis = row.ContainsKey("NUMECHAS") ? row["NUMECHAS"]?.ToString() : null,
-                    nomAssure = row.ContainsKey("LIBERISQ") ? row["LIBERISQ"]?.ToString() : null,
+                    nomAssure = row.ContainsKey("PROPATTE") ? row["PROPATTE"]?.ToString() : null,
                     numAttestation = row.ContainsKey("NUMATTDI") ? row["NUMATTDI"]?.ToString() : null,
                     urlPdf = row.ContainsKey("LIEN_PDF") ? row["LIEN_PDF"]?.ToString() : null,
                     urlQr = row.ContainsKey("LIEN__QR") ? row["LIEN__QR"]?.ToString() : null,
