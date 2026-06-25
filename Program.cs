@@ -10,6 +10,7 @@ using InteroperabiliteProject.Implementation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
@@ -25,6 +26,10 @@ namespace ask
         {
 
             var builder = WebApplication.CreateBuilder(args);
+
+            // Support pour l'exécution en tant que service Windows
+            builder.Host.UseWindowsService();
+
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
                 options.KnownProxies.Add(IPAddress.Parse("10.0.0.100"));
