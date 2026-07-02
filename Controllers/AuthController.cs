@@ -122,7 +122,8 @@ namespace ask.Controllers
                     r_telephone = _body.telephone,
                     r_statut = STATUT_USER.ACTIVE,
                     r_password_change_required = true,
-                    r_password = BCrypt.Net.BCrypt.HashPassword(myPass)
+                    r_password = BCrypt.Net.BCrypt.HashPassword(myPass),
+                    r_date_last_statut = DateTime.UtcNow
                 };
 
 

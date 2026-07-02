@@ -10,7 +10,6 @@ using InteroperabiliteProject.Implementation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
@@ -116,6 +115,7 @@ namespace ask
             builder.Services.Configure<ParamAsaci>(builder.Configuration.GetSection("Asaci"));
             builder.Services.Configure<ParamMessage>(builder.Configuration.GetSection("Messagerie"));
             builder.Services.Configure<SecurityConfig>(builder.Configuration.GetSection("security"));
+            builder.Services.Configure<ParamAppSettings>(builder.Configuration.GetSection("AppSettings"));
 
             builder.Services.AddScoped<IHistoSmsRepo, HistoSmsRepo>();
             builder.Services.AddScoped<IHistoEmailRepo, HistoEmailRepo>();

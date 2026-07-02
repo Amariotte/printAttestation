@@ -7,6 +7,9 @@ using ask.Interface;
 using ask.Dtos.General;
 using InteroperabiliteProject.Dtos;
 using ask.Model;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace ask.Services
 {
@@ -14,15 +17,17 @@ namespace ask.Services
     {
 
         private readonly ParamMessage _param_data;
+        private readonly ParamAppSettings _param_app_settings;
         private readonly ILogger<ServiceMessagerie> _logger;
         private static readonly HttpClient _client = new HttpClient();
         private readonly IHistoSmsRepo _HistoSmsRepo;
         private readonly IHistoEmailRepo _HistoMailRepo;
         private readonly ImodeleRepo _modeleRepo;
 
-        public ServiceMessagerie(IOptions<ParamMessage> param_data, ILogger<ServiceMessagerie> logger, ImodeleRepo modeleRepo, IHistoSmsRepo HistoSmsRepo, IHistoEmailRepo HistoMailRepo)
+        public ServiceMessagerie(IOptions<ParamMessage> param_data, IOptions<ParamAppSettings> param_app_settings, ILogger<ServiceMessagerie> logger, ImodeleRepo modeleRepo, IHistoSmsRepo HistoSmsRepo, IHistoEmailRepo HistoMailRepo)
         {
             _param_data = param_data.Value;
+            _param_app_settings = param_app_settings.Value;
             _logger = logger;
             _HistoSmsRepo = HistoSmsRepo;
             _HistoMailRepo = HistoMailRepo;
@@ -188,55 +193,58 @@ namespace ask.Services
         }
 
 
+     public async Task<GeneraleRetour> SendEmail(string toEmail, string subject, string bodyHtml)
+    {
+        var service = new GeneraleRetour();
 
-        public async Task<GeneraleRetour> sendEmail(string toEmail, string subject, string bodyHtml)
+        try
         {
-            GeneraleRetour service = new GeneraleRetour();
+            var message = new MimeMessage();
 
-            try
+            message.From.Add(new MailboxAddress(
+                _param_data.smtp.sender_name,
+                _param_data.smtp.sender_email));
+
+            message.To.Add(MailboxAddress.Parse(toEmail));
+
+            message.Subject = subject;
+
+            var builder = new BodyBuilder
             {
-                using var smtp = new SmtpClient
-                {
-                    Host = _param_data.smtp.server,
-                    Port = _param_data.smtp.port,
-                    EnableSsl = _param_data.smtp.enable_ssl,
-                    Credentials = new NetworkCredential(_param_data.smtp.user, _param_data.smtp.password)
-                };
+                HtmlBody = bodyHtml
+            };
 
-                var mail = new MailMessage
-                {
-                    From = new MailAddress(_param_data.smtp.sender_email, _param_data.smtp.sender_name),
-                    Subject = subject,
-                    Body = bodyHtml,
-                    IsBodyHtml = true
-                };
+            message.Body = builder.ToMessageBody();
 
-                mail.To.Add(toEmail);
+            using var smtp = new MailKit.Net.Smtp.SmtpClient();
 
-                await smtp.SendMailAsync(mail);
+            await smtp.ConnectAsync(
+                _param_data.smtp.server,
+                _param_data.smtp.port,
+                _param_data.smtp.enable_ssl
+                    ? SecureSocketOptions.SslOnConnect
+                    : SecureSocketOptions.StartTls);
 
-                service.status = 200;
-                service.detail = "Email envoyé avec succès.";
-            }
-            catch (SmtpException ex)
-            {
-                service.status = 500;
-                service.detail = $"Erreur SMTP : {ex.Message}";
-            }
-            catch (Exception ex)
-            {
-                service.status = 500;
-                service.detail = $"Erreur Système, Veuillez contacter l'administrateur.{ex.Message}";
-                // Optionnel : log ou console
-                Console.WriteLine($"[sendEmail][Exception] {ex.Message}");
-            }
+            await smtp.AuthenticateAsync(
+                _param_data.smtp.user,
+                _param_data.smtp.password);
 
-            return service;
+            await smtp.SendAsync(message);
+
+            await smtp.DisconnectAsync(true);
+
+            service.status = 200;
+            service.detail = "Email envoyé avec succès.";
+        }
+        catch (Exception ex)
+        {
+            service.status = 500;
+            service.detail = ex.Message;
         }
 
-       
-        
-      
+        return service;
+    }
+
     public async Task<GeneraleRetour> saveSms( string dest, string text)
         {
             try
@@ -301,7 +309,7 @@ namespace ask.Services
                 
                 await _HistoMailRepo.AddAsync(email);
 
-                res = await sendEmail(email.r_recipients, email.r_subject, email.r_body);
+                res = await SendEmail(email.r_recipients, email.r_subject, email.r_body);
 
                 if (Tools.Tools.RetourIsSucces(res.status))
                 {
@@ -354,7 +362,13 @@ namespace ask.Services
                     { "{{PrenomUtilisateur}}", user?.r_prenom ?? string.Empty },
                     { "{{TelephoneUtilisateur}}", user?.r_telephone ?? string.Empty},
                     { "{{EmailUtilisateur}}", user?.r_email  ?? string.Empty},
+                    { "{{DateDesactivation}}", user?.r_date_last_statut?.ToString("dd/MM/yyyy") ?? string.Empty},
                     { "{{MotDePasse}}", pass ?? string.Empty},
+                    { "{{Annee}}", DateTime.Now.Year.ToString() },
+                    { "{{NomApplication}}", _param_app_settings.nomApplication ?? string.Empty },
+                    { "{{UrlConnexion}}", _param_app_settings.urlConnexion ?? string.Empty },
+                    { "{{NomSociete}}", _param_app_settings.nomSociete ?? string.Empty }
+                    
                 };
 
                 List<t_modele> modeles = await _modeleRepo.GetModelesByType(type);

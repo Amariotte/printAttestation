@@ -13,7 +13,14 @@
   
     }
 
+    public class ParamAppSettings
+    {
+        public string? basePath { get; set; }
+        public string? nomApplication { get; set; }
+        public string? urlConnexion { get; set; }
+        public string? nomSociete { get; set; }
 
+    }
     public class ParamMessageSMS
     {
         public string? login { get; set; }

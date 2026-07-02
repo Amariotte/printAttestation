@@ -281,7 +281,8 @@ namespace ask.Controllers
                     r_type = _body.roleId,
                     r_statut = STATUT_USER.ACTIVE,
                     r_password_change_required = true,
-                    r_password = BCrypt.Net.BCrypt.HashPassword(myPass)
+                    r_password = BCrypt.Net.BCrypt.HashPassword(myPass),
+                    r_date_last_statut = DateTime.UtcNow
                 };
 
 
@@ -410,6 +411,7 @@ namespace ask.Controllers
                 {
                     resQuery.r_is_active = false;
                     resQuery.r_statut = STATUT_USER.DESACTIVE;
+                    resQuery.r_date_last_statut = DateTime.UtcNow;
                     _dbContext.t_user.Update(resQuery);
                     await _dbContext.SaveChangesAsync();
 
@@ -449,6 +451,7 @@ namespace ask.Controllers
                 {
                     resQuery.r_is_active = true;
                     resQuery.r_statut = STATUT_USER.ACTIVE;
+                    resQuery.r_date_last_statut = DateTime.UtcNow;
                     _dbContext.t_user.Update(resQuery);
                     await _dbContext.SaveChangesAsync();
 
