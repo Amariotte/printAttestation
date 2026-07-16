@@ -1,7 +1,6 @@
 using Oracle.ManagedDataAccess.Client;
 using System.Linq;
 using System.Text.RegularExpressions;
-
 namespace OracleApi.Services
 {
     public interface IOracleService
@@ -56,6 +55,7 @@ namespace OracleApi.Services
                 using var connection = new OracleConnection(_connectionString);
                 try
                 {
+                    Environment.SetEnvironmentVariable("TZ", "UTC");
                     await connection.OpenAsync();
 
                     using var command = new OracleCommand(SanitizeQuery(query), connection);
@@ -110,6 +110,7 @@ namespace OracleApi.Services
         {
             return await RetryOnNetworkErrorAsync(async () =>
             {
+
                 using var connection = new OracleConnection(_connectionString);
                 await connection.OpenAsync();
 
