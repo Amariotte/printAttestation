@@ -16,7 +16,8 @@ public enum STATUT_SMS
 public enum TYPE_USER
 {
     Administrateur = 1,
-    Utilisateur = 2
+    Responsable_site = 2,
+    Utilisateur = 3
 }
 
 

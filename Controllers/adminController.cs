@@ -9,6 +9,7 @@ using ask.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ask.Controllers
 {
@@ -18,16 +19,27 @@ namespace ask.Controllers
         private readonly askContext _dbContext;
         private readonly ILogger<adminController> _logger;
         private readonly ServiceMessagerie _serviceMessagerie;
+        private readonly ParamAppSettings _param_app_settings;
 
-        public adminController(askContext dbContext, ILogger<adminController> logger, ServiceMessagerie serviceMessagerie)
+
+        public adminController(askContext dbContext, ILogger<adminController> logger, ServiceMessagerie serviceMessagerie,IOptions<ParamAppSettings> param_app_settings)
         {
             _dbContext = dbContext;
             _logger = logger;
             _serviceMessagerie = serviceMessagerie;
+            _param_app_settings = param_app_settings.Value;
+
+        }
+
+        [NonAction]
+        public t_user? GetInfoUser()
+        {
+            if (HttpContext.Items.ContainsKey("User"))
+                return (t_user)HttpContext.Items["User"];
+            return null;
         }
 
 
-    
         #region ========================= MODELES =========================
 
         [Authorize]
@@ -204,18 +216,47 @@ namespace ask.Controllers
             {
 
 
+                t_user userConnecte = GetInfoUser();
+
+                if (userConnecte == null)
+                {
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(
+                        detail: "Utilisateur non authentifié",
+                        instance: HttpContext.Request.Path));
+                }
+
                 var pagination = new PaginationParams(page, limit);
 
-            
-                var baseQuery = _dbContext.t_user
-                    .Where(e => e.r_is_delete != true);
+                IQueryable<t_user> baseQuery = _dbContext.t_user
+                    .Where(u => !u.r_is_delete);
 
-                // total avant pagination
+                // Filtrage selon le type de l'utilisateur connecté
+                switch (userConnecte.r_type)
+                {
+                    case TYPE_USER.Administrateur:
+                        // Aucun filtre : voit tout
+                        break;
+
+                    case TYPE_USER.Responsable_site:
+                        baseQuery = baseQuery.Where(u => u.r_site_id_fk == userConnecte.r_site_id_fk);
+                        break;
+
+                    case TYPE_USER.Utilisateur:
+                        baseQuery = baseQuery.Where(u => u.r_id == userConnecte.r_id);
+                        break;
+
+                    default:
+                        return StatusCode(403, GeneraleRetour.BuildForbid(
+                        detail: "Utilisateur non authentifié",
+                        instance: HttpContext.Request.Path));
+                }
+
                 var total = await baseQuery.CountAsync();
 
                 var users = await baseQuery
+                    .Include(u => u.r_site)
                     .OrderBy(u => u.r_id)
-                    .Skip((pagination.Skip))
+                    .Skip(pagination.Skip)
                     .Take(pagination.Take)
                     .ToListAsync();
 
@@ -270,7 +311,21 @@ namespace ask.Controllers
                         instance: HttpContext.Request.Path));
 
 
-                string myPass = Tools.Tools.GeneratePassword(12, true, true, true, false);
+                if (_body.siteId != null)
+                {
+                    var site = await _dbContext.t_site
+                        .FirstOrDefaultAsync(s => s.r_id == _body.siteId && s.r_is_delete != true);
+                    if (site == null)
+                    {
+                        return BadRequest(GeneraleRetour.BuildBadRequest(
+                            detail: "Le site spécifié est introuvable.",
+                            instance: HttpContext.Request.Path));
+                    }
+                }
+
+
+
+                string myPass = _param_app_settings.defaultPassword;
 
                 var user = new t_user
                 {
@@ -282,7 +337,8 @@ namespace ask.Controllers
                     r_statut = STATUT_USER.ACTIVE,
                     r_password_change_required = true,
                     r_password = BCrypt.Net.BCrypt.HashPassword(myPass),
-                    r_date_last_statut = DateTime.UtcNow
+                    r_date_last_statut = DateTime.UtcNow,
+                    r_site_id_fk = _body.siteId
                 };
 
 
@@ -290,13 +346,14 @@ namespace ask.Controllers
                 await _dbContext.t_user.AddAsync(user);
                 await _dbContext.SaveChangesAsync();
 
-                await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.REGISTER_SUCCESS, user, myPass);
+            //    await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.REGISTER_SUCCESS, user, myPass);
 
 
                 var response = new InscriptionResponseDto
                 {
                     message = $"Un e-mail a été envoyé avec succès à l'adresse {Tools.Tools.MaskEmail(user.r_email)}. Veuillez consulter votre boîte de réception pour poursuivre la procédure.",
                     emailMasked = Tools.Tools.MaskEmail(user.r_email),
+                    defaultPassword = myPass
                 };
 
                 return Ok(response);
@@ -352,6 +409,7 @@ namespace ask.Controllers
 
 
                 var existingUser = await _dbContext.t_user
+                    .Include(u => u.r_site)
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.r_email == _body.email && u.r_is_delete != true && u.r_id != User.r_id);
 
@@ -364,8 +422,17 @@ namespace ask.Controllers
                         },
                         instance: HttpContext.Request.Path));
 
-
-                string myPass = Tools.Tools.GeneratePassword(includeSpecialChars: false);
+                if (_body.siteId != null)
+                {
+                    var site = await _dbContext.t_site
+                        .FirstOrDefaultAsync(s => s.r_id == _body.siteId && s.r_is_delete != true);
+                    if (site == null)
+                    {
+                        return BadRequest(GeneraleRetour.BuildBadRequest(
+                            detail: "Le site spécifié est introuvable.",
+                            instance: HttpContext.Request.Path));
+                    }
+                }
 
 
                 User.r_nom = _body.nom;
@@ -373,6 +440,7 @@ namespace ask.Controllers
                 User.r_email = _body.email;
                 User.r_telephone = _body.telephone;
                 User.r_type = _body.roleId;
+                User.r_site_id_fk = _body.siteId;
 
                 _dbContext.t_user.Update(User);
                 await _dbContext.SaveChangesAsync();
@@ -400,6 +468,7 @@ namespace ask.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
                 var resQuery = await _dbContext.t_user
+                    .Include(u => u.r_site)
                     .Where(e => e.r_id == id && e.r_is_delete != true)
                     .FirstOrDefaultAsync();
 
@@ -415,7 +484,7 @@ namespace ask.Controllers
                     _dbContext.t_user.Update(resQuery);
                     await _dbContext.SaveChangesAsync();
 
-                    _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, resQuery,null);
+               //     _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, resQuery,null);
 
                 }
 
@@ -441,6 +510,7 @@ namespace ask.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
                 var resQuery = await _dbContext.t_user
+                    .Include(u => u.r_site)
                     .Where(e => e.r_id == id && e.r_is_delete != true)
                     .FirstOrDefaultAsync();
 
@@ -456,11 +526,272 @@ namespace ask.Controllers
                     await _dbContext.SaveChangesAsync();
 
 
-                    _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_ACTIVE, resQuery, null);
+                  //  _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_ACTIVE, resQuery, null);
 
                 }
 
                 return Ok(Tools.Tools.BuildUserToUserResponseDto(resQuery));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+        #endregion
+
+        [Authorize]
+        [HttpPut("users/{id}/reset-password")]
+        public async Task<IActionResult> ReinistialiserLeMotDePasse(int id)
+        {
+            const string _desc_route = "Réinitialiser le mot de passe d'un utilisateur";
+
+            try
+            {
+                
+                var User = await _dbContext.t_user
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.r_id == id && u.r_is_delete != true);
+
+                if (User == null)
+                {
+                    return NotFound(GeneraleRetour.BuildNotFound(
+                       detail: "L'utilisateur est introuvable",
+                       instance: HttpContext.Request.Path
+                    ));
+                }
+
+                string myPass = _param_app_settings.defaultPassword;
+                User.r_password = BCrypt.Net.BCrypt.HashPassword(myPass);
+                User.r_password_change_required = true;
+
+                _dbContext.t_user.Update(User);
+                await _dbContext.SaveChangesAsync();
+
+
+              //  await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.RESET_PASSWORD, User, myPass);
+
+                var response = new InscriptionResponseDto
+                {
+                    message = $"Un e-mail a été envoyé avec succès à l'adresse {Tools.Tools.MaskEmail(User.r_email)}. Veuillez consulter votre boîte de réception pour poursuivre la procédure.",
+                    emailMasked = Tools.Tools.MaskEmail(User.r_email),
+                    defaultPassword = myPass
+                };
+
+                return Ok(response);
+
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+
+        #region ========================= SITES =========================
+        [Authorize]
+        [HttpGet("sites")]
+        public async Task<IActionResult> GetSites([FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            const string _desc_route = "Liste des sites";
+
+            try
+            {
+
+
+                var pagination = new PaginationParams(page, limit);
+
+
+                var baseQuery = _dbContext.t_site
+                    .Where(e => e.r_is_delete != true);
+
+                // total avant pagination
+                var total = await baseQuery.CountAsync();
+
+                var sites = await baseQuery
+                    .OrderBy(u => u.r_id)
+                    .Skip((pagination.Skip))
+                    .Take(pagination.Take)
+                    .ToListAsync();
+
+             
+                var siteDto = sites.Select(m => Tools.Tools.BuildSiteToSiteResponseDto(m)).ToList();
+
+                return Ok(PaginatedResponse<SiteResponseDto>.Create(siteDto, total, page, limit));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+        [Authorize]
+        [HttpPost("sites")]
+        public async Task<IActionResult> CréerUnSite([FromBody] SiteDto _body)
+        {
+            const string _desc_route = "Créer un site";
+
+            try
+            {
+                var validator = new SiteDtoValidator();
+                var results = validator.Validate(_body);
+
+                if (!results.IsValid)
+                {
+                    var invalidParams = results.Errors.Select(error => new InvalidParam
+                    {
+                        name = error.PropertyName,
+                        reason = error.ErrorMessage
+                    }).ToList();
+
+                    return BadRequest(GeneraleRetour.BuildBadRequest(
+                        detail: "Les données ne sont pas conformes",
+                        instance: HttpContext.Request.Path,
+                        invalidParams: invalidParams));
+                }
+
+                var existingSite = await _dbContext.t_site
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.r_code == _body.code && u.r_is_delete != true);
+
+                if (existingSite != null)
+                    return Conflict(GeneraleRetour.BuildProblemResponse(
+                        new GeneraleRetour
+                        {
+                            status = 409,
+                            detail = "Un site existe déjà avec ce code. Veuillez utiliser un autre code."
+                        },
+                        instance: HttpContext.Request.Path));
+
+
+                var site = new t_site
+                {
+                    r_nom = _body.nom,
+                    r_code = _body.code,
+                };
+
+
+                await _dbContext.t_site.AddAsync(site);
+                await _dbContext.SaveChangesAsync();
+
+
+                return Ok(Tools.Tools.BuildSiteToSiteResponseDto(site));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+
+        [Authorize]
+        [HttpPut("sites/{id}")]
+        public async Task<IActionResult> ModifierUnSite(int id, [FromBody] SiteDto _body)
+        {
+            const string _desc_route = "Modifier un site";
+
+            try
+            {
+                var validator = new SiteDtoValidator();
+                var results = validator.Validate(_body);
+
+                if (!results.IsValid)
+                {
+                    var invalidParams = results.Errors.Select(error => new InvalidParam
+                    {
+                        name = error.PropertyName,
+                        reason = error.ErrorMessage
+                    }).ToList();
+
+                    return BadRequest(GeneraleRetour.BuildBadRequest(
+                        detail: "Les données ne sont pas conformes",
+                        instance: HttpContext.Request.Path,
+                        invalidParams: invalidParams));
+                }
+
+
+                var site = await _dbContext.t_site
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.r_id == id && s.r_is_delete != true);
+
+
+                if (site == null)
+                {
+                    return NotFound(GeneraleRetour.BuildNotFound(
+                       detail: "Le site est introuvable",
+                       instance: HttpContext.Request.Path
+                    ));
+                }
+
+
+
+                var existingSite = await _dbContext.t_site
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.r_code == _body.code && s.r_is_delete != true && s.r_id != site.r_id);
+
+                if (existingSite != null)
+                    return Conflict(GeneraleRetour.BuildProblemResponse(
+                        new GeneraleRetour
+                        {
+                            status = 409,
+                            detail = "Un site existe déjà avec ce code. Veuillez utiliser un autre code."
+                        },
+                        instance: HttpContext.Request.Path));
+
+
+                string myPass = Tools.Tools.GeneratePassword(includeSpecialChars: false);
+
+
+                site.r_nom = _body.nom;
+                site.r_code = _body.code;
+
+                _dbContext.t_site.Update(site);
+                await _dbContext.SaveChangesAsync();
+
+                return Ok(Tools.Tools.BuildSiteToSiteResponseDto(site));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+        [Authorize]
+        [HttpDelete("sites/{id}")]
+        public async Task<IActionResult> SupprimerUnSite(int id)
+        {
+            const string _desc_route = "Supprimer un site";
+
+            try
+            {
+                if (id <= 0)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant du site est manquant", instance: HttpContext.Request.Path));
+
+                var resQuery = await _dbContext.t_site
+                    .Where(e => e.r_id == id && e.r_is_delete != true)
+                    .FirstOrDefaultAsync();
+
+                if (resQuery == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le site n'existe pas", instance: HttpContext.Request.Path));
+
+                    resQuery.r_is_delete = true;
+                    _dbContext.t_site.Update(resQuery);
+                    await _dbContext.SaveChangesAsync();
+
+               
+                return Ok(Tools.Tools.BuildSiteToSiteResponseDto(resQuery));
             }
             catch (Exception ex)
             {

@@ -14,6 +14,8 @@ namespace ask.Dtos.Response.auth
         public string role { get; set; }
         public TYPE_USER roleId { get; set; }
         public Boolean actif { get; set; }
+
+        public SiteResponseDto? site { get; set; }
      
 }
 }

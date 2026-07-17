@@ -50,17 +50,20 @@ namespace ask.Model
     
 
         public bool r_password_change_required { get; set; } = true;
-      
+
 
         /// <summary>
-        /// Email vérifié
-        /// </summary>
-  
+        /// Statut du compte utilisateur
         /// </summary>
         public STATUT_USER r_statut { get; set; } = STATUT_USER.ACTIVE;
-        public DateTime? r_date_last_statut { get; set; } 
+        public DateTime? r_date_last_statut { get; set; }
 
         public TYPE_USER r_type { get; set; } = TYPE_USER.Utilisateur;
+
+
+        public int? r_site_id_fk { get; set; }
+
+        public t_site? r_site { get; set; }
 
         // Relations de navigation
         public ICollection<t_refresh_token>? r_refresh_tokens { get; set; }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ask.ContextDb;
 
@@ -11,9 +12,11 @@ using ask.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260717083137_t_sites")]
+    partial class t_sites
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -389,11 +392,6 @@ namespace print_attestation.Migrations
 
                     b.HasKey("r_id");
 
-                    b.HasIndex(new[] { "r_code" }, "IX_Site_Code")
-                        .IsUnique();
-
-                    b.HasIndex(new[] { "r_nom" }, "IX_Site_Nom");
-
                     b.ToTable("t_site");
                 });
 
@@ -442,9 +440,6 @@ namespace print_attestation.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<int?>("r_site_id_fk")
-                        .HasColumnType("int");
-
                     b.Property<int>("r_statut")
                         .HasColumnType("int");
 
@@ -463,14 +458,55 @@ namespace print_attestation.Migrations
 
                     b.HasKey("r_id");
 
-                    b.HasIndex("r_site_id_fk");
-
                     b.HasIndex(new[] { "r_email" }, "IX_User_Email")
                         .IsUnique();
 
                     b.HasIndex(new[] { "r_telephone" }, "IX_User_Telephone");
 
                     b.ToTable("t_user");
+                });
+
+            modelBuilder.Entity("ask.Model.t_user_sites", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("r_site_id_fk")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_user_id_fk")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_site_id_fk");
+
+                    b.HasIndex("r_user_id_fk", "r_site_id_fk")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserSite_UserId_SiteId");
+
+                    b.ToTable("t_user_sites");
                 });
 
             modelBuilder.Entity("ask.Model.t_refresh_token", b =>
@@ -495,19 +531,28 @@ namespace print_attestation.Migrations
                     b.Navigation("r_userTab");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user", b =>
+            modelBuilder.Entity("ask.Model.t_user_sites", b =>
                 {
                     b.HasOne("ask.Model.t_site", "r_site")
-                        .WithMany("r_users")
+                        .WithMany("r_user_sites")
                         .HasForeignKey("r_site_id_fk")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ask.Model.t_user", "r_user")
+                        .WithMany("r_user_sites")
+                        .HasForeignKey("r_user_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("r_site");
+
+                    b.Navigation("r_user");
                 });
 
             modelBuilder.Entity("ask.Model.t_site", b =>
                 {
-                    b.Navigation("r_users");
+                    b.Navigation("r_user_sites");
                 });
 
             modelBuilder.Entity("ask.Model.t_user", b =>
@@ -515,6 +560,8 @@ namespace print_attestation.Migrations
                     b.Navigation("r_refresh_tokens");
 
                     b.Navigation("r_sessions");
+
+                    b.Navigation("r_user_sites");
                 });
 #pragma warning restore 612, 618
         }

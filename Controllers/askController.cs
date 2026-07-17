@@ -1,14 +1,15 @@
-﻿using System.Net;
+﻿using System.IO.Compression;
+using System.Net;
 using ask.ContextDb;
 using ask.Dtos.General;
 using ask.Dtos.Response;
+using ask.Model;
 using ask.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
-using System.IO.Compression;
-using System.Net.Http;
 using OracleApi.Services;
 
 namespace ask.Controllers
@@ -559,6 +560,63 @@ WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
                 ms.Position = 0;
                 var fileNameZip = $"Attestations_{DateTime.UtcNow:yyyyMMddHHmmss}.zip";
                 return File(ms.ToArray(), "application/zip", fileNameZip);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+
+        [NonAction]
+        [HttpGet("sites")]
+        public async Task<IActionResult> ChargerLesSites()
+        {
+            string _desc_route = "Charger les sites";
+
+            try
+            {
+
+                string _sql = @" SELECT CODEINTE, RAISOCIN FROM INTERMEDIAIRE";
+
+                var rows = await _oracleService.ExecuteQueryAsync(_sql);
+
+                if (!rows.Any())
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
+
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    var row = rows[i];
+                    if (row.ContainsKey("RAISOCIN") && row["RAISOCIN"] != null)
+                    {
+
+                        string codeInt = row["CODEINTE"]?.ToString();
+                        var existingSite = await _dbContext.t_site.FirstOrDefaultAsync(s => s.r_code == codeInt);
+                        if (existingSite != null)
+                        {
+                            existingSite.r_nom = row["RAISOCIN"]?.ToString();
+                            _dbContext.Update(existingSite);
+                            continue;
+                        }
+                        else
+                        {
+                            t_site s = new t_site
+                            {
+                                r_code = row["CODEINTE"]?.ToString(),
+                                r_nom = row["RAISOCIN"]?.ToString()
+                            };
+
+                            _dbContext.Add(s);
+                        }
+                       
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                return Ok("Opération terminée avec succès");
             }
             catch (Exception ex)
             {

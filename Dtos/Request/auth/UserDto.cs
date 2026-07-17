@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using ask.Model;
+using FluentValidation;
 
 namespace ask.Dtos.Request.auth
 {
@@ -10,6 +11,7 @@ namespace ask.Dtos.Request.auth
         public string? telephone { get; set; }
 
         public TYPE_USER roleId { get; set; } = TYPE_USER.Utilisateur;
+        public int? siteId { get; set; }
     }
 
     public class UserDtoValidator : AbstractValidator<UserDto>
@@ -31,4 +33,10 @@ namespace ask.Dtos.Request.auth
 
         }
     }
+
+
+ 
+
+  
+    
 }

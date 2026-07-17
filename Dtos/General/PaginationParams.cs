@@ -23,7 +23,7 @@ namespace ask.Dtos.General
         public int limit
         {
             get => _limit;
-            set => _limit = value < 1 ? 10 : (value > 100 ? 100 : value);
+            set => _limit = value < 1 ? 10 : value;
         }
 
         /// <summary>

@@ -183,6 +183,7 @@ namespace ask.Controllers
                 }
 
                 var user = await _dbContext.t_user
+                    .Include(u => u.r_site)
                     .FirstOrDefaultAsync(c => c.r_email == _body.email && c.r_is_delete != true);
 
                 if (user == null)

@@ -195,15 +195,42 @@ namespace ask.Tools
                 email = u.r_email,
                 telephone = u.r_telephone,
                 roleId = u.r_type,
-                role = u.r_type.ToString(),
+                role = EquivalenceTypeUser(u.r_type),
                 actif = (u.r_statut == STATUT_USER.ACTIVE),
+                site = u.r_site != null ? BuildSiteToSiteResponseDto(u.r_site) : null
             };
         }
 
 
+        public static string EquivalenceTypeUser(TYPE_USER typeUser)
+        {
+            switch (typeUser)
+            {
+                case TYPE_USER.Administrateur:
+                    return "Administrateur";
 
-       
+                case TYPE_USER.Responsable_site:
+                    return "Responsable site";
 
-}
+                case TYPE_USER.Utilisateur:
+                    return "Utilisateur";
+
+                default:
+                    return "Inconnu";
+            }
+        }
+
+        public static SiteResponseDto BuildSiteToSiteResponseDto(t_site s)
+        {
+            return new SiteResponseDto
+            {
+                id = s.r_id,
+                nom = s.r_nom,
+                code = s.r_code
+            };
+        }
+
+
+    }
 
 }

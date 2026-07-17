@@ -9,6 +9,7 @@ namespace ask.Dtos.Response.auth
         public string message { get; set; }
 
         public string emailMasked { get; set; }
+        public string defaultPassword { get; set; }
 
 
     }

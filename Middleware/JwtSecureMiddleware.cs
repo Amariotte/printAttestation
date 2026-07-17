@@ -125,6 +125,7 @@ public class JwtSecureMiddleware
             await using var db = await dbFactory.CreateDbContextAsync(context.RequestAborted);
 
             var user = await db.t_user
+                 .Include(u => u.r_site)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.r_id == userId && u.r_is_delete != true, context.RequestAborted);
 

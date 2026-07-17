@@ -19,7 +19,6 @@ namespace ask.Services
         private readonly ParamMessage _param_data;
         private readonly ParamAppSettings _param_app_settings;
         private readonly ILogger<ServiceMessagerie> _logger;
-        private static readonly HttpClient _client = new HttpClient();
         private readonly IHistoSmsRepo _HistoSmsRepo;
         private readonly IHistoEmailRepo _HistoMailRepo;
         private readonly ImodeleRepo _modeleRepo;

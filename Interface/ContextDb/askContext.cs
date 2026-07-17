@@ -19,6 +19,7 @@ namespace ask.ContextDb
         public DbSet<t_modele> t_modele { get; set; } = null!;
         public DbSet<t_refresh_token> t_refresh_token { get; set; } = null!;
         public DbSet<t_session> t_session { get; set; } = null!;
+        public DbSet<t_site> t_site { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -37,7 +38,10 @@ namespace ask.ContextDb
                       .HasForeignKey(s => s.r_user_id_fk)
                       .OnDelete(DeleteBehavior.Cascade);
 
-      
+                entity.HasOne(u => u.r_site)
+                      .WithMany(s => s.r_users)
+                      .HasForeignKey(u => u.r_site_id_fk)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Configuration t_refresh_token
@@ -60,15 +64,15 @@ namespace ask.ContextDb
                       .HasDatabaseName("IX_Session_UserId_IsActive_LoginAt");
             });
 
-       
+         
 
-           
             // Query filters globaux pour soft delete
             modelBuilder.Entity<t_user>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_refresh_token>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_session>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_histo_sms>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_histo_email>().HasQueryFilter(e => !e.r_is_delete);
+            modelBuilder.Entity<t_site>().HasQueryFilter(e => !e.r_is_delete);
         }
 
         /// <summary>

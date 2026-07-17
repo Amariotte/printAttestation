@@ -19,6 +19,7 @@
         public string? nomApplication { get; set; }
         public string? urlConnexion { get; set; }
         public string? nomSociete { get; set; }
+        public string? defaultPassword { get; set; }
 
     }
     public class ParamMessageSMS
