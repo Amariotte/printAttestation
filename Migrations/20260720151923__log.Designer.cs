@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ask.ContextDb;
 
@@ -11,9 +12,11 @@ using ask.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260720151923__log")]
+    partial class _log
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -411,7 +414,7 @@ namespace print_attestation.Migrations
                     b.Property<int?>("r_created_by")
                         .HasColumnType("int");
 
-                    b.Property<string>("r_description")
+                    b.Property<string>("r_description_action")
                         .HasColumnType("longtext");
 
                     b.Property<string>("r_details_json")
@@ -422,6 +425,14 @@ namespace print_attestation.Migrations
 
                     b.Property<string>("r_endpoint")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("r_entite")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("r_entite_id")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("r_http_method")
                         .HasMaxLength(10)
@@ -470,6 +481,8 @@ namespace print_attestation.Migrations
 
                     b.HasIndex("r_user_id");
 
+                    b.HasIndex("r_entite", "r_entite_id");
+
                     b.HasIndex("r_user_id", "r_created_at");
 
                     b.ToTable("t_trace_action");
@@ -506,6 +519,10 @@ namespace print_attestation.Migrations
                     b.Property<bool>("r_is_delete")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("r_pays")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<string>("r_raison_echec")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
@@ -537,6 +554,10 @@ namespace print_attestation.Migrations
 
                     b.Property<int?>("r_user_id")
                         .HasColumnType("int");
+
+                    b.Property<string>("r_ville")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.HasKey("r_id");
 

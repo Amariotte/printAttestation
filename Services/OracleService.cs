@@ -59,6 +59,7 @@ namespace OracleApi.Services
                     await connection.OpenAsync();
 
                     using var command = new OracleCommand(SanitizeQuery(query), connection);
+                    command.BindByName = true; // Lie les paramètres par nom plutôt que par position
                     command.CommandTimeout = CommandTimeoutSeconds;
                     command.InitialLONGFetchSize = -1;
                     command.FetchSize = 1024 * 1024;

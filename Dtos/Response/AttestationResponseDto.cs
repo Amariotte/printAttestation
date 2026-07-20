@@ -18,5 +18,6 @@ namespace ask.Dtos.Response
         public string? urlPdf { get; set; }
         public string? urlQr { get; set; }
         public string? urlImage { get; set; }
+        public string? statut { get; set; }
     }
 }

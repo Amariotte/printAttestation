@@ -1,8 +1,11 @@
-﻿using System.IO.Compression;
+﻿using System.Data;
+using System.IO.Compression;
 using System.Net;
 using ask.ContextDb;
 using ask.Dtos.General;
+using ask.Dtos.Request.auth;
 using ask.Dtos.Response;
+using ask.Dtos.Response.auth;
 using ask.Model;
 using ask.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -27,10 +30,11 @@ namespace ask.Controllers
         private readonly ParamMessage _paramdata;
         private readonly ILogger<askController> _logger;
         private readonly IOracleService _oracleService;
+        private readonly TraceService _traceService;
 
-
+     
         //private readonly ILogger _logger;
-        public askController(askContext askContext, ServiceAsaci ServiceAsaci, IOptions<ParamMessage> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<askController> logger, IOracleService oracleService)
+        public askController(askContext askContext, TraceService traceService, ServiceAsaci ServiceAsaci, IOptions<ParamMessage> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<askController> logger, IOracleService oracleService)
         {
 
             _configuration = configuration;
@@ -40,10 +44,12 @@ namespace ask.Controllers
             _logger = logger;
             _dbContext = askContext;
             _oracleService = oracleService;
+            _traceService = traceService;
+
 
         }
 
-      
+
 
         [NonAction]
         public Model.t_user GetInfoUser()
@@ -109,120 +115,26 @@ namespace ask.Controllers
             return filePath;
         }
 
-
-        [HttpGet("attestationsX/{cleRechercheEncode}")]
-        public async Task<IActionResult> GetAttestation(string cleRechercheEncode,[FromQuery] int page = 1,[FromQuery] int limit = 10)
-        {
-            string _desc_route = "Obtenir une attestation";
-
-      
-                try
-                {
-
-                var pagination = new PaginationParams(page, limit);
-
-                cleRechercheEncode = WebUtility.UrlDecode(cleRechercheEncode);
-
-                if (string.IsNullOrWhiteSpace(cleRechercheEncode))
-                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
-
-                if (!Tools.Tools.IsValidSearchKey(cleRechercheEncode))
-                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format de recherche invalide", instance: HttpContext.Request.Path));
-
-                int offset = (page - 1) * pagination.limit;
-
-                // Requête pour le total
-                string countSql = @"
-            SELECT COUNT(*) AS TOTAL
-            FROM attestation_risque
-            WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
-              AND (NUMEIMMA = :cleRecherche OR 
-                   NUMECHAS = :cleRecherche OR 
-                   NUMATTDI = :cleRecherche OR 
-                   TO_CHAR(NUMEPOLI) = :cleRecherche OR 
-                   (TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI)) = :cleRecherche)";
-
-                var countParams = new Dictionary<string, object> { { ":cleRecherche", cleRechercheEncode } };
-                var countRows = await _oracleService.ExecuteQueryAsync(countSql, countParams);
-                int total = 0;
-                if (countRows.Any() && countRows[0].ContainsKey("TOTAL"))
-                    int.TryParse(countRows[0]["TOTAL"]?.ToString(), out total);
-
-                if (total == 0)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
-
-
-
-                // Pagination compatible Oracle 11g using ROWNUM
-                string pageSql = @"
-                            SELECT * FROM (
-                                          SELECT t.*, ROWNUM rn
-                                                  FROM (
-    SELECT TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI) AS NUMEPOLI, DATEFFAT, DATECHAT, MARQVEHI, TYPEVEHI,
-           NUMEIMMA, NUMECHAS, LIBERISQ, NUMATTDI, LIEN_PDF, LIEN__QR, LIEN_IMG, CODEINTE
-    FROM attestation_risque
-    WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
-      AND (NUMEIMMA = :cleRecherche 
-           OR NUMECHAS = :cleRecherche 
-           OR NUMATTDI = :cleRecherche 
-           OR TO_CHAR(NUMEPOLI) = :cleRecherche 
-           OR (TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI)) = :cleRecherche)
-    ORDER BY DATECHAT DESC
-                     ) t
-               WHERE ROWNUM <= :maxRow
-                       )
-             WHERE rn > :offset";
-
-
-                var pageParams = new Dictionary<string, object>
-                {
-                    { ":cleRecherche", cleRechercheEncode },
-                    { ":offset", offset },
-                    { ":maxRow", (offset + pagination.limit) }
-                };
-
-
-                var rows = await _oracleService.ExecuteQueryAsync(pageSql, pageParams);
-
-
-                var items = rows.Select(row => new Dtos.Response.AttestationResponseDto
-                {
-                    numPolice = row.ContainsKey("NUMEPOLI") ? row["NUMEPOLI"]?.ToString() : null,
-                    dateEffet = row.ContainsKey("DATEFFAT") ? (row["DATEFFAT"] as DateTime?) : null,
-                    dateEcheance = row.ContainsKey("DATECHAT") ? (row["DATECHAT"] as DateTime?) : null,
-                    marqueVehicule = row.ContainsKey("MARQVEHI") ? row["MARQVEHI"]?.ToString() : null,
-                    typeVehicule = row.ContainsKey("TYPEVEHI") ? row["TYPEVEHI"]?.ToString() : null,
-                    numImmatriculation = row.ContainsKey("NUMEIMMA") ? row["NUMEIMMA"]?.ToString() : null,
-                    numChassis = row.ContainsKey("NUMECHAS") ? row["NUMECHAS"]?.ToString() : null,
-                    nomAssure = row.ContainsKey("LIBERISQ") ? row["LIBERISQ"]?.ToString() : null,
-                    numAttestation = row.ContainsKey("NUMATTDI") ? row["NUMATTDI"]?.ToString() : null,
-                    urlPdf = row.ContainsKey("LIEN_PDF") ? row["LIEN_PDF"]?.ToString() : null,
-                    urlQr = row.ContainsKey("LIEN__QR") ? row["LIEN__QR"]?.ToString() : null,
-                    urlImage = row.ContainsKey("LIEN_IMG") ? row["LIEN_IMG"]?.ToString() : null,
-                }).ToList();
-
-              
-
-
-                return Ok(PaginatedResponse<AttestationResponseDto>.Create(items, total, page, pagination.limit));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
         [Authorize]
         [HttpGet("attestations/{cleRechercheEncode}")]
-        public async Task<IActionResult> GetAttestation(string cleRechercheEncode)
+        public async Task<IActionResult> GetAttestation(string cleRechercheEncode, [FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string status = "")
         {
             string _desc_route = "Obtenir une attestation";
 
             try
             {
 
+                t_user dataUser = GetInfoUser();
+
+
                 string cleRecherche =  WebUtility.UrlDecode(cleRechercheEncode);
+
+
+                await _traceService.TraceActionAsync(
+                  TYPE_ACTION.RECHERCHE_ATTESTATION,
+                  userId: dataUser.r_id,
+                  userEmail: dataUser.r_email,
+                  description: $"Recherche d'attestation : recherche = {cleRecherche}");
 
                 if (string.IsNullOrWhiteSpace(cleRecherche))
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
@@ -231,26 +143,90 @@ namespace ask.Controllers
                 if (!Tools.Tools.IsValidSearchKey(cleRecherche))
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format de recherche invalide", instance: HttpContext.Request.Path));
 
-                // Requête SQL sécurisée avec paramètre
-                string _sql = @"SELECT TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) AS NUMEPOLI,a.DATEFFAT,a.DATECHAT,a.MARQVEHI,a.TYPEVEHI,a.NUMEIMMA,a.NUMECHAS,a.PROPATTE,a.NUMATTDI,a.LIEN_PDF,a.LIEN__QR,a.LIEN_IMG,a.CODEINTE,i.RAISOCIN,a.CREE__LE
-                                       FROM attestation_risque a LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
-                                       WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
-                                         AND ( a.NUMEIMMA = :cleRecherche OR a.NUMECHAS = :cleRecherche OR a.NUMATTDI = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) = :cleRecherche)
-                                         AND TRUNC(a.DATECHAT) >= TRUNC(SYSDATE)
-                                         ORDER BY a.CREE__LE DESC,a.DATECHAT DESC,a.DATEFFAT DESC;";
 
-                // Utilisation du service Oracle avec paramètres
-                var parameters = new Dictionary<string, object>
+                var pagination = new PaginationParams(page, limit);
+
+
+                string statutSql = "";
+
+                if (status == "ACTIVE")
+                {
+                    statutSql = " AND TRUNC(a.DATECHAT) >= TRUNC(SYSDATE)";
+                }
+                else if (status == "EXPIREE")
+                {
+                    statutSql = " AND TRUNC(a.DATECHAT) < TRUNC(SYSDATE)";
+                }
+
+
+                // Requête SQL pour compter le nombre total d'attestations correspondant à la recherche
+                string _sqlCount = @"SELECT count(*) AS nb
+                                        FROM attestation_risque a LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
+                                        WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
+                                          AND ( a.NUMEIMMA = :cleRecherche OR a.NUMECHAS = :cleRecherche OR a.NUMATTDI = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) = :cleRecherche)
+                                           {statutSql}";
+                _sqlCount = _sqlCount.Replace("{statutSql}", statutSql);
+
+                // Requête SQL sécurisée avec pagination Oracle (ROWNUM)
+                int offset = (page - 1) * limit;
+                string _sql = @"SELECT * FROM (
+                                    SELECT t.*, ROWNUM rn
+                                    FROM (
+                                        SELECT TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) AS NUMEPOLI,
+                                               a.DATEFFAT,a.DATECHAT,a.MARQVEHI,a.TYPEVEHI,a.NUMEIMMA,a.NUMECHAS,
+                                               a.PROPATTE,a.NUMATTDI,a.LIEN_PDF,a.LIEN__QR,a.LIEN_IMG,a.CODEINTE,
+                                               i.RAISOCIN,a.CREE__LE,
+                                         CASE WHEN TRUNC(a.DATECHAT) >= TRUNC(SYSDATE) THEN 'ACTIVE' ELSE 'EXPIREE' END AS STATUT
+                                        FROM attestation_risque a 
+                                        LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
+                                        WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
+                                          AND (a.NUMEIMMA = :cleRecherche OR a.NUMECHAS = :cleRecherche OR 
+                                               a.NUMATTDI = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR 
+                                               TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) = :cleRecherche)
+                                           {statutSql}
+                                        ORDER BY a.CREE__LE DESC, a.DATECHAT DESC, a.DATEFFAT DESC
+                                    ) t
+                                    WHERE ROWNUM <= :maxRow
+                                )
+                                WHERE rn > :offset";
+
+                _sql = _sql.Replace("{statutSql}", statutSql);
+
+                // Paramètres pour la requête COUNT
+                var countParameters = new Dictionary<string, object>
                 {
                     { ":cleRecherche", cleRecherche }
                 };
 
-                var rows = await _oracleService.ExecuteQueryAsync(_sql, parameters);
+                // Paramètres pour la requête paginée
+                var parameters = new Dictionary<string, object>
+                {
+                    { ":cleRecherche", cleRecherche },
+                    { ":offset", offset },
+                    { ":maxRow", offset + limit }
+                };
 
-                if (!rows.Any())
+
+
+                var rowsCount = await _oracleService.ExecuteQueryAsync(_sqlCount, countParameters);
+                if (!rowsCount.Any())
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
 
-                // Mapper les résultats
+                // Total avant pagination - gérer différents types numériques retournés par Oracle
+                var totalValue = rowsCount.FirstOrDefault()?["NB"];
+                int total = 0;
+                if (totalValue != null)
+                {
+                    total = Convert.ToInt32(totalValue);
+                }
+
+                if (total == 0)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
+
+
+                var rows = await _oracleService.ExecuteQueryAsync(_sql, parameters);
+
+                // Mapper les résultats (pagination déjà effectuée dans la requête SQL)
                 var results = rows.Select(row => new Dtos.Response.AttestationResponseDto
                 {
                     numPolice = row.ContainsKey("NUMEPOLI") ? row["NUMEPOLI"]?.ToString() : null,
@@ -267,11 +243,13 @@ namespace ask.Controllers
                     urlQr = row.ContainsKey("LIEN__QR") ? row["LIEN__QR"]?.ToString() : null,
                     urlImage = row.ContainsKey("LIEN_IMG") ? row["LIEN_IMG"]?.ToString() : null,
                     nomIntermediaire = row.ContainsKey("RAISOCIN") ? row["RAISOCIN"].ToString() : null,
+                    statut = row.ContainsKey("STATUT") ? row["STATUT"].ToString() : null,
 
                 }).ToList();
 
 
-                return Ok(results);
+           
+                return Ok(PaginatedResponse<AttestationResponseDto>.Create(results, total, page, limit));
             }
             catch (Exception ex)
             {
@@ -280,11 +258,11 @@ namespace ask.Controllers
             }
         }
 
- 
+     
 
         [Authorize]
-        [HttpPost("attestations/cedeao")]
-        public async Task<IActionResult> GetAttestationMultipleCedeao([FromBody] List<string> numAttestations)
+        [HttpPost("attestations/cedeao/zip")]
+        public async Task<IActionResult> GetAttestationCedeaoZip([FromBody] List<string> numAttestations)
         {
             string _desc_route = "Impression des attestations Cedeao (multiple)";
             // no-op patch: ensure context consistency before adding new endpoint
@@ -294,8 +272,17 @@ namespace ask.Controllers
                 if (numAttestations == null || !numAttestations.Any())
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
 
+
+                t_user dataUser = GetInfoUser();
+
                 var successes = new List<(string Num, byte[] Bytes)>();
                 var errors = new List<string>();
+
+                await _traceService.TraceActionAsync(
+                 TYPE_ACTION.EXPORT_CEDEAO_ZIP,
+                 userId: dataUser.r_id,
+                 userEmail: dataUser.r_email,
+                 description: $"Impression de {numAttestations.Count} attestation(s) Cedeao ");
 
                 foreach (var num in numAttestations)
                 {
@@ -386,6 +373,15 @@ namespace ask.Controllers
                 if (string.IsNullOrWhiteSpace(numAttestation))
                     return BadRequest(GeneraleRetour.BuildNotFound(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
 
+                t_user dataUser = GetInfoUser();
+
+
+                await _traceService.TraceActionAsync(
+               TYPE_ACTION.TELECHARGEMENT_CEDEAO,
+               userId: dataUser.r_id,
+               userEmail: dataUser.r_email,
+               description: $"Impression de l'attestation Cedeao : {numAttestation}");
+
                 var result = await _ServiceAsaci.printCedeao(numAttestation);
                 if (result.status != 200)
                 {
@@ -414,7 +410,7 @@ namespace ask.Controllers
 
 
         [Authorize]
-        [HttpPost("attestations/zip")]
+        [HttpPost("attestations/atd/zip")]
         public async Task<IActionResult> GetAttestationsZip([FromBody] List<string> numAttestations)
         {
             string _desc_route = "Télécharger les attestations (zip)";
@@ -426,6 +422,14 @@ namespace ask.Controllers
 
                 var successes = new List<(string Num, byte[] Bytes, string FileName)>();
                 var errors = new List<string>();
+
+                t_user dataUser = GetInfoUser();
+
+                await _traceService.TraceActionAsync(
+               TYPE_ACTION.EXPORT_ATD_ZIP,
+               userId: dataUser.r_id,
+               userEmail: dataUser.r_email,
+               description: $"Téléchargement des attestations : {numAttestations.Count} attestation(s)");
 
                 using var httpClient = new HttpClient();
 

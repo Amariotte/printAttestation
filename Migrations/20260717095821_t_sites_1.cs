@@ -12,8 +12,7 @@ namespace print_attestation.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "t_user_sites");
+           
 
             migrationBuilder.AddColumn<int>(
                 name: "r_site_id_fk",

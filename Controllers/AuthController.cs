@@ -24,6 +24,7 @@ namespace ask.Controllers
         private readonly ServiceMessagerie _serviceMessagerie;
         private readonly ILogger<AuthController> _logger;
         private readonly IConfiguration _configuration;
+        private readonly TraceService _traceService;
 
         public AuthController(
             askContext dbContext,
@@ -32,13 +33,15 @@ namespace ask.Controllers
             IUserRepo userRepo,
             Microsoft.Extensions.Options.IOptions<ParamMessage> paramdata,
             ILogger<AuthController> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            TraceService traceService)
         {
             _dbContext = dbContext;
             _jwtService = jwtService;
             _serviceMessagerie = serviceMessagerie;
             _logger = logger;
             _configuration = configuration;
+            _traceService = traceService;
         }
 
 
@@ -187,19 +190,48 @@ namespace ask.Controllers
                     .FirstOrDefaultAsync(c => c.r_email == _body.email && c.r_is_delete != true);
 
                 if (user == null)
+                {
+                    // Tracer tentative de connexion avec email inconnu
+                    await _traceService.TraceConnexionAsync(
+                        TYPE_CONNEXION.CONNEXION_ECHOUEE_COMPTE_INEXISTANT,
+                        succes: false,
+                        email: _body.email,
+                        raisonEchec: "Compte inexistant");
+
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(
                         detail: "Identifiants invalides",
                         instance: HttpContext.Request.Path));
+                }
 
                 if (string.IsNullOrEmpty(user.r_password) || !BCrypt.Net.BCrypt.Verify(_body.password, user.r_password))
+                {
+                    // Tracer tentative avec mot de passe incorrect
+                    await _traceService.TraceConnexionAsync(
+                        TYPE_CONNEXION.CONNEXION_ECHOUEE_MOT_DE_PASSE,
+                        succes: false,
+                        email: user.r_email,
+                        userId: user.r_id,
+                        raisonEchec: "Mot de passe incorrect");
+
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(
                         detail: "Identifiants invalides",
                         instance: HttpContext.Request.Path));
+                }
 
                 if (user.r_is_active != true)
+                {
+                    // Tracer tentative avec compte désactivé
+                    await _traceService.TraceConnexionAsync(
+                        TYPE_CONNEXION.CONNEXION_ECHOUEE_COMPTE_DESACTIVE,
+                        succes: false,
+                        email: user.r_email,
+                        userId: user.r_id,
+                        raisonEchec: "Compte désactivé");
+
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(
                         detail: "Le compte n'est pas actif",
                         instance: HttpContext.Request.Path));
+                }
 
        
 
@@ -227,6 +259,21 @@ namespace ask.Controllers
                 };
                 await _dbContext.t_session.AddAsync(session);
                 await _dbContext.SaveChangesAsync();
+
+                // Tracer la connexion réussie
+                await _traceService.TraceConnexionAsync(
+                    TYPE_CONNEXION.CONNEXION_REUSSIE,
+                    succes: true,
+                    email: user.r_email,
+                    userId: user.r_id,
+                    sessionTokenHash: TraceService.HashToken(refreshTokenData.r_token),
+                    tokenExpiresAt: refreshTokenData.r_expires_at);
+
+                // Action de connexion
+                await _traceService.TraceActionAsync(
+                    TYPE_ACTION.CONNEXION_REUSSIE,
+                    userId: user.r_id,
+                    userEmail: user.r_email);
 
                 int expirySeconds = int.TryParse(_configuration["JwtSettings:ExpiryInSecond"], out var sec) ? sec : 3600;
                 int refreshExpiry = (int)(refreshTokenData.r_expires_at - DateTime.UtcNow).TotalSeconds;
@@ -515,6 +562,19 @@ namespace ask.Controllers
                 }
 
                 await _dbContext.SaveChangesAsync();
+
+                // Tracer la déconnexion
+                await _traceService.TraceConnexionAsync(
+                    TYPE_CONNEXION.DECONNEXION_NORMALE,
+                    succes: true,
+                    email: dataUser.r_email,
+                    userId: dataUser.r_id,
+                    sessionTokenHash: refreshToken != null ? TraceService.HashToken(refreshToken.r_token) : null);
+
+                await _traceService.TraceActionAsync(
+                    TYPE_ACTION.DECONNEXION,
+                    userId: dataUser.r_id,
+                    userEmail: dataUser.r_email);
 
                 return Ok(new { message = "Déconnexion effectuée avec succès." });
             }

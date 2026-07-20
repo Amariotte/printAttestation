@@ -119,7 +119,7 @@ namespace ask
 
             builder.Services.AddScoped<IHistoSmsRepo, HistoSmsRepo>();
             builder.Services.AddScoped<IHistoEmailRepo, HistoEmailRepo>();
-
+            builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<ImodeleRepo, ModeleRepo>();
             builder.Services.AddScoped<ServiceAsaci>();
             builder.Services.AddScoped<ServiceMessagerie>();
@@ -128,7 +128,7 @@ namespace ask
             builder.Services.AddScoped<IRefreshTokenRepo, RefreshTokenRepo>();
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddScoped<IOracleService, OracleService>();
-
+            builder.Services.AddScoped<TraceService>();
 
             builder.Services.AddHttpClient();
             

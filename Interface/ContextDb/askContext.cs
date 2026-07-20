@@ -20,6 +20,8 @@ namespace ask.ContextDb
         public DbSet<t_refresh_token> t_refresh_token { get; set; } = null!;
         public DbSet<t_session> t_session { get; set; } = null!;
         public DbSet<t_site> t_site { get; set; } = null!;
+        public DbSet<t_trace_action> t_trace_action { get; set; } = null!;
+        public DbSet<t_trace_connexion> t_trace_connexion { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -73,6 +75,45 @@ namespace ask.ContextDb
             modelBuilder.Entity<t_histo_sms>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_histo_email>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_site>().HasQueryFilter(e => !e.r_is_delete);
+
+            // Configuration des tables de traçabilité
+            modelBuilder.Entity<t_trace_action>(entity =>
+            {
+                // Index pour recherche par utilisateur
+                entity.HasIndex(e => e.r_user_id);
+
+                // Index pour recherche par type d'action
+                entity.HasIndex(e => e.r_type_action);
+
+                // Index pour recherche par date
+                entity.HasIndex(e => e.r_created_at);
+
+                // Index composite pour recherche par utilisateur et date
+                entity.HasIndex(e => new { e.r_user_id, e.r_created_at });
+
+            
+            });
+
+            modelBuilder.Entity<t_trace_connexion>(entity =>
+            {
+                // Index pour recherche par utilisateur
+                entity.HasIndex(e => e.r_user_id);
+
+                // Index pour recherche par email
+                entity.HasIndex(e => e.r_email);
+
+                // Index pour recherche par IP
+                entity.HasIndex(e => e.r_ip_address);
+
+                // Index pour recherche par date
+                entity.HasIndex(e => e.r_created_at);
+
+                // Index composite pour recherche par utilisateur et date
+                entity.HasIndex(e => new { e.r_user_id, e.r_created_at });
+
+                // Index pour recherche échecs
+                entity.HasIndex(e => new { e.r_succes, e.r_created_at });
+            });
         }
 
         /// <summary>
