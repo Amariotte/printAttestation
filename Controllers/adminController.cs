@@ -3,6 +3,7 @@ using ask.ContextDb;
 using ask.Dtos.General;
 using ask.Dtos.Reponses;
 using ask.Dtos.Request.auth;
+using ask.Dtos.Response;
 using ask.Dtos.Response.auth;
 using ask.Model;
 using ask.Services;
@@ -37,6 +38,60 @@ namespace ask.Controllers
             if (HttpContext.Items.ContainsKey("User"))
                 return (t_user)HttpContext.Items["User"];
             return null;
+        }
+
+
+        [Authorize]
+        [HttpGet("audits/actions")]
+        public async Task<IActionResult> GeLog([FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            const string _desc_route = "Liste des logs";
+
+            try
+            {
+
+                var pagination = new PaginationParams(page, limit);
+
+                var baseQuery = _dbContext.t_trace_action
+                 .Where(e => e.r_is_delete != true);
+
+                // total avant pagination
+                var total = await baseQuery.CountAsync();
+
+                var logs = await baseQuery
+                    .Include(u => u.r_user)
+                    .OrderBy(u => u.r_id)
+                    .Skip((pagination.Skip))
+                    .Take(pagination.Take)
+                    .ToListAsync();
+
+        var logsDto = logs.Select(m => new logDto
+                {
+                    id = m.r_id,
+            userId = m.r_user_id,
+            description = m.r_description,
+            date = m.r_created_at,
+            userEmail = m.r_user_email,
+            typeAction = m.r_type_action,
+            detailJson = m.r_details_json,
+             ip = m.r_ip_address,
+            userAgent = m.r_user_agent,
+            httpMethod = m.r_http_method,
+             endpoint = m.r_endpoint,
+            statusCode = m.r_status_code,
+            durationMs = m.r_duration_ms,
+            user = Tools.Tools.BuildUserToUserResponseDto(m.r_user),
+                }).ToList();
+
+
+                return Ok(PaginatedResponse<logDto>.Create(logsDto, total, page, limit));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
         }
 
 

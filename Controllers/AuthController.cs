@@ -273,7 +273,8 @@ namespace ask.Controllers
                 await _traceService.TraceActionAsync(
                     TYPE_ACTION.CONNEXION_REUSSIE,
                     userId: user.r_id,
-                    userEmail: user.r_email);
+                    userEmail: user.r_email,
+                    description : "Connexion réussie email = "+user.r_email);
 
                 int expirySeconds = int.TryParse(_configuration["JwtSettings:ExpiryInSecond"], out var sec) ? sec : 3600;
                 int refreshExpiry = (int)(refreshTokenData.r_expires_at - DateTime.UtcNow).TotalSeconds;
