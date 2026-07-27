@@ -115,7 +115,7 @@ namespace ask.Controllers
 
         [Authorize]
         [HttpGet("attestations/{cleRechercheEncode}")]
-        public async Task<IActionResult> GetAttestation(string cleRechercheEncode, [FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string status = "")
+        public async Task<IActionResult> GetAttestation(string cleRechercheEncode, [FromQuery] int page = 1, [FromQuery] int limit = 10,[FromQuery] string status = "")
         {
             string _desc_route = "Obtenir une attestation";
 
@@ -156,12 +156,11 @@ namespace ask.Controllers
                     statutSql = " AND TRUNC(a.DATECHAT) < TRUNC(SYSDATE)";
                 }
 
-
                 // Requête SQL pour compter le nombre total d'attestations correspondant à la recherche
                 string _sqlCount = @"SELECT count(*) AS nb
                                         FROM attestation_risque a LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
                                         WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
-                                          AND ( a.NUMEIMMA = :cleRecherche OR a.NUMECHAS = :cleRecherche OR a.NUMATTDI = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) = :cleRecherche)
+                                          AND ( TRIM(a.NUMEIMMA) = :cleRecherche OR TRIM(a.NUMECHAS) = :cleRecherche OR TRIM(a.NUMATTDI) = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR TO_CHAR(a.CODEINTE) || '/' || TRIM(TO_CHAR(a.NUMEPOLI)) = :cleRecherche)
                                            {statutSql}";
                 _sqlCount = _sqlCount.Replace("{statutSql}", statutSql);
 
@@ -178,9 +177,9 @@ namespace ask.Controllers
                                         FROM attestation_risque a 
                                         LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
                                         WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
-                                          AND (a.NUMEIMMA = :cleRecherche OR a.NUMECHAS = :cleRecherche OR 
-                                               a.NUMATTDI = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR 
-                                               TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) = :cleRecherche)
+                                          AND (TRIM(a.NUMEIMMA) = :cleRecherche OR TRIM(a.NUMECHAS) = :cleRecherche OR 
+                                               TRIM(a.NUMATTDI) = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR 
+                                               TO_CHAR(a.CODEINTE) || '/' || TRIM(TO_CHAR(a.NUMEPOLI)) = :cleRecherche)
                                            {statutSql}
                                         ORDER BY a.CREE__LE DESC, a.DATECHAT DESC, a.DATEFFAT DESC
                                     ) t
@@ -267,6 +266,13 @@ namespace ask.Controllers
 
             try
             {
+
+                numAttestations = numAttestations
+                   .Where(x => !string.IsNullOrWhiteSpace(x))
+                   .Distinct()
+                   .ToList();
+-
+
                 if (numAttestations == null || !numAttestations.Any())
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
 
@@ -415,6 +421,14 @@ namespace ask.Controllers
 
             try
             {
+
+
+                numAttestations = numAttestations
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct()
+                    .ToList();
+
+
                 if (numAttestations == null || !numAttestations.Any())
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
 
@@ -628,5 +642,264 @@ WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
         }
 
 
+        [Authorize]
+        [HttpPost("attestations/cedeao/zip/sse")]
+        public async Task GetAttestationCedeaoZipSse([FromBody] List<string> numAttestations)
+        {
+            HttpContext.Response.Headers.Append("Content-Type", "text/event-stream");
+            HttpContext.Response.Headers.Append("Cache-Control", "no-cache");
+            HttpContext.Response.Headers.Append("Connection", "keep-alive");
+
+            string _desc_route = "Impression des attestations Cedeao SSE";
+
+
+            numAttestations = numAttestations
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
+
+
+            async Task SendEvent(string type, object data)
+            {
+                var json = JsonConvert.SerializeObject(data);
+
+                await HttpContext.Response.WriteAsync(
+                    $"event: {type}\n" +
+                    $"data: {json}\n\n"
+                );
+
+                await HttpContext.Response.Body.FlushAsync();
+            }
+
+            try
+            {
+                if (numAttestations == null || !numAttestations.Any())
+                {
+                    await SendEvent("error", new
+                    {
+                        message = "Au moins un numéro d'attestation est requis"
+                    });
+
+                    return;
+                }
+
+
+                t_user dataUser = GetInfoUser();
+
+
+                await _traceService.TraceActionAsync(
+                    TYPE_ACTION.EXPORT_CEDEAO_ZIP,
+                    userId: dataUser.r_id,
+                    userEmail: dataUser.r_email,
+                    description: $"Impression de {numAttestations.Count} attestation(s) Cedeao"
+                );
+
+
+                await SendEvent("start", new
+                {
+                    total = numAttestations.Count
+                });
+
+
+                var successes = new List<(string Num, byte[] Bytes)>();
+                var errors = new List<string>();
+
+
+                int index = 0;
+
+
+                foreach (var num in numAttestations)
+                {
+                    index++;
+
+                    await SendEvent("progress", new
+                    {
+                        current = index,
+                        total = numAttestations.Count,
+                        numero = num
+                    });
+
+
+                    if (string.IsNullOrWhiteSpace(num))
+                    {
+                        errors.Add($"{num}: numéro vide");
+
+                        await SendEvent("error", new
+                        {
+                            numero = num,
+                            message = "Numéro vide"
+                        });
+
+                        continue;
+                    }
+
+
+                    try
+                    {
+                        var result = await _ServiceAsaci.printCedeao(num);
+
+
+                        if (result.status != 200)
+                        {
+                            errors.Add($"{num}: {result.detail}");
+
+                            await SendEvent("error", new
+                            {
+                                numero = num,
+                                message = result.detail
+                            });
+
+                            continue;
+                        }
+
+
+                        var res_data =
+                            JsonConvert.DeserializeObject<dynamic>(result.data);
+
+
+                        string base64Image = res_data.base64?.ToString();
+
+
+                        if (string.IsNullOrWhiteSpace(base64Image))
+                        {
+                            errors.Add($"{num}: Base64 manquant");
+
+                            await SendEvent("error", new
+                            {
+                                numero = num,
+                                message = "Image Base64 manquante"
+                            });
+
+                            continue;
+                        }
+
+
+                        byte[] imageBytes =
+                            ConvertBase64ToImageBytes(base64Image);
+
+
+                        successes.Add((num, imageBytes));
+
+
+                        await SendEvent("success", new
+                        {
+                            numero = num,
+                            message = "Attestation récupérée"
+                        });
+
+
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"{num}: {ex.Message}");
+
+                        await SendEvent("error", new
+                        {
+                            numero = num,
+                            message = ex.Message
+                        });
+                    }
+                }
+
+
+
+                if (!successes.Any())
+                {
+                    await SendEvent("complete", new
+                    {
+                        success = false,
+                        message = "Aucune attestation générée"
+                    });
+
+                    return;
+                }
+
+
+
+                // Génération ZIP
+
+                using var ms = new MemoryStream();
+
+
+                using (var archive = new ZipArchive(
+                    ms,
+                    ZipArchiveMode.Create,
+                    true))
+                {
+
+                    foreach (var item in successes)
+                    {
+                        var entry = archive.CreateEntry(
+                            $"Cedeao_{item.Num}.png",
+                            CompressionLevel.Optimal);
+
+
+                        using var entryStream = entry.Open();
+
+                        await entryStream.WriteAsync(
+                            item.Bytes,
+                            0,
+                            item.Bytes.Length);
+                    }
+
+
+                    if (errors.Any())
+                    {
+                        var entry = archive.CreateEntry("errors.txt");
+
+                        using var writer = new StreamWriter(entry.Open());
+
+                        foreach (var error in errors)
+                            await writer.WriteLineAsync(error);
+
+                        await writer.FlushAsync();
+                    }
+                }
+
+
+
+                var fileName =
+                    $"Cedeao_{DateTime.UtcNow:yyyyMMddHHmmss}.zip";
+
+
+                var path = Path.Combine(
+                    Path.GetTempPath(),
+                    fileName);
+
+
+                await System.IO.File.WriteAllBytesAsync(
+                    path,
+                    ms.ToArray());
+
+
+
+                await SendEvent("complete", new
+                {
+                    success = true,
+                    file = fileName,
+                    url = $"/api/download/{fileName}",
+                    total = successes.Count,
+                    errors = errors.Count
+                });
+
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    $"[EndPoint {_desc_route}]");
+
+
+                await SendEvent("error", new
+                {
+                    message = "Erreur serveur"
+                });
+            }
+        }
+   
+    
+    
+    
+    
     }
 }
