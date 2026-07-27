@@ -271,7 +271,7 @@ namespace ask.Controllers
                    .Where(x => !string.IsNullOrWhiteSpace(x))
                    .Distinct()
                    .ToList();
--
+
 
                 if (numAttestations == null || !numAttestations.Any())
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
