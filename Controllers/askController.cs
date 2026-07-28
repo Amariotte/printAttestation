@@ -896,10 +896,439 @@ WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
                 });
             }
         }
-   
-    
-    
-    
-    
+
+
+
+        [Authorize]
+        [HttpPost("attestations/atd/zip/sse")]
+        public async Task GetAttestationsZipSse([FromBody] List<string> numAttestations)
+        {
+            string _desc_route = "Téléchargement attestations ZIP SSE";
+
+
+            Response.ContentType = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["Connection"] = "keep-alive";
+
+
+            async Task SendEvent(string type, object data)
+            {
+                var json = JsonConvert.SerializeObject(data);
+
+                await Response.WriteAsync(
+                    $"event: {type}\n" +
+                    $"data: {json}\n\n"
+                );
+
+                await Response.Body.FlushAsync();
+            }
+
+
+            try
+            {
+
+                numAttestations = numAttestations?
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct()
+                    .ToList();
+
+
+                if (numAttestations == null || !numAttestations.Any())
+                {
+                    await SendEvent("error", new
+                    {
+                        message = "Au moins un numéro d'attestation est requis"
+                    });
+
+                    return;
+                }
+
+
+                t_user dataUser = GetInfoUser();
+
+
+                await _traceService.TraceActionAsync(
+                    TYPE_ACTION.EXPORT_ATD_ZIP,
+                    userId: dataUser.r_id,
+                    userEmail: dataUser.r_email,
+                    description:
+                    $"Téléchargement de {numAttestations.Count} attestation(s)"
+                );
+
+
+                await SendEvent("start", new
+                {
+                    total = numAttestations.Count
+                });
+
+
+
+                var successes =
+                    new List<(string Num, byte[] Bytes, string FileName)>();
+
+                var errors =
+                    new List<string>();
+
+
+                using var httpClient = new HttpClient();
+
+
+                int current = 0;
+
+
+                foreach (var num in numAttestations)
+                {
+
+                    current++;
+
+
+                    await SendEvent("progress", new
+                    {
+                        current,
+                        total = numAttestations.Count,
+                        numero = num
+                    });
+
+
+
+                    try
+                    {
+
+                        string sql = @"SELECT LIEN_PDF,LIEN_IMG,LIEN__QR,NUMATTDI 
+                                       FROM attestation_risque 
+                                       WHERE ( LIEN_PDF IS NOT NULL  OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
+                                           AND  ( NUMATTDI = :num OR NUMEIMMA = :num 
+                                                  OR NUMECHAS = :num OR TO_CHAR(NUMEPOLI)=:num 
+                                                  OR (TO_CHAR(CODEINTE)||'/'||TO_CHAR(NUMEPOLI))=:num)";
+
+
+                        var parameters = new Dictionary<string, object>
+                            {{":num", num}};
+
+                        var rows =
+                            await _oracleService.ExecuteQueryAsync(
+                                sql,
+                                parameters
+                            );
+
+
+                        if (!rows.Any())
+                        {
+                            errors.Add(
+                                $"{num}: attestation introuvable"
+                            );
+
+
+                            await SendEvent("error", new
+                            {
+                                numero = num,
+                                message = "Attestation introuvable"
+                            });
+
+                            continue;
+                        }
+
+
+
+                        var row = rows[0];
+
+
+                        string selected = row["LIEN_PDF"]?.ToString() ?? row["LIEN_IMG"]?.ToString() ?? row["LIEN__QR"]?.ToString();
+
+
+
+                        if (string.IsNullOrWhiteSpace(selected))
+                        {
+
+                            errors.Add(
+                                $"{num}: aucun lien disponible"
+                            );
+
+
+                            await SendEvent("error", new
+                            {
+                                numero = num,
+                                message = "Aucun lien disponible"
+                            });
+
+                            continue;
+                        }
+
+
+
+                        byte[] data = null;
+
+                        string ext = ".png";
+
+
+
+                        if (selected.StartsWith("data:",
+                            StringComparison.OrdinalIgnoreCase))
+                        {
+
+                            var parts =
+                                selected.Split(',', 2);
+
+
+                            data =
+                                Convert.FromBase64String(parts[1]);
+
+
+                            if (parts[0].Contains("pdf"))
+                                ext = ".pdf";
+
+                        }
+
+
+                        else if (selected.StartsWith("http",
+                            StringComparison.OrdinalIgnoreCase))
+                        {
+
+                            data =
+                                await httpClient
+                                .GetByteArrayAsync(selected);
+
+
+                            ext =
+                                Path.GetExtension(
+                                    new Uri(selected).LocalPath
+                                );
+
+                        }
+
+
+                        else
+                        {
+
+                            string path = selected;
+
+
+                            if (!Path.IsPathRooted(path))
+                            {
+                                path =
+                                Path.Combine(
+                                    _env.WebRootPath,
+                                    selected.TrimStart('/')
+                                );
+                            }
+
+
+                            if (System.IO.File.Exists(path))
+                            {
+                                data =
+                                await System.IO.File.ReadAllBytesAsync(path);
+
+                                ext =
+                                Path.GetExtension(path);
+                            }
+
+                        }
+
+
+
+                        if (data == null || data.Length == 0)
+                        {
+
+                            errors.Add(
+                                $"{num}: fichier vide"
+                            );
+
+
+                            await SendEvent("error", new
+                            {
+                                numero = num,
+                                message = "Fichier vide"
+                            });
+
+
+                            continue;
+                        }
+
+
+                        ext = ".png";
+                        successes.Add(
+                            (
+                            num,
+                            data,
+                            $"Attestation_{num}{ext}"
+                            )
+                        );
+
+
+
+                        await SendEvent("success", new
+                        {
+                            numero = num,
+                            message = "Attestation récupérée"
+                        });
+
+
+                    }
+                    catch (Exception ex)
+                    {
+
+                        errors.Add(
+                            $"{num}: {ex.Message}"
+                        );
+
+
+                        await SendEvent("error", new
+                        {
+                            numero = num,
+                            message = ex.Message
+                        });
+
+                    }
+
+                }
+
+
+
+                if (!successes.Any())
+                {
+
+                    await SendEvent("complete", new
+                    {
+                        success = false,
+                        message = "Aucune attestation générée"
+                    });
+
+                    return;
+                }
+
+
+
+
+                // Création ZIP
+
+                using var ms = new MemoryStream();
+
+
+                using (var archive =
+                    new ZipArchive(
+                        ms,
+                        ZipArchiveMode.Create,
+                        true))
+                {
+
+                    foreach (var item in successes)
+                    {
+
+                        var entry =
+                            archive.CreateEntry(
+                                item.FileName,
+                                CompressionLevel.Optimal);
+
+
+                        using var stream =
+                            entry.Open();
+
+
+                        await stream.WriteAsync(
+                            item.Bytes,
+                            0,
+                            item.Bytes.Length
+                        );
+                    }
+
+
+
+                    if (errors.Any())
+                    {
+
+                        var entry =
+                            archive.CreateEntry(
+                                "errors.txt");
+
+
+                        using var writer =
+                            new StreamWriter(
+                                entry.Open());
+
+
+                        foreach (var error in errors)
+                            await writer.WriteLineAsync(error);
+
+
+                        await writer.FlushAsync();
+
+                    }
+
+                }
+
+
+
+
+                var fileNameZip =
+                    $"Attestations_{DateTime.UtcNow:yyyyMMddHHmmss}.zip";
+
+
+                var pathZip =
+                    Path.Combine(
+                        Path.GetTempPath(),
+                        fileNameZip);
+
+
+
+                await System.IO.File.WriteAllBytesAsync(
+                    pathZip,
+                    ms.ToArray()
+                );
+
+
+
+                await SendEvent("complete",
+                new
+                {
+                    success = true,
+                    url = $"/api/download/{fileNameZip}",
+                    file = fileNameZip,
+                    total = successes.Count,
+                    errors = errors.Count
+                });
+
+
+            }
+            catch (Exception ex)
+            {
+
+                _logger.LogError(ex,
+                    $"[{_desc_route}]");
+
+
+                await SendEvent("error",
+                new
+                {
+                    message = "Erreur serveur"
+                });
+            }
+        }
+
+
+        [Authorize]
+        [HttpGet("attestations/download/{fileName}")]
+        public async Task<IActionResult> DownloadZip(string fileName)
+        {
+            var path = Path.Combine(
+                Path.GetTempPath(),
+                fileName
+            );
+
+
+            if (!System.IO.File.Exists(path))
+            {
+                return NotFound("Fichier introuvable");
+            }
+
+
+            var bytes = await System.IO.File.ReadAllBytesAsync(path);
+
+
+            return File(
+                bytes,
+                "application/zip",
+                fileName
+            );
+        }
     }
 }
