@@ -192,7 +192,7 @@ namespace ask.Services
         }
 
 
-     public async Task<GeneraleRetour> SendEmail(string toEmail, string subject, string bodyHtml)
+     public async Task<GeneraleRetour> SendEmail(string toEmail, string subject, string bodyHtml, List<IFormFile>? fichiers = null)
     {
         var service = new GeneraleRetour();
 
@@ -215,7 +215,29 @@ namespace ask.Services
 
             message.Body = builder.ToMessageBody();
 
-            using var smtp = new MailKit.Net.Smtp.SmtpClient();
+                // Ajouter les pièces jointes
+                if (fichiers != null)
+                {
+                    foreach (var fichier in fichiers)
+                    {
+                        if (fichier != null && fichier.Length > 0)
+                        {
+                            using var stream = new MemoryStream();
+
+                            await fichier.CopyToAsync(stream);
+
+                            builder.Attachments.Add(
+                                fichier.FileName,
+                                stream.ToArray(),
+                                ContentType.Parse(
+                                    fichier.ContentType ?? "application/octet-stream"
+                                )
+                            );
+                        }
+                    }
+                }
+
+                using var smtp = new MailKit.Net.Smtp.SmtpClient();
 
             await smtp.ConnectAsync(
                 _param_data.smtp.server,
@@ -288,7 +310,7 @@ namespace ask.Services
         }
 
 
-        public async Task<GeneraleRetour> saveEmail(string dest,string subject, string text)
+        public async Task<GeneraleRetour> saveEmail(string dest,string subject, string text, List<IFormFile>? fichiers = null)
         {
             try
             {

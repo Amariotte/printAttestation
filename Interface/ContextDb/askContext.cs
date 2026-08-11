@@ -22,6 +22,7 @@ namespace ask.ContextDb
         public DbSet<t_site> t_site { get; set; } = null!;
         public DbSet<t_trace_action> t_trace_action { get; set; } = null!;
         public DbSet<t_trace_connexion> t_trace_connexion { get; set; } = null!;
+        public DbSet<t_job> t_job { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -113,6 +114,13 @@ namespace ask.ContextDb
 
                 // Index pour recherche échecs
                 entity.HasIndex(e => new { e.r_succes, e.r_created_at });
+            });
+
+            modelBuilder.Entity<t_job>(entity =>
+            {
+                entity.HasIndex(e => e.r_job_id);
+                entity.HasIndex(e => e.r_user_id_fk);
+                entity.HasIndex(e => e.r_created_at);
             });
         }
 

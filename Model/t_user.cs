@@ -68,5 +68,6 @@ namespace ask.Model
         // Relations de navigation
         public ICollection<t_refresh_token>? r_refresh_tokens { get; set; }
         public ICollection<t_session>? r_sessions { get; set; }
+        public ICollection<t_job>? r_jobs { get; set; }
     }
 }

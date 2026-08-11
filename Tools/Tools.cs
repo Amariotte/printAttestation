@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using ask.Dtos.Reponses;
+using ask.Dtos.Request.auth;
 using ask.Dtos.Response.auth;
 using ask.Model;
 
@@ -176,9 +178,22 @@ namespace ask.Tools
         public static long ToUnixTimeSeconds(DateTime utc) => (long)Math.Floor((utc - DateTime.UnixEpoch).TotalSeconds);
 
 
-      
-    
-    
+
+        public static byte[] ConvertBase64ToImageBytes(string base64String)
+        {
+            if (string.IsNullOrWhiteSpace(base64String))
+                throw new ArgumentException("La chaîne Base64 ne peut pas être vide", nameof(base64String));
+
+            // Nettoyer le préfixe data:image si présent
+            if (base64String.Contains(","))
+            {
+                base64String = base64String.Split(',')[1];
+            }
+
+            return Convert.FromBase64String(base64String);
+        }
+
+
         public static bool RetourIsSucces(int codeRetour)
         {
             return (codeRetour.ToString().Substring(0, 1) == "2");
@@ -200,6 +215,27 @@ namespace ask.Tools
                 site = u.r_site != null ? BuildSiteToSiteResponseDto(u.r_site) : null
             };
         }
+
+
+        public static jobReponseDto BuildJobToJobResponseDto(t_job j)
+        {
+            return new jobReponseDto
+            {
+                id = j.r_id,
+                jobId = j.r_job_id,
+                userId = j.r_user_id_fk,
+                completedAt = (DateTime?)j.r_completed_at,
+                fileName = j.r_file_name,
+                createdAt = j.r_created_at,
+                type = j.r_type?.ToString(),
+                nbTotal = j.r_total,
+                nbSuccess = j.r_success,
+                nbErrors = j.r_errors,
+                status = j.r_status,
+                user = j.r_user != null ? BuildUserToUserResponseDto(j.r_user) : null
+            };
+        }
+
 
 
         public static string EquivalenceTypeUser(TYPE_USER typeUser)

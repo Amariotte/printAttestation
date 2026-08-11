@@ -1,17 +1,24 @@
 ﻿using System.Data;
 using System.IO.Compression;
 using System.Net;
+using System.Net.NetworkInformation;
 using ask.ContextDb;
 using ask.Dtos.General;
+using ask.Dtos.Reponses;
+using ask.Dtos.Request.auth;
 using ask.Dtos.Response;
 using ask.Model;
 using ask.Services;
+using InteroperabiliteProject.Dtos;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using OracleApi.Services;
+using print_attestation.Migrations;
+
 
 namespace ask.Controllers
 {
@@ -29,25 +36,34 @@ namespace ask.Controllers
         private readonly ILogger<askController> _logger;
         private readonly IOracleService _oracleService;
         private readonly TraceService _traceService;
+        private readonly ZipJobManager _manager;
+        private readonly ZipAttestationService _service;
+        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ParamAppSettings _param_app_settings;
 
-     
         //private readonly ILogger _logger;
-        public askController(askContext askContext, TraceService traceService, ServiceAsaci ServiceAsaci, IOptions<ParamMessage> paramdata, IConfiguration configuration, IWebHostEnvironment env, ILogger<askController> logger, IOracleService oracleService)
+        public askController(askContext askContext, TraceService traceService, ServiceAsaci ServiceAsaci,
+            IOptions<ParamMessage> paramdata, IOptions<ParamAppSettings> param_app_settings, IConfiguration configuration, 
+            IWebHostEnvironment env, ILogger<askController> logger, IOracleService oracleService,
+         ZipJobManager manager,
+       ZipAttestationService service, IServiceScopeFactory scopeFactory)
         {
-
             _configuration = configuration;
             _ServiceAsaci = ServiceAsaci;
             _env = env;
             _paramdata = paramdata.Value;
+            _param_app_settings = param_app_settings.Value;
             _logger = logger;
             _dbContext = askContext;
             _oracleService = oracleService;
             _traceService = traceService;
-
+            _manager = manager;
+            _service = service;
+            _scopeFactory = scopeFactory;
 
         }
 
-
+     
 
         [NonAction]
         public Model.t_user GetInfoUser()
@@ -62,24 +78,219 @@ namespace ask.Controllers
             }
         }
 
-        /// <summary>
-        /// Convertit une chaîne Base64 en tableau de bytes (image)
-        /// </summary>
-        [NonAction]
-        public byte[] ConvertBase64ToImageBytes(string base64String)
-        {
-            if (string.IsNullOrWhiteSpace(base64String))
-                throw new ArgumentException("La chaîne Base64 ne peut pas être vide", nameof(base64String));
 
-            // Nettoyer le préfixe data:image si présent
-            if (base64String.Contains(","))
+        [Authorize]
+        [HttpPost("attestations/{type}/jobs")]
+        public async Task<IActionResult> CreateJobsByType(string type, [FromBody] List<string> numAttestations)
+        {
+            if (numAttestations == null || !numAttestations.Any())
+                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
+
+            t_user dataUser = GetInfoUser();
+
+            if (dataUser == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+            var nums = numAttestations
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
+
+            var job = _manager.Create(nums);
+            job.CancellationTokenSource = new System.Threading.CancellationTokenSource();
+
+            var jobType = (type ?? "").Trim().ToLowerInvariant();
+            if (jobType != "atd" && jobType != "cedeao")
             {
-                base64String = base64String.Split(',')[1];
+                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Type de tâche invalide (atd|cedeao)", instance: HttpContext.Request.Path));
             }
 
-            return Convert.FromBase64String(base64String);
+
+                job.r_created_by = dataUser.r_id;
+                job.r_user_id_fk = dataUser.r_id;
+                job.r_status = STATUT_JOB.RUNNING;
+                job.r_total = nums.Count;
+                job.r_type = jobType.ToUpperInvariant();
+            
+            _dbContext.t_job.Add(job);
+            await _dbContext.SaveChangesAsync();
+
+           
+
+            // lancer le job
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var svc = scope.ServiceProvider.GetRequiredService<ZipAttestationService>();
+
+                    if (jobType == "cedeao")
+                    {
+                        await svc.GenerateZipCEDEAO(job);
+                    }
+                    else
+                    {
+                        await svc.GenerateZipATD(job);
+                    }
+              
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erreur dans le job de génération ZIP");
+                }
+            });
+
+            return Ok(new { id = job.r_job_id, type = jobType });
         }
 
+
+        [Authorize]
+        [HttpGet("attestations/jobs/events/{id}")]
+        public async Task GetZipEvents(string id)
+        {
+            Response.ContentType = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["Connection"] = "keep-alive";
+
+            var job = _manager.Get(id);
+
+            if (job == null)
+            {
+                Response.StatusCode = 404;
+                await Response.WriteAsync("data: {\"error\":\"Job non trouvé\"}\n\n");
+                return;
+            }
+
+            var reader = job.Events.Reader;
+
+            while (await reader.WaitToReadAsync())
+            {
+                while (reader.TryRead(out var ev))
+                {
+                    var json = JsonConvert.SerializeObject(ev);
+                    await Response.WriteAsync($"data: {json}\n\n");
+                    await Response.Body.FlushAsync();
+                }
+
+                if (job.r_status != STATUT_JOB.RUNNING && reader.Count == 0)
+                    break;
+            }
+        }
+
+
+        [Authorize]
+        [HttpGet("attestations/jobs")]
+        public async Task<IActionResult> ListJobs([FromQuery] int page = 1, [FromQuery] int limit = 20, [FromQuery] string? type = null, [FromQuery] int? status = null)
+        {
+
+            var user = GetInfoUser();
+            if (user == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+
+            var pagination = new PaginationParams(page, limit);
+
+            var query = _dbContext.t_job.AsQueryable();
+
+            // si pas admin, ne lister que les jobs de l'utilisateur
+            if (user.r_type != TYPE_USER.Administrateur)
+            {
+                query = query.Where(x => x.r_user_id_fk == user.r_id);
+            }
+
+            // Filtre par statut si fourni (valeurs : RUNNING, COMPLETED, CANCELLED)
+            if (status > 0)
+            {
+               query = query.Where(x => (int)x.r_status == status);
+           }
+
+            // Filtre par type si fourni (atd|cedeao)
+            if (!string.IsNullOrWhiteSpace(type))
+            {
+                var t = type.Trim();
+                query = query.Where(x => x.r_type == type);
+            }
+
+      
+            var total = await query.CountAsync();
+
+
+            var jobs = await query
+                 .Include(u => u.r_user)
+                .OrderByDescending(x => x.r_created_at)
+                .Skip((pagination.page - 1) * pagination.limit)
+                .Take(pagination.limit)
+                .ToListAsync();
+
+            
+              var jobsDto = jobs.Select(j => Tools.Tools.BuildJobToJobResponseDto(j)).ToList();
+
+            return Ok(PaginatedResponse<jobReponseDto>.Create(jobsDto, total, pagination.page, pagination.limit));
+
+        }
+
+
+        [Authorize]
+        [HttpGet("attestations/jobs/{jobId}")]
+        public async Task<IActionResult> GetJobDetail(string jobId)
+        {
+            var user = GetInfoUser();
+            if (user == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+            var rec = await _dbContext.t_job.FirstOrDefaultAsync(x => x.r_job_id == jobId);
+            if (rec == null)
+                return NotFound(GeneraleRetour.BuildNotFound(detail: "Job introuvable", instance: HttpContext.Request.Path));
+
+            if (user.r_type != TYPE_USER.Administrateur && rec.r_user_id_fk != user.r_id)
+                return Forbid();
+
+            var job = _manager.Get(jobId);
+
+            return Ok(new { record = rec, inMemory = job != null ? new { job.r_job_id, job.r_total, job.r_status, job.r_file_name } : null });
+        }
+
+
+        [Authorize]
+        [HttpPost("attestations/jobs/{jobId}/cancel")]
+        public async Task<IActionResult> StopJob(string jobId)
+        {
+            var user = GetInfoUser();
+            if (user == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+            var rec = await _dbContext.t_job.FirstOrDefaultAsync(x => x.r_job_id == jobId);
+            if (rec == null)
+                return NotFound(GeneraleRetour.BuildNotFound(detail: "Job introuvable", instance: HttpContext.Request.Path));
+
+            if (user.r_type != TYPE_USER.Administrateur && rec.r_user_id_fk != user.r_id)
+                return StatusCode(403, GeneraleRetour.BuildForbid(detail: "Accès refusé", instance: HttpContext.Request.Path));
+
+            // arrêter le job en mémoire
+            var job = _manager.Get(jobId);
+            if (job != null)
+            {
+                job.Stop();
+                try
+                {
+                    await job.Events.Writer.WriteAsync(new { type = "stopped", data = new { message = "Job arrêté par l'utilisateur" } });
+                }
+                catch { }
+            }
+
+            rec.r_status = STATUT_JOB.CANCELLED;
+            rec.r_is_active = false;
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { success = true });
+        }
+
+
+
+        /// <summary>
+        /// Convertit une chaîne Base64 en tableau de bytes (image)
+       
         /// <summary>
         /// Sauvegarde une image Base64 sur le disque et retourne le chemin
         /// </summary>
@@ -251,7 +462,7 @@ namespace ask.Controllers
             catch (Exception ex)
             {
                 _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: ex.Message));
             }
         }
 
@@ -313,7 +524,7 @@ namespace ask.Controllers
                             continue;
                         }
 
-                        byte[] imageBytes = ConvertBase64ToImageBytes(base64Image);
+                        byte[] imageBytes = Tools.Tools.ConvertBase64ToImageBytes(base64Image);
                         successes.Add((num, imageBytes));
                     }
                     catch (Exception ex)
@@ -432,7 +643,8 @@ namespace ask.Controllers
                 if (numAttestations == null || !numAttestations.Any())
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
 
-                var successes = new List<(string Num, byte[] Bytes, string FileName)>();
+
+                var successes = new List<(string FileName, byte[] Bytes)>();
                 var errors = new List<string>();
 
                 t_user dataUser = GetInfoUser();
@@ -443,106 +655,96 @@ namespace ask.Controllers
                userEmail: dataUser.r_email,
                description: $"Téléchargement des attestations : {numAttestations.Count} attestation(s)");
 
-                using var httpClient = new HttpClient();
 
-                foreach (var num in numAttestations)
+                var numList = numAttestations.ToList();
+
+                // Génération des paramètres Oracle
+                var parameters = new Dictionary<string, object>();
+                var placeholders = new List<string>();
+                for (int i = 0; i < numList.Count; i++)
                 {
-                    if (string.IsNullOrWhiteSpace(num))
-                    {
-                        errors.Add($"{num}: numéro vide");
-                        continue;
-                    }
+                    string paramName = $":num{i}";
+
+                    placeholders.Add(paramName);
+
+                    parameters.Add(paramName, numList[i]);
+                }
+
+
+                // Une seule requête Oracle
+                string sql = $@"SELECT  LIEN_PDF, LIEN_IMG,LIEN__QR, NUMATTDI
+                       FROM attestation_risque
+                            WHERE NUMATTDI IN ({string.Join(",", placeholders)})";
+
+
+                var rows = await _oracleService.ExecuteQueryAsync(sql, parameters);
+
+
+                // Indexation par numéro pour accès rapide
+                var attestations = rows.ToDictionary(
+                    x => x["NUMATTDI"]?.ToString(),
+                    x => x
+                );
+
+                int current = 0;
+
+                foreach (var num in numList)
+                {
+                    current++;
+
+                    _logger.LogError(current + "===========>" + num);
 
                     try
                     {
-                        string sql = @"SELECT LIEN_PDF, LIEN_IMG, LIEN__QR, NUMATTDI FROM attestation_risque
-WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
-  AND (NUMATTDI = :num OR NUMEIMMA = :num OR NUMECHAS = :num OR TO_CHAR(NUMEPOLI) = :num OR (TO_CHAR(CODEINTE) || '/' || TO_CHAR(NUMEPOLI)) = :num)";
 
-                        var parameters = new Dictionary<string, object> { { ":num", num } };
-                        var rows = await _oracleService.ExecuteQueryAsync(sql, parameters);
-                        if (!rows.Any())
+                        if (!attestations.TryGetValue(num, out var row))
                         {
                             errors.Add($"{num}: attestation introuvable");
+                        }
+
+                        string? path = row["LIEN_PDF"]?.ToString() ?? row["LIEN_IMG"]?.ToString() ?? row["LIEN__QR"]?.ToString();
+
+                        if (string.IsNullOrEmpty(path))
+                        {
+                            errors.Add($"{num}: fichier absent");
                             continue;
                         }
 
-                        var row = rows[0];
-                        var lienPdf = row.ContainsKey("LIEN_PDF") ? row["LIEN_PDF"]?.ToString() : null;
-                        var lienImg = row.ContainsKey("LIEN_IMG") ? row["LIEN_IMG"]?.ToString() : null;
-                        var lienQr = row.ContainsKey("LIEN__QR") ? row["LIEN__QR"]?.ToString() : null;
 
-                        string selected = lienPdf ?? lienImg ?? lienQr;
-                        if (string.IsNullOrWhiteSpace(selected))
-                        {
-                            errors.Add($"{num}: aucun lien disponible");
-                            continue;
-                        }
+                        byte[] bytes;
 
-                        byte[] data = null;
-                        string ext = ".png";
 
-                        if (selected.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                        if (path.StartsWith("http"))
                         {
-                            // data:[mime];base64,xxxxx
-                            var parts = selected.Split(',', 2);
-                            if (parts.Length == 2)
-                            {
-                                data = Convert.FromBase64String(parts[1]);
-                                if (parts[0].Contains("pdf")) ext = ".pdf";
-                                else if (parts[0].Contains("png") || parts[0].Contains("image")) ext = ".png";
-                            }
-                        }
-                        else if (selected.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                        {
-                            try
-                            {
-                                data = await httpClient.GetByteArrayAsync(selected);
-                                // try to infer extension from url
-                                var uri = new Uri(selected);
-                                var seg = Path.GetFileName(uri.LocalPath);
-                                if (!string.IsNullOrWhiteSpace(seg) && seg.Contains('.'))
-                                    ext = Path.GetExtension(seg);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(ex, "Erreur téléchargement lien pour {Num}", num);
-                                errors.Add($"{num}: échec téléchargement");
-                                continue;
-                            }
+                            using var client = new HttpClient();
+                            bytes = await client.GetByteArrayAsync(path);
                         }
                         else
                         {
-                            // treat as local file path relative to wwwroot or absolute
-                            string path = selected;
+
                             if (!Path.IsPathRooted(path))
-                                path = Path.Combine(_env.WebRootPath ?? string.Empty, selected.TrimStart('/', '\\'));
+                            {
+                                path = Path.Combine(
+                                    _env.WebRootPath,
+                                    path.TrimStart('/')
+                                );
+                            }
 
-                            if (System.IO.File.Exists(path))
-                            {
-                                data = await System.IO.File.ReadAllBytesAsync(path);
-                                ext = Path.GetExtension(path);
-                            }
-                            else
-                            {
-                                errors.Add($"{num}: fichier introuvable: {selected}");
-                                continue;
-                            }
+
+                      
+
+                            bytes = await System.IO.File.ReadAllBytesAsync(path);
                         }
 
-                        if (data == null || data.Length == 0)
-                        {
-                            errors.Add($"{num}: contenu vide");
-                            continue;
-                        }
+                        successes.Add(($"Attestation_{num}.png", bytes));
 
-                        var fileName = $"Attestation_{num}{ext}";
-                        successes.Add((num, data, fileName));
                     }
                     catch (Exception ex)
                     {
+
+                        errors.Add($"{num}:{ex.Message}");
                         _logger.LogWarning(ex, "Erreur lors de la récupération attestation pour {Num}", num);
-                        errors.Add($"{num}: exception - {ex.Message}");
+
                     }
                 }
 
@@ -585,6 +787,8 @@ WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
         }
 
 
+
+     
 
         [NonAction]
         [HttpGet("sites")]
@@ -775,7 +979,7 @@ WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
 
 
                         byte[] imageBytes =
-                            ConvertBase64ToImageBytes(base64Image);
+                            Tools.Tools.ConvertBase64ToImageBytes(base64Image);
 
 
                         successes.Add((num, imageBytes));
@@ -1307,28 +1511,160 @@ WHERE (LIEN_PDF IS NOT NULL OR LIEN_IMG IS NOT NULL OR LIEN__QR IS NOT NULL)
 
         [Authorize]
         [HttpGet("attestations/download/{fileName}")]
+       
         public async Task<IActionResult> DownloadZip(string fileName)
         {
-            var path = Path.Combine(
-                Path.GetTempPath(),
-                fileName
-            );
-
+            var path = Path.Combine(Path.GetTempPath(), fileName);
+            string _desc_route = "Télécharger le fichier ZIP";
 
             if (!System.IO.File.Exists(path))
             {
-                return NotFound("Fichier introuvable");
+                return NotFound("Fichier introuvable.");
             }
 
 
-            var bytes = await System.IO.File.ReadAllBytesAsync(path);
+            //// Supprimer le fichier après téléchargement du client
+            //HttpContext.Response.OnCompleted(async () =>
+            //{
+            //    try
+            //    {
+            //        if (System.IO.File.Exists(path))
+            //        {
+            //            System.IO.File.Delete(path);
+            //        }
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        _logger.LogError(ex,$"[{_desc_route}]");
+            //    }
 
+                      
+            //    await Task.CompletedTask;
+            //});
 
-            return File(
-                bytes,
-                "application/zip",
-                fileName
-            );
+            var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+            return File(stream, "application/zip", fileName);
         }
+
+
+        [Authorize]
+        [HttpPost("attestations/{type}/zip/start")]
+        public async Task<IActionResult> StartZip(string type, [FromBody] List<string> nums)
+        {
+            if (nums == null || !nums.Any())
+                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
+
+            var jobType = (type ?? "").Trim().ToLowerInvariant();
+            if (jobType != "atd" && jobType != "cedeao")
+            {
+                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Type de tâche invalide (atd|cedeao)", instance: HttpContext.Request.Path));
+            }
+
+            t_user dataUser = GetInfoUser();
+            if (dataUser == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+            var numsClean = nums.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList();
+
+            var job = _manager.Create(numsClean);
+            job.CancellationTokenSource = new System.Threading.CancellationTokenSource();
+
+   
+                job.r_created_by = dataUser.r_id;
+                job.r_user_id_fk = dataUser.r_id;
+                job.r_status = STATUT_JOB.RUNNING;
+                job.r_total = numsClean.Count;
+                job.r_file_name = null;
+                job.r_file_path = null;
+                job.r_type = jobType.ToUpperInvariant();
+
+            _dbContext.t_job.Add(job);
+            await _dbContext.SaveChangesAsync();
+
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var service = scope.ServiceProvider.GetRequiredService<ZipAttestationService>();
+
+                    if (jobType == "atd")
+                        await service.GenerateZipATD(job);
+                    else
+                        await service.GenerateZipCEDEAO(job);
+
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erreur dans le job de génération ZIP");
+                }
+            });
+
+            return Ok(new
+            {
+                jobId = job.r_job_id
+            });
+
+        }
+
+
+        [HttpGet("attestations/zip/sse/{id}")]
+        public async Task GetZipSse(string id)
+        {
+
+            Response.ContentType = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["X-Accel-Buffering"] = "no";
+
+            var job = _manager.Get(id);
+
+
+            if (job == null)
+            {
+                Response.StatusCode = 404;
+                return;
+            }
+
+
+            async Task SendEvent(string type, object data)
+            {
+                var json = JsonConvert.SerializeObject(data);
+
+                await HttpContext.Response.WriteAsync(
+                    $"event: {type}\n" +
+                    $"data: {json}\n\n"
+                );
+
+                await HttpContext.Response.Body.FlushAsync();
+            }
+
+
+            await foreach (var item in job.Events.Reader.ReadAllAsync())
+            {
+
+                var json = JsonConvert.SerializeObject(item);
+                var eventData = JsonConvert.DeserializeObject<JobEvent>(json);
+
+                await SendEvent(eventData.type, eventData.data);
+
+            
+                if (eventData.type == "complete")
+                {
+                    // arrêter le SSE
+                    break;
+                }
+
+            }
+
+            // Supprimer le job après fermeture du SSE
+            job.Events.Writer.Complete();
+
+        }
+
+
+
     }
+
 }

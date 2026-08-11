@@ -129,7 +129,8 @@ namespace ask
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddScoped<IOracleService, OracleService>();
             builder.Services.AddScoped<TraceService>();
-
+            builder.Services.AddSingleton<ZipJobManager>();
+            builder.Services.AddScoped<ZipAttestationService>();
             builder.Services.AddHttpClient();
             
             Log.Logger = new LoggerConfiguration()

@@ -20,6 +20,21 @@ public enum TYPE_USER
     Utilisateur = 3
 }
 
+public enum TYPE_JOB
+{
+    cedeao,
+    atd
+}
+
+public enum STATUT_JOB
+{
+    RUNNING = 1,
+    COMPLETED = 2,
+    CANCELLED = 3,
+    FAILED = 4
+}
+
+
 
 public enum PLATEFORME_MESSAGERIE
 {
@@ -32,7 +47,9 @@ public enum TYPE_MODELE
     REGISTER_SUCCESS = 1,
     RESET_PASSWORD = 2,
     COMPTE_DESACTIVE = 3,
-    COMPTE_ACTIVE = 4
+    COMPTE_ACTIVE = 4,
+    TELECHARGEMENT_EN_COURS = 5,
+    TELECHARGEMENT_TERMINE = 6,
 }
 
 

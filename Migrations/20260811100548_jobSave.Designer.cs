@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ask.ContextDb;
 
@@ -11,9 +12,11 @@ using ask.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260811100548_jobSave")]
+    partial class jobSave
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -171,10 +174,6 @@ namespace print_attestation.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
 
-                    b.Property<string>("r_attestations")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime?>("r_completed_at")
                         .HasColumnType("datetime(6)");
 
@@ -225,7 +224,7 @@ namespace print_attestation.Migrations
                     b.Property<int?>("r_updated_by")
                         .HasColumnType("int");
 
-                    b.Property<int>("r_user_id_fk")
+                    b.Property<int?>("r_user_id")
                         .HasColumnType("int");
 
                     b.HasKey("r_id");
@@ -234,11 +233,11 @@ namespace print_attestation.Migrations
 
                     b.HasIndex("r_job_id");
 
-                    b.HasIndex("r_user_id_fk");
+                    b.HasIndex("r_user_id");
 
                     b.HasIndex(new[] { "r_job_id" }, "IX_Job_JobId");
 
-                    b.HasIndex(new[] { "r_user_id_fk" }, "IX_Job_UserId");
+                    b.HasIndex(new[] { "r_user_id" }, "IX_Job_UserId");
 
                     b.ToTable("t_job");
                 });
@@ -711,17 +710,6 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job", b =>
-                {
-                    b.HasOne("ask.Model.t_user", "r_user")
-                        .WithMany("r_jobs")
-                        .HasForeignKey("r_user_id_fk")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("r_user");
-                });
-
             modelBuilder.Entity("ask.Model.t_refresh_token", b =>
                 {
                     b.HasOne("ask.Model.t_user", "r_userTab")
@@ -779,8 +767,6 @@ namespace print_attestation.Migrations
 
             modelBuilder.Entity("ask.Model.t_user", b =>
                 {
-                    b.Navigation("r_jobs");
-
                     b.Navigation("r_refresh_tokens");
 
                     b.Navigation("r_sessions");

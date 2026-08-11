@@ -18,4 +18,10 @@ namespace InteroperabiliteProject.Dtos
         public string? pwd { get; set; }
        
     }
+
+    public class JobEvent
+    {
+        public string type { get; set; }
+        public object data { get; set; }
+    }
 }
