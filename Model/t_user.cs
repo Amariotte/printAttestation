@@ -16,7 +16,7 @@ namespace ask.Model
         /// </summary>
         [Required(ErrorMessage = "Le nom est requis")]
         [MaxLength(100)]
-        public string r_nom { get; set; } = string.Empty;
+        public string? r_nom { get; set; } = string.Empty;
 
       
         /// <summary>
@@ -38,14 +38,14 @@ namespace ask.Model
         [Required(ErrorMessage = "L'email est requis")]
         [EmailAddress(ErrorMessage = "Format d'email invalide")]
         [MaxLength(255)]
-        public string r_email { get; set; } = string.Empty;
+        public string? r_email { get; set; } = string.Empty;
 
         /// <summary>
         /// Hash du mot de passe (BCrypt)
         /// </summary>
         [Required(ErrorMessage = "Le mot de passe est requis")]
         [MaxLength(255)]
-        public string r_password { get; set; } = string.Empty;
+        public string? r_password { get; set; } = string.Empty;
 
     
 

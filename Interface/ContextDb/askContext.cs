@@ -23,6 +23,7 @@ namespace ask.ContextDb
         public DbSet<t_trace_action> t_trace_action { get; set; } = null!;
         public DbSet<t_trace_connexion> t_trace_connexion { get; set; } = null!;
         public DbSet<t_job> t_job { get; set; } = null!;
+        public DbSet<t_job_details> t_job_details { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -60,7 +60,7 @@ namespace ask.Controllers
             _manager = manager;
             _service = service;
             _scopeFactory = scopeFactory;
-
+                
         }
 
      
@@ -78,7 +78,7 @@ namespace ask.Controllers
             }
         }
 
-
+        #region Attestation
         [Authorize]
         [HttpPost("attestations/{type}/jobs")]
         public async Task<IActionResult> CreateJobsByType(string type, [FromBody] List<string> numAttestations)
@@ -86,7 +86,7 @@ namespace ask.Controllers
             if (numAttestations == null || !numAttestations.Any())
                 return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
 
-            t_user dataUser = GetInfoUser();
+            t_user? dataUser = GetInfoUser();
 
             if (dataUser == null)
                 return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
@@ -96,6 +96,7 @@ namespace ask.Controllers
                 .Distinct()
                 .ToList();
 
+          
             var job = _manager.Create(nums);
             job.CancellationTokenSource = new System.Threading.CancellationTokenSource();
 
@@ -105,12 +106,21 @@ namespace ask.Controllers
                 return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Type de tâche invalide (atd|cedeao)", instance: HttpContext.Request.Path));
             }
 
+            if (jobType == "cedeao")
+            {
+                await _traceService.TraceActionAsync(TYPE_ACTION.GENERATION_CEDEAO_ZIP, userId: dataUser.r_id,userEmail: dataUser.r_email,description: $"Génération de l'archive de {numAttestations.Count} cedeao : ID = {job.r_job_id}");
+            }
+            else
+            {
+                await _traceService.TraceActionAsync(TYPE_ACTION.GENERATION_ATD_ZIP, userId: dataUser.r_id, userEmail: dataUser.r_email, description: $"Génération de l'archive de {numAttestations.Count} attestation(s) : ID = {job.r_job_id}");
+            }
 
-                job.r_created_by = dataUser.r_id;
-                job.r_user_id_fk = dataUser.r_id;
-                job.r_status = STATUT_JOB.RUNNING;
-                job.r_total = nums.Count;
-                job.r_type = jobType.ToUpperInvariant();
+
+            job.r_created_by = dataUser.r_id;
+            job.r_user_id_fk = dataUser.r_id;
+            job.r_status = STATUT_JOB.RUNNING;
+            job.r_total = nums.Count;
+            job.r_type = jobType.ToUpperInvariant();
             
             _dbContext.t_job.Add(job);
             await _dbContext.SaveChangesAsync();
@@ -140,8 +150,9 @@ namespace ask.Controllers
                     _logger.LogError(ex, "Erreur dans le job de génération ZIP");
                 }
             });
+           
 
-            return Ok(new { id = job.r_job_id, type = jobType });
+            return Ok(new { jobId = job.r_job_id });
         }
 
 
@@ -177,7 +188,6 @@ namespace ask.Controllers
                     break;
             }
         }
-
 
         [Authorize]
         [HttpGet("attestations/jobs")]
@@ -283,14 +293,18 @@ namespace ask.Controllers
             rec.r_is_active = false;
             await _dbContext.SaveChangesAsync();
 
+
+            await _traceService.TraceActionAsync(TYPE_ACTION.ANNULATION_GENERATION_ZIP, userId: user.r_id, userEmail: user.r_email, description: $"Annulation de la génération de la tâche : {rec.r_job_id}");
+
+
             return Ok(new { success = true });
         }
 
-
+       
 
         /// <summary>
         /// Convertit une chaîne Base64 en tableau de bytes (image)
-       
+
         /// <summary>
         /// Sauvegarde une image Base64 sur le disque et retourne le chemin
         /// </summary>
@@ -467,7 +481,6 @@ namespace ask.Controllers
         }
 
      
-
         [Authorize]
         [HttpPost("attestations/cedeao/zip")]
         public async Task<IActionResult> GetAttestationCedeaoZip([FromBody] List<string> numAttestations)
@@ -573,7 +586,6 @@ namespace ask.Controllers
 
             }
         }
-
 
 
 
@@ -786,66 +798,7 @@ namespace ask.Controllers
             }
         }
 
-
-
      
-
-        [NonAction]
-        [HttpGet("sites")]
-        public async Task<IActionResult> ChargerLesSites()
-        {
-            string _desc_route = "Charger les sites";
-
-            try
-            {
-
-                string _sql = @" SELECT CODEINTE, RAISOCIN FROM INTERMEDIAIRE";
-
-                var rows = await _oracleService.ExecuteQueryAsync(_sql);
-
-                if (!rows.Any())
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
-
-                for (int i = 0; i < rows.Count; i++)
-                {
-                    var row = rows[i];
-                    if (row.ContainsKey("RAISOCIN") && row["RAISOCIN"] != null)
-                    {
-
-                        string codeInt = row["CODEINTE"]?.ToString();
-                        var existingSite = await _dbContext.t_site.FirstOrDefaultAsync(s => s.r_code == codeInt);
-                        if (existingSite != null)
-                        {
-                            existingSite.r_nom = row["RAISOCIN"]?.ToString();
-                            _dbContext.Update(existingSite);
-                            continue;
-                        }
-                        else
-                        {
-                            t_site s = new t_site
-                            {
-                                r_code = row["CODEINTE"]?.ToString(),
-                                r_nom = row["RAISOCIN"]?.ToString()
-                            };
-
-                            _dbContext.Add(s);
-                        }
-                       
-                    }
-
-                    await _dbContext.SaveChangesAsync();
-                }
-
-                return Ok("Opération terminée avec succès");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
-            }
-        }
-
-
         [Authorize]
         [HttpPost("attestations/cedeao/zip/sse")]
         public async Task GetAttestationCedeaoZipSse([FromBody] List<string> numAttestations)
@@ -1517,10 +1470,16 @@ namespace ask.Controllers
             var path = Path.Combine(Path.GetTempPath(), fileName);
             string _desc_route = "Télécharger le fichier ZIP";
 
+            t_user userConnecte = GetInfoUser();
+
             if (!System.IO.File.Exists(path))
             {
                 return NotFound("Fichier introuvable.");
             }
+
+
+            await _traceService.TraceActionAsync(TYPE_ACTION.TELECHARGEMENT_ZIP, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Téléchargement de l'archive {fileName}");
+
 
 
             //// Supprimer le fichier après téléchargement du client
@@ -1538,75 +1497,13 @@ namespace ask.Controllers
             //        _logger.LogError(ex,$"[{_desc_route}]");
             //    }
 
-                      
+
             //    await Task.CompletedTask;
             //});
 
             var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
 
             return File(stream, "application/zip", fileName);
-        }
-
-
-        [Authorize]
-        [HttpPost("attestations/{type}/zip/start")]
-        public async Task<IActionResult> StartZip(string type, [FromBody] List<string> nums)
-        {
-            if (nums == null || !nums.Any())
-                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un numéro d'attestation est requis", instance: HttpContext.Request.Path));
-
-            var jobType = (type ?? "").Trim().ToLowerInvariant();
-            if (jobType != "atd" && jobType != "cedeao")
-            {
-                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Type de tâche invalide (atd|cedeao)", instance: HttpContext.Request.Path));
-            }
-
-            t_user dataUser = GetInfoUser();
-            if (dataUser == null)
-                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
-
-            var numsClean = nums.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList();
-
-            var job = _manager.Create(numsClean);
-            job.CancellationTokenSource = new System.Threading.CancellationTokenSource();
-
-   
-                job.r_created_by = dataUser.r_id;
-                job.r_user_id_fk = dataUser.r_id;
-                job.r_status = STATUT_JOB.RUNNING;
-                job.r_total = numsClean.Count;
-                job.r_file_name = null;
-                job.r_file_path = null;
-                job.r_type = jobType.ToUpperInvariant();
-
-            _dbContext.t_job.Add(job);
-            await _dbContext.SaveChangesAsync();
-
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var service = scope.ServiceProvider.GetRequiredService<ZipAttestationService>();
-
-                    if (jobType == "atd")
-                        await service.GenerateZipATD(job);
-                    else
-                        await service.GenerateZipCEDEAO(job);
-
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erreur dans le job de génération ZIP");
-                }
-            });
-
-            return Ok(new
-            {
-                jobId = job.r_job_id
-            });
-
         }
 
 
@@ -1661,6 +1558,62 @@ namespace ask.Controllers
             // Supprimer le job après fermeture du SSE
             job.Events.Writer.Complete();
 
+        }
+
+        #endregion
+        [NonAction]
+        [HttpGet("sites")]
+        public async Task<IActionResult> ChargerLesSites()
+        {
+            string _desc_route = "Charger les sites";
+
+            try
+            {
+
+                string _sql = @" SELECT CODEINTE, RAISOCIN FROM INTERMEDIAIRE";
+
+                var rows = await _oracleService.ExecuteQueryAsync(_sql);
+
+                if (!rows.Any())
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
+
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    var row = rows[i];
+                    if (row.ContainsKey("RAISOCIN") && row["RAISOCIN"] != null)
+                    {
+
+                        string codeInt = row["CODEINTE"]?.ToString();
+                        var existingSite = await _dbContext.t_site.FirstOrDefaultAsync(s => s.r_code == codeInt);
+                        if (existingSite != null)
+                        {
+                            existingSite.r_nom = row["RAISOCIN"]?.ToString();
+                            _dbContext.Update(existingSite);
+                            continue;
+                        }
+                        else
+                        {
+                            t_site s = new t_site
+                            {
+                                r_code = row["CODEINTE"]?.ToString(),
+                                r_nom = row["RAISOCIN"]?.ToString()
+                            };
+
+                            _dbContext.Add(s);
+                        }
+
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                return Ok("Opération terminée avec succès");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
         }
 
 

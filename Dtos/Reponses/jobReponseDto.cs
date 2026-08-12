@@ -20,5 +20,15 @@ namespace ask.Dtos.Reponses
         public STATUT_JOB? status { get; set; }
 
         public UserResponseDto? user { get; set; }
+        public jobDetailReponseDto[]? details { get; set; }
+    }
+
+    public class jobDetailReponseDto
+    {
+        public int? id { get; set; }
+        public bool? success { get; set; }
+        public string? numAttestation { get; set; }
+        public string? raisonEchec { get; set; }
+      
     }
 }

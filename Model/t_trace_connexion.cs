@@ -81,6 +81,6 @@ namespace ask.Model
         /// Relation vers l'utilisateur
         /// </summary>
         [ForeignKey(nameof(r_user_id))]
-        public virtual t_user? User { get; set; }
+        public virtual t_user? r_user { get; set; }
     }
 }

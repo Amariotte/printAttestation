@@ -21,14 +21,16 @@ namespace ask.Controllers
         private readonly ILogger<adminController> _logger;
         private readonly ServiceMessagerie _serviceMessagerie;
         private readonly ParamAppSettings _param_app_settings;
+        private readonly TraceService _traceService;
 
 
-        public adminController(askContext dbContext, ILogger<adminController> logger, ServiceMessagerie serviceMessagerie,IOptions<ParamAppSettings> param_app_settings)
+        public adminController(askContext dbContext, ILogger<adminController> logger, ServiceMessagerie serviceMessagerie, IOptions<ParamAppSettings> param_app_settings, TraceService traceService)
         {
             _dbContext = dbContext;
             _logger = logger;
             _serviceMessagerie = serviceMessagerie;
             _param_app_settings = param_app_settings.Value;
+            _traceService = traceService;
 
         }
 
@@ -60,31 +62,81 @@ namespace ask.Controllers
 
                 var logs = await baseQuery
                     .Include(u => u.r_user)
-                    .OrderBy(u => u.r_id)
+                    .OrderByDescending(u => u.r_id)
                     .Skip((pagination.Skip))
                     .Take(pagination.Take)
                     .ToListAsync();
 
-        var logsDto = logs.Select(m => new logDto
+                var logsDto = logs.Select(m => new logDto
                 {
                     id = m.r_id,
-            userId = m.r_user_id,
-            description = m.r_description,
-            date = m.r_created_at,
-            userEmail = m.r_user_email,
-            typeAction = m.r_type_action,
-            detailJson = m.r_details_json,
-             ip = m.r_ip_address,
-            userAgent = m.r_user_agent,
-            httpMethod = m.r_http_method,
-             endpoint = m.r_endpoint,
-            statusCode = m.r_status_code,
-            durationMs = m.r_duration_ms,
-            user = Tools.Tools.BuildUserToUserResponseDto(m.r_user),
+                    userId = m.r_user_id,
+                    description = m.r_description,
+                    date = m.r_created_at,
+                    userEmail = m.r_user_email,
+                    typeAction = m.r_type_action,
+                    detailJson = m.r_details_json,
+                    ip = m.r_ip_address,
+                    userAgent = m.r_user_agent,
+                    httpMethod = m.r_http_method,
+                    endpoint = m.r_endpoint,
+                    statusCode = m.r_status_code,
+                    durationMs = m.r_duration_ms,
+                    user = Tools.Tools.BuildUserToUserResponseDto(m.r_user),
                 }).ToList();
 
 
                 return Ok(PaginatedResponse<logDto>.Create(logsDto, total, page, limit));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+        [Authorize]
+        [HttpGet("audits/acces")]
+        public async Task<IActionResult> GeLogAcces([FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            const string _desc_route = "Liste des logs";
+
+            try
+            {
+
+                var pagination = new PaginationParams(page, limit);
+
+                var baseQuery = _dbContext.t_trace_connexion
+                 .Where(e => e.r_is_delete != true);
+
+                // total avant pagination
+                var total = await baseQuery.CountAsync();
+
+                var logs = await baseQuery
+                    .Include(u => u.r_user)
+                    .OrderByDescending(u => u.r_id)
+                    .Skip((pagination.Skip))
+                    .Take(pagination.Take)
+                    .ToListAsync();
+
+                var logsDto = logs.Select(m => new logAccesDto
+                {
+                    id = m.r_id,
+                    userId = m.r_user_id,
+                    date = m.r_created_at,
+                    userEmail = m.r_email,
+                    typeEvenement = m.r_type_evenement,
+                    detailJson = m.r_details_json,
+                    ip = m.r_ip_address,
+                    userAgent = m.r_user_agent,
+                    success = m.r_succes,
+                    raisonEchec = m.r_raison_echec,
+                    user = Tools.Tools.BuildUserToUserResponseDto(m.r_user),
+                }).ToList();
+
+
+                return Ok(PaginatedResponse<logAccesDto>.Create(logsDto, total, page, limit));
 
             }
             catch (Exception ex)
@@ -335,6 +387,11 @@ namespace ask.Controllers
 
             try
             {
+
+                t_user userConnecte = GetInfoUser();
+
+
+
                 var validator = new UserDtoValidator();
                 var results = validator.Validate(_body);
 
@@ -401,7 +458,11 @@ namespace ask.Controllers
                 await _dbContext.t_user.AddAsync(user);
                 await _dbContext.SaveChangesAsync();
 
-            //    await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.REGISTER_SUCCESS, user, myPass);
+           
+                await _traceService.TraceActionAsync(TYPE_ACTION.CREER_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Création de l'utilisateur : {user.r_email}");
+
+
+                //    await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.REGISTER_SUCCESS, user, myPass);
 
 
                 var response = new InscriptionResponseDto
@@ -424,12 +485,16 @@ namespace ask.Controllers
 
         [Authorize]
         [HttpPut("users/{id}")]
-        public async Task<IActionResult> ModifierUnUtilisateur(int id,[FromBody] UserDto _body)
+        public async Task<IActionResult> ModifierUnUtilisateur(int id, [FromBody] UserDto _body)
         {
             const string _desc_route = "Modifier un utilisateur";
 
             try
             {
+
+
+                t_user userConnecte = GetInfoUser();
+
                 var validator = new UserDtoValidator();
                 var results = validator.Validate(_body);
 
@@ -500,6 +565,10 @@ namespace ask.Controllers
                 _dbContext.t_user.Update(User);
                 await _dbContext.SaveChangesAsync();
 
+                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFIER_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Modification de l'utilisateur : {User.r_email}");
+
+
+
                 return Ok(Tools.Tools.BuildUserToUserResponseDto(User));
 
             }
@@ -519,6 +588,9 @@ namespace ask.Controllers
 
             try
             {
+
+                t_user userConnecte = GetInfoUser();
+
                 if (id <= 0)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
@@ -539,11 +611,15 @@ namespace ask.Controllers
                     _dbContext.t_user.Update(resQuery);
                     await _dbContext.SaveChangesAsync();
 
-               //     _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, resQuery,null);
+
+                await _traceService.TraceActionAsync(TYPE_ACTION.DESACTIVER_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Modification de l'utilisateur : {resQuery.r_email}");
+
+
+                    //     _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, resQuery,null);
 
                 }
 
-                
+
                 return Ok(Tools.Tools.BuildUserToUserResponseDto(resQuery));
             }
             catch (Exception ex)
@@ -561,6 +637,8 @@ namespace ask.Controllers
 
             try
             {
+
+                t_user userConnecte = GetInfoUser();
                 if (id <= 0)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
@@ -579,9 +657,10 @@ namespace ask.Controllers
                     resQuery.r_date_last_statut = DateTime.UtcNow;
                     _dbContext.t_user.Update(resQuery);
                     await _dbContext.SaveChangesAsync();
+                    
+                    await _traceService.TraceActionAsync(TYPE_ACTION.ACTIVER_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Activation de l'utilisateur : {resQuery.r_email}");
 
-
-                  //  _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_ACTIVE, resQuery, null);
+                    //  _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_ACTIVE, resQuery, null);
 
                 }
 
@@ -604,7 +683,8 @@ namespace ask.Controllers
 
             try
             {
-                
+
+                t_user userConnecte = GetInfoUser();
                 var User = await _dbContext.t_user
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.r_id == id && u.r_is_delete != true);
@@ -624,8 +704,11 @@ namespace ask.Controllers
                 _dbContext.t_user.Update(User);
                 await _dbContext.SaveChangesAsync();
 
+       
+                await _traceService.TraceActionAsync(TYPE_ACTION.REINITIALISATION_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Réinitialisation du mot de passe de l'utilisateur : {User.r_email}");
 
-              //  await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.RESET_PASSWORD, User, myPass);
+
+                //  await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.RESET_PASSWORD, User, myPass);
 
                 var response = new InscriptionResponseDto
                 {
@@ -673,7 +756,7 @@ namespace ask.Controllers
                     .Take(pagination.Take)
                     .ToListAsync();
 
-             
+
                 var siteDto = sites.Select(m => Tools.Tools.BuildSiteToSiteResponseDto(m)).ToList();
 
                 return Ok(PaginatedResponse<SiteResponseDto>.Create(siteDto, total, page, limit));
@@ -841,11 +924,11 @@ namespace ask.Controllers
                 if (resQuery == null)
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Le site n'existe pas", instance: HttpContext.Request.Path));
 
-                    resQuery.r_is_delete = true;
-                    _dbContext.t_site.Update(resQuery);
-                    await _dbContext.SaveChangesAsync();
+                resQuery.r_is_delete = true;
+                _dbContext.t_site.Update(resQuery);
+                await _dbContext.SaveChangesAsync();
 
-               
+
                 return Ok(Tools.Tools.BuildSiteToSiteResponseDto(resQuery));
             }
             catch (Exception ex)

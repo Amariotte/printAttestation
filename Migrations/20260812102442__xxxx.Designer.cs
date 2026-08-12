@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ask.ContextDb;
 
@@ -11,9 +12,11 @@ using ask.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260812102442__xxxx")]
+    partial class _xxxx
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -771,7 +774,7 @@ namespace print_attestation.Migrations
             modelBuilder.Entity("ask.Model.t_job_details", b =>
                 {
                     b.HasOne("ask.Model.t_job", "r_job")
-                        .WithMany("r_job_details")
+                        .WithMany()
                         .HasForeignKey("r_job_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -827,11 +830,6 @@ namespace print_attestation.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("r_site");
-                });
-
-            modelBuilder.Entity("ask.Model.t_job", b =>
-                {
-                    b.Navigation("r_job_details");
                 });
 
             modelBuilder.Entity("ask.Model.t_site", b =>

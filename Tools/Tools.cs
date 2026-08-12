@@ -1,10 +1,7 @@
 ﻿using System.Data;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using ask.Dtos.Reponses;
-using ask.Dtos.Request.auth;
 using ask.Dtos.Response.auth;
 using ask.Model;
 
@@ -14,8 +11,7 @@ namespace ask.Tools
     public static class Tools
     {
 
-   
- 
+  
         public static string Generatechiffrealeatoire(int nbre)
         {
             // Création d'une instance de Random
@@ -200,13 +196,15 @@ namespace ask.Tools
         }
 
 
-        public static UserResponseDto BuildUserToUserResponseDto(t_user u)
+        public static UserResponseDto BuildUserToUserResponseDto(t_user? u)
         {
+            if (u == null) return null;
+            
             return new UserResponseDto
             {
                 id = u.r_id,
                 nom = u.r_nom,
-                prenom = u.r_prenom,
+                prenom = u .r_prenom,
                 email = u.r_email,
                 telephone = u.r_telephone,
                 roleId = u.r_type,
@@ -232,7 +230,19 @@ namespace ask.Tools
                 nbSuccess = j.r_success,
                 nbErrors = j.r_errors,
                 status = j.r_status,
-                user = j.r_user != null ? BuildUserToUserResponseDto(j.r_user) : null
+                user = j.r_user != null ? BuildUserToUserResponseDto(j.r_user) : null,
+                details = j.r_job_details != null ? j.r_job_details.Select(BuildJobDetailResponseDto).ToArray() : null
+            };
+        }
+
+        public static jobDetailReponseDto BuildJobDetailResponseDto(t_job_details d)
+        {
+            return new jobDetailReponseDto
+            {
+                id = d.r_id,
+                success = d.r_success,
+                numAttestation = d.r_attestation,
+                raisonEchec = d.r_desc_error
             };
         }
 
@@ -256,8 +266,12 @@ namespace ask.Tools
             }
         }
 
-        public static SiteResponseDto BuildSiteToSiteResponseDto(t_site s)
+        public static SiteResponseDto BuildSiteToSiteResponseDto(t_site? s)
         {
+
+            if (s == null)
+                return null;
+
             return new SiteResponseDto
             {
                 id = s.r_id,

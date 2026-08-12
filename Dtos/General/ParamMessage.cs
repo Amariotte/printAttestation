@@ -21,8 +21,6 @@
         public string? nomSociete { get; set; }
         public string? defaultPassword { get; set; }
 
-        public string? baseWebsite { get; set; }
-
     }
     public class ParamMessageSMS
     {

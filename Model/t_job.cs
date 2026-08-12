@@ -46,9 +46,11 @@ namespace ask.Model
         /// Relation de navigation vers l'utilisateur
         /// </summary>
         public t_user? r_user { get; set; }
-    
 
-    [NotMapped]
+        public virtual ICollection<t_job_details> r_job_details { get; set; } = new List<t_job_details>();
+
+
+        [NotMapped]
     public Channel<object> Events { get; set; }
             = Channel.CreateUnbounded<object>();
 
