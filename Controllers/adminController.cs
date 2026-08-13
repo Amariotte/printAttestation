@@ -388,10 +388,6 @@ namespace ask.Controllers
             try
             {
 
-                t_user userConnecte = GetInfoUser();
-
-
-
                 var validator = new UserDtoValidator();
                 var results = validator.Validate(_body);
 
@@ -459,7 +455,7 @@ namespace ask.Controllers
                 await _dbContext.SaveChangesAsync();
 
            
-                await _traceService.TraceActionAsync(TYPE_ACTION.CREER_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Création de l'utilisateur : {user.r_email}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.CREER_UTILISATEUR,description: $"Création de l'utilisateur : {user.r_email}");
 
 
                 //    await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.REGISTER_SUCCESS, user, myPass);
@@ -492,8 +488,6 @@ namespace ask.Controllers
             try
             {
 
-
-                t_user userConnecte = GetInfoUser();
 
                 var validator = new UserDtoValidator();
                 var results = validator.Validate(_body);
@@ -565,9 +559,7 @@ namespace ask.Controllers
                 _dbContext.t_user.Update(User);
                 await _dbContext.SaveChangesAsync();
 
-                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFIER_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Modification de l'utilisateur : {User.r_email}");
-
-
+                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFIER_UTILISATEUR, description: $"Modification de l'utilisateur : {User.r_email}");
 
                 return Ok(Tools.Tools.BuildUserToUserResponseDto(User));
 
@@ -588,8 +580,6 @@ namespace ask.Controllers
 
             try
             {
-
-                t_user userConnecte = GetInfoUser();
 
                 if (id <= 0)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
@@ -612,7 +602,7 @@ namespace ask.Controllers
                     await _dbContext.SaveChangesAsync();
 
 
-                await _traceService.TraceActionAsync(TYPE_ACTION.DESACTIVER_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Modification de l'utilisateur : {resQuery.r_email}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.DESACTIVER_UTILISATEUR, description: $"Modification de l'utilisateur : {resQuery.r_email}");
 
 
                     //     _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, resQuery,null);
@@ -638,7 +628,6 @@ namespace ask.Controllers
             try
             {
 
-                t_user userConnecte = GetInfoUser();
                 if (id <= 0)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
@@ -658,7 +647,7 @@ namespace ask.Controllers
                     _dbContext.t_user.Update(resQuery);
                     await _dbContext.SaveChangesAsync();
                     
-                    await _traceService.TraceActionAsync(TYPE_ACTION.ACTIVER_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Activation de l'utilisateur : {resQuery.r_email}");
+                    await _traceService.TraceActionAsync(TYPE_ACTION.ACTIVER_UTILISATEUR, description: $"Activation de l'utilisateur : {resQuery.r_email}");
 
                     //  _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_ACTIVE, resQuery, null);
 
@@ -684,7 +673,6 @@ namespace ask.Controllers
             try
             {
 
-                t_user userConnecte = GetInfoUser();
                 var User = await _dbContext.t_user
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.r_id == id && u.r_is_delete != true);
@@ -705,7 +693,7 @@ namespace ask.Controllers
                 await _dbContext.SaveChangesAsync();
 
        
-                await _traceService.TraceActionAsync(TYPE_ACTION.REINITIALISATION_UTILISATEUR, userId: userConnecte.r_id, userEmail: userConnecte.r_email, description: $"Réinitialisation du mot de passe de l'utilisateur : {User.r_email}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.REINITIALISATION_UTILISATEUR, description: $"Réinitialisation du mot de passe de l'utilisateur : {User.r_email}");
 
 
                 //  await _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.RESET_PASSWORD, User, myPass);
@@ -751,7 +739,7 @@ namespace ask.Controllers
                 var total = await baseQuery.CountAsync();
 
                 var sites = await baseQuery
-                    .OrderBy(u => u.r_id)
+                    .OrderBy(u => u.r_nom)
                     .Skip((pagination.Skip))
                     .Take(pagination.Take)
                     .ToListAsync();
@@ -778,6 +766,8 @@ namespace ask.Controllers
 
             try
             {
+
+
                 var validator = new SiteDtoValidator();
                 var results = validator.Validate(_body);
 
@@ -819,6 +809,7 @@ namespace ask.Controllers
                 await _dbContext.t_site.AddAsync(site);
                 await _dbContext.SaveChangesAsync();
 
+                await _traceService.TraceActionAsync(TYPE_ACTION.CREATION_SITE,description: $"Création d'un site : {_body.nom}");
 
                 return Ok(Tools.Tools.BuildSiteToSiteResponseDto(site));
             }
@@ -894,6 +885,7 @@ namespace ask.Controllers
 
                 _dbContext.t_site.Update(site);
                 await _dbContext.SaveChangesAsync();
+                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_SITE, description: $"Modification d'un site : {_body.nom}");
 
                 return Ok(Tools.Tools.BuildSiteToSiteResponseDto(site));
 
@@ -928,6 +920,7 @@ namespace ask.Controllers
                 _dbContext.t_site.Update(resQuery);
                 await _dbContext.SaveChangesAsync();
 
+                await _traceService.TraceActionAsync(TYPE_ACTION.SUPPRESSION_SITE, description: $"Suppression du site : {resQuery.r_nom}");
 
                 return Ok(Tools.Tools.BuildSiteToSiteResponseDto(resQuery));
             }
