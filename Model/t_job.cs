@@ -47,7 +47,7 @@ namespace ask.Model
         /// </summary>
         public t_user? r_user { get; set; }
 
-        public virtual ICollection<t_job_details> r_job_details { get; set; } = new List<t_job_details>();
+        public virtual ICollection<t_job_details>? r_job_details { get; set; } = new List<t_job_details>();
 
 
         [NotMapped]

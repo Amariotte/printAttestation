@@ -33,13 +33,18 @@ namespace ask.ContextDb
             modelBuilder.Entity<t_user>(entity =>
             {
                 entity.HasMany(u => u.r_refresh_tokens)
-                      .WithOne(rt => rt.r_userTab)
+                      .WithOne(rt => rt.r_user)
                       .HasForeignKey(rt => rt.r_user_id_fk)
                       .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasMany(u => u.r_sessions)
-                      .WithOne(s => s.r_userTab)
+                      .WithOne(s => s.r_user)
                       .HasForeignKey(s => s.r_user_id_fk)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(u => u.r_jobs)
+                      .WithOne(j => j.r_user)
+                      .HasForeignKey(j => j.r_user_id_fk)
                       .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasOne(u => u.r_site)
@@ -73,10 +78,12 @@ namespace ask.ContextDb
             // Query filters globaux pour soft delete
             modelBuilder.Entity<t_user>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_refresh_token>().HasQueryFilter(e => !e.r_is_delete);
+            modelBuilder.Entity<t_job>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_session>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_histo_sms>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_histo_email>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_site>().HasQueryFilter(e => !e.r_is_delete);
+            modelBuilder.Entity<t_job_details>().HasQueryFilter(e => !e.r_is_delete);
 
             // Configuration des tables de traçabilité
             modelBuilder.Entity<t_trace_action>(entity =>
@@ -119,8 +126,19 @@ namespace ask.ContextDb
 
             modelBuilder.Entity<t_job>(entity =>
             {
+                entity.HasMany(u => u.r_job_details)
+                    .WithOne(j => j.r_job)
+                    .HasForeignKey(j => j.r_job_id_fk)
+                    .OnDelete(DeleteBehavior.Cascade);
+
                 entity.HasIndex(e => e.r_job_id);
                 entity.HasIndex(e => e.r_user_id_fk);
+                entity.HasIndex(e => e.r_created_at);
+            });
+
+            modelBuilder.Entity<t_job_details>(entity =>
+            {
+                entity.HasIndex(e => e.r_job_id_fk);
                 entity.HasIndex(e => e.r_created_at);
             });
         }

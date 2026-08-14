@@ -5,7 +5,7 @@
 namespace print_attestation.Migrations
 {
     /// <inheritdoc />
-    public partial class _xxxxx : Migration
+    public partial class _init_data_01 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

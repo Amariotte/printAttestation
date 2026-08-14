@@ -65,12 +65,12 @@ namespace ask.Model
         /// Clé étrangère vers l'utilisateur
         /// </summary>
         [Required]
-        [ForeignKey(nameof(r_userTab))]
+        [ForeignKey(nameof(r_user))]
         public int r_user_id_fk { get; set; }
 
         /// <summary>
         /// Relation de navigation vers l'utilisateur
         /// </summary>
-        public t_user? r_userTab { get; set; }
+        public t_user? r_user { get; set; }
     }
 }

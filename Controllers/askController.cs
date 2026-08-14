@@ -1,23 +1,18 @@
 ﻿using System.Data;
-using System.IO.Compression;
 using System.Net;
-using System.Net.NetworkInformation;
 using ask.ContextDb;
 using ask.Dtos.General;
 using ask.Dtos.Reponses;
-using ask.Dtos.Request.auth;
 using ask.Dtos.Response;
 using ask.Model;
 using ask.Services;
 using InteroperabiliteProject.Dtos;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using OracleApi.Services;
-using print_attestation.Migrations;
 
 
 namespace ask.Controllers

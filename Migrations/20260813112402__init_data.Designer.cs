@@ -12,8 +12,8 @@ using ask.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    [Migration("20260612143541_maj_users")]
-    partial class maj_users
+    [Migration("20260813112402__init_data")]
+    partial class _init_data
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -166,6 +166,132 @@ namespace print_attestation.Migrations
                     b.ToTable("t_histo_sms");
                 });
 
+            modelBuilder.Entity("ask.Model.t_job", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<string>("r_attestations")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("r_completed_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_errors")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_file_name")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("r_file_path")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("r_job_id")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int?>("r_status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_success")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_total")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_type")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_user_id_fk")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_created_at");
+
+                    b.HasIndex("r_job_id");
+
+                    b.HasIndex("r_user_id_fk");
+
+                    b.HasIndex(new[] { "r_job_id" }, "IX_Job_JobId");
+
+                    b.HasIndex(new[] { "r_user_id_fk" }, "IX_Job_UserId");
+
+                    b.ToTable("t_job");
+                });
+
+            modelBuilder.Entity("ask.Model.t_job_details", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<string>("r_attestation")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_desc_error")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("r_job_id_fk")
+                        .HasColumnType("int");
+
+                    b.Property<bool?>("r_success")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex(new[] { "r_job_id_fk" }, "IX_Job_JobIdFk");
+
+                    b.ToTable("t_job_details");
+                });
+
             modelBuilder.Entity("ask.Model.t_modele", b =>
                 {
                     b.Property<int>("r_id")
@@ -291,49 +417,6 @@ namespace print_attestation.Migrations
                     b.ToTable("t_refresh_token");
                 });
 
-            modelBuilder.Entity("ask.Model.t_scope", b =>
-                {
-                    b.Property<int>("r_id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
-
-                    b.Property<DateTime?>("r_created_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_created_by")
-                        .HasColumnType("int");
-
-                    b.Property<string>("r_description")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<bool>("r_is_active")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_is_delete")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("r_nom")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<DateTime?>("r_updated_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_updated_by")
-                        .HasColumnType("int");
-
-                    b.HasKey("r_id");
-
-                    b.HasIndex(new[] { "r_nom" }, "IX_Scope_Nom")
-                        .IsUnique();
-
-                    b.ToTable("t_scope");
-                });
-
             modelBuilder.Entity("ask.Model.t_session", b =>
                 {
                     b.Property<int>("r_id")
@@ -397,6 +480,210 @@ namespace print_attestation.Migrations
                     b.ToTable("t_session");
                 });
 
+            modelBuilder.Entity("ask.Model.t_site", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<string>("r_code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("r_nom")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex(new[] { "r_code" }, "IX_Site_Code")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "r_nom" }, "IX_Site_Nom");
+
+                    b.ToTable("t_site");
+                });
+
+            modelBuilder.Entity("ask.Model.t_trace_action", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_description")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("r_details_json")
+                        .HasColumnType("json");
+
+                    b.Property<long?>("r_duration_ms")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("r_endpoint")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("r_http_method")
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("r_ip_address")
+                        .HasMaxLength(45)
+                        .HasColumnType("varchar(45)");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("r_status_code")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_type_action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_user_agent")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("r_user_email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int?>("r_user_id")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_created_at");
+
+                    b.HasIndex("r_type_action");
+
+                    b.HasIndex("r_user_id");
+
+                    b.HasIndex("r_user_id", "r_created_at");
+
+                    b.ToTable("t_trace_action");
+                });
+
+            modelBuilder.Entity("ask.Model.t_trace_connexion", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_details_json")
+                        .HasColumnType("json");
+
+                    b.Property<string>("r_email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("r_ip_address")
+                        .HasMaxLength(45)
+                        .HasColumnType("varchar(45)");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("r_raison_echec")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("r_session_token_hash")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<bool>("r_succes")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("r_token_expires_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("r_type_evenement")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_user_agent")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int?>("r_user_id")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_created_at");
+
+                    b.HasIndex("r_email");
+
+                    b.HasIndex("r_ip_address");
+
+                    b.HasIndex("r_user_id");
+
+                    b.HasIndex("r_succes", "r_created_at");
+
+                    b.HasIndex("r_user_id", "r_created_at");
+
+                    b.ToTable("t_trace_connexion");
+                });
+
             modelBuilder.Entity("ask.Model.t_user", b =>
                 {
                     b.Property<int>("r_id")
@@ -411,25 +698,19 @@ namespace print_attestation.Migrations
                     b.Property<int?>("r_created_by")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("r_date_last_statut")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("r_email")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
-
-                    b.Property<int>("r_failed_login_attempts")
-                        .HasColumnType("int");
 
                     b.Property<bool>("r_is_active")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("r_is_delete")
                         .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime?>("r_last_login_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("r_locked_until")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("r_nom")
                         .IsRequired()
@@ -444,13 +725,12 @@ namespace print_attestation.Migrations
                     b.Property<bool>("r_password_change_required")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("r_photo")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
                     b.Property<string>("r_prenom")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
+
+                    b.Property<int?>("r_site_id_fk")
+                        .HasColumnType("int");
 
                     b.Property<int>("r_statut")
                         .HasColumnType("int");
@@ -470,6 +750,8 @@ namespace print_attestation.Migrations
 
                     b.HasKey("r_id");
 
+                    b.HasIndex("r_site_id_fk");
+
                     b.HasIndex(new[] { "r_email" }, "IX_User_Email")
                         .IsUnique();
 
@@ -478,130 +760,95 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_scopes", b =>
+            modelBuilder.Entity("ask.Model.t_job", b =>
                 {
-                    b.Property<int>("r_id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                    b.HasOne("ask.Model.t_user", "r_user")
+                        .WithMany("r_jobs")
+                        .HasForeignKey("r_user_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+                    b.Navigation("r_user");
+                });
 
-                    b.Property<DateTime?>("r_created_at")
-                        .HasColumnType("datetime(6)");
+            modelBuilder.Entity("ask.Model.t_job_details", b =>
+                {
+                    b.HasOne("ask.Model.t_job", "r_job")
+                        .WithMany("r_job_details")
+                        .HasForeignKey("r_job_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Property<int?>("r_created_by")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("r_is_active")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_is_delete")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("r_scope_id_fk")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("r_updated_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_updated_by")
-                        .HasColumnType("int");
-
-                    b.Property<int>("r_user_id_fk")
-                        .HasColumnType("int");
-
-                    b.Property<int>("t_scoper_id")
-                        .HasColumnType("int");
-
-                    b.Property<int>("t_scoper_id1")
-                        .HasColumnType("int");
-
-                    b.Property<int>("t_userr_id")
-                        .HasColumnType("int");
-
-                    b.Property<int>("t_userr_id1")
-                        .HasColumnType("int");
-
-                    b.HasKey("r_id");
-
-                    b.HasIndex("r_scope_id_fk");
-
-                    b.HasIndex("t_scoper_id1");
-
-                    b.HasIndex("t_userr_id1");
-
-                    b.HasIndex("r_user_id_fk", "r_scope_id_fk")
-                        .IsUnique()
-                        .HasDatabaseName("IX_UserScopes_UserId_ScopeId");
-
-                    b.ToTable("t_user_scopes");
+                    b.Navigation("r_job");
                 });
 
             modelBuilder.Entity("ask.Model.t_refresh_token", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_userTab")
+                    b.HasOne("ask.Model.t_user", "r_user")
                         .WithMany("r_refresh_tokens")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("r_userTab");
+                    b.Navigation("r_user");
                 });
 
             modelBuilder.Entity("ask.Model.t_session", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_userTab")
+                    b.HasOne("ask.Model.t_user", "r_user")
                         .WithMany("r_sessions")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("r_userTab");
+                    b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_scopes", b =>
+            modelBuilder.Entity("ask.Model.t_trace_action", b =>
                 {
-                    b.HasOne("ask.Model.t_scope", "r_scopeTab")
+                    b.HasOne("ask.Model.t_user", "r_user")
                         .WithMany()
-                        .HasForeignKey("r_scope_id_fk")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("r_user_id");
 
-                    b.HasOne("ask.Model.t_user", "r_userTab")
-                        .WithMany()
-                        .HasForeignKey("r_user_id_fk")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ask.Model.t_scope", null)
-                        .WithMany("r_user_scopes")
-                        .HasForeignKey("t_scoper_id1")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ask.Model.t_user", null)
-                        .WithMany("r_user_scopes")
-                        .HasForeignKey("t_userr_id1")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("r_scopeTab");
-
-                    b.Navigation("r_userTab");
+                    b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_scope", b =>
+            modelBuilder.Entity("ask.Model.t_trace_connexion", b =>
                 {
-                    b.Navigation("r_user_scopes");
+                    b.HasOne("ask.Model.t_user", "r_user")
+                        .WithMany()
+                        .HasForeignKey("r_user_id");
+
+                    b.Navigation("r_user");
                 });
 
             modelBuilder.Entity("ask.Model.t_user", b =>
                 {
+                    b.HasOne("ask.Model.t_site", "r_site")
+                        .WithMany("r_users")
+                        .HasForeignKey("r_site_id_fk")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("r_site");
+                });
+
+            modelBuilder.Entity("ask.Model.t_job", b =>
+                {
+                    b.Navigation("r_job_details");
+                });
+
+            modelBuilder.Entity("ask.Model.t_site", b =>
+                {
+                    b.Navigation("r_users");
+                });
+
+            modelBuilder.Entity("ask.Model.t_user", b =>
+                {
+                    b.Navigation("r_jobs");
+
                     b.Navigation("r_refresh_tokens");
 
                     b.Navigation("r_sessions");
-
-                    b.Navigation("r_user_scopes");
                 });
 #pragma warning restore 612, 618
         }

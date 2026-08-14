@@ -284,6 +284,10 @@ namespace print_attestation.Migrations
 
                     b.HasKey("r_id");
 
+                    b.HasIndex("r_created_at");
+
+                    b.HasIndex("r_job_id_fk");
+
                     b.HasIndex(new[] { "r_job_id_fk" }, "IX_Job_JobIdFk");
 
                     b.ToTable("t_job_details");
@@ -781,24 +785,24 @@ namespace print_attestation.Migrations
 
             modelBuilder.Entity("ask.Model.t_refresh_token", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_userTab")
+                    b.HasOne("ask.Model.t_user", "r_user")
                         .WithMany("r_refresh_tokens")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("r_userTab");
+                    b.Navigation("r_user");
                 });
 
             modelBuilder.Entity("ask.Model.t_session", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_userTab")
+                    b.HasOne("ask.Model.t_user", "r_user")
                         .WithMany("r_sessions")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("r_userTab");
+                    b.Navigation("r_user");
                 });
 
             modelBuilder.Entity("ask.Model.t_trace_action", b =>

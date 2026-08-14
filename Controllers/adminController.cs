@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 
 namespace ask.Controllers
 {
@@ -435,6 +436,10 @@ namespace ask.Controllers
 
                 string myPass = _param_app_settings.defaultPassword;
 
+                _logger.LogError($"[EndPoint _body] ===============================>{JsonConvert.SerializeObject(_body)}");
+
+
+
                 var user = new t_user
                 {
                     r_nom = _body.nom,
@@ -450,6 +455,7 @@ namespace ask.Controllers
                 };
 
 
+                _logger.LogError($"[EndPoint user] ===============================>{JsonConvert.SerializeObject(user)}");
 
                 await _dbContext.t_user.AddAsync(user);
                 await _dbContext.SaveChangesAsync();
