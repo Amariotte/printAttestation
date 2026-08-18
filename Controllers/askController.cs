@@ -238,6 +238,7 @@ namespace ask.Controllers
 
             var jobs = await query
                  .Include(u => u.r_user)
+                 .Include(x => x.r_user.r_site)
                 .OrderByDescending(x => x.r_created_at)
                 .Skip((pagination.page - 1) * pagination.limit)
                 .Take(pagination.limit)

@@ -347,7 +347,7 @@ namespace ask.Controllers
                         break;
 
                     case TYPE_UTILISATEUR.Responsable_Reseau:
-                        baseQuery = baseQuery.Where(u => u.r_type != TYPE_UTILISATEUR.Administrateur);
+                        baseQuery = baseQuery.Where(u => u.r_type > TYPE_UTILISATEUR.Responsable_Reseau);
                         break;
                     case TYPE_UTILISATEUR.Responsable_site:
                         baseQuery = baseQuery.Where(u => u.r_site_id_fk == userConnecte.r_site_id_fk);
