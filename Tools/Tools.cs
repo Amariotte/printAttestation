@@ -248,17 +248,19 @@ namespace ask.Tools
 
 
 
-        public static string EquivalenceTypeUser(TYPE_USER typeUser)
+        public static string EquivalenceTypeUser(TYPE_UTILISATEUR typeUser)
         {
             switch (typeUser)
             {
-                case TYPE_USER.Administrateur:
+                case TYPE_UTILISATEUR.Administrateur:
                     return "Administrateur";
+                case TYPE_UTILISATEUR.Responsable_Reseau:
+                    return "Responsable Réseau";
 
-                case TYPE_USER.Responsable_site:
+                case TYPE_UTILISATEUR.Responsable_site:
                     return "Responsable site";
 
-                case TYPE_USER.Utilisateur:
+                case TYPE_UTILISATEUR.Utilisateur:
                     return "Utilisateur";
 
                 default:

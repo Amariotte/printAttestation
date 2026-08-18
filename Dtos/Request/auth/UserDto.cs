@@ -10,7 +10,7 @@ namespace ask.Dtos.Request.auth
         public string? email { get; set; }
         public string? telephone { get; set; }
 
-        public TYPE_USER roleId { get; set; } = TYPE_USER.Utilisateur;
+        public TYPE_UTILISATEUR roleId { get; set; } = TYPE_UTILISATEUR.Utilisateur;
         public int? siteId { get; set; }
     }
 

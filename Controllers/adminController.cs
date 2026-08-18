@@ -341,15 +341,19 @@ namespace ask.Controllers
                 // Filtrage selon le type de l'utilisateur connecté
                 switch (userConnecte.r_type)
                 {
-                    case TYPE_USER.Administrateur:
+                    case TYPE_UTILISATEUR.Administrateur:
+
                         // Aucun filtre : voit tout
                         break;
 
-                    case TYPE_USER.Responsable_site:
+                    case TYPE_UTILISATEUR.Responsable_Reseau:
+                        baseQuery = baseQuery.Where(u => u.r_type != TYPE_UTILISATEUR.Administrateur);
+                        break;
+                    case TYPE_UTILISATEUR.Responsable_site:
                         baseQuery = baseQuery.Where(u => u.r_site_id_fk == userConnecte.r_site_id_fk);
                         break;
 
-                    case TYPE_USER.Utilisateur:
+                    case TYPE_UTILISATEUR.Utilisateur:
                         baseQuery = baseQuery.Where(u => u.r_id == userConnecte.r_id);
                         break;
 

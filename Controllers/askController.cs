@@ -198,10 +198,25 @@ namespace ask.Controllers
 
             var query = _dbContext.t_job.AsQueryable();
 
-            // si pas admin, ne lister que les jobs de l'utilisateur
-            if (user.r_type != TYPE_USER.Administrateur)
+            switch (user.r_type)
             {
-                query = query.Where(x => x.r_user_id_fk == user.r_id);
+                case TYPE_UTILISATEUR.Administrateur:
+                    // L'administrateur voit tous les jobs
+                    break;
+
+                case TYPE_UTILISATEUR.Responsable_site:
+                    // Le responsable de site voit les jobs de son site
+                    query = query.Where(x =>
+                        x.r_user.r_site_id_fk == user.r_site_id_fk
+                    );
+                    break;
+
+                default:
+                    // Les autres utilisateurs voient uniquement leurs propres jobs
+                    query = query.Where(x =>
+                        x.r_user_id_fk == user.r_id
+                    );
+                    break;
             }
 
             // Filtre par statut si fourni (valeurs : RUNNING, COMPLETED, CANCELLED)
@@ -244,16 +259,14 @@ namespace ask.Controllers
             if (user == null)
                 return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
 
-            var rec = await _dbContext.t_job.FirstOrDefaultAsync(x => x.r_job_id == jobId);
-            if (rec == null)
+            var jobRec = await _dbContext.t_job.FirstOrDefaultAsync(x => x.r_job_id == jobId);
+            if (jobRec == null)
                 return NotFound(GeneraleRetour.BuildNotFound(detail: "Job introuvable", instance: HttpContext.Request.Path));
 
-            if (user.r_type != TYPE_USER.Administrateur && rec.r_user_id_fk != user.r_id)
-                return Forbid();
+            if (!(HasAccessToJob(jobRec, user)))
+                return StatusCode(403,GeneraleRetour.BuildForbid(instance: HttpContext.Request.Path, detail:"Accès refusé"));
 
-            var job = _manager.Get(jobId);
-
-            return Ok(new { record = rec, inMemory = job != null ? new { job.r_job_id, job.r_total, job.r_status, job.r_file_name } : null });
+            return Ok(Tools.Tools.BuildJobToJobResponseDto(jobRec));
         }
 
 
@@ -265,11 +278,11 @@ namespace ask.Controllers
             if (user == null)
                 return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
 
-            var rec = await _dbContext.t_job.FirstOrDefaultAsync(x => x.r_job_id == jobId);
-            if (rec == null)
+            var jobRec = await _dbContext.t_job.FirstOrDefaultAsync(x => x.r_job_id == jobId);
+            if (jobRec == null)
                 return NotFound(GeneraleRetour.BuildNotFound(detail: "Job introuvable", instance: HttpContext.Request.Path));
 
-            if (user.r_type != TYPE_USER.Administrateur && rec.r_user_id_fk != user.r_id)
+            if (!(HasAccessToJob(jobRec, user)))
                 return StatusCode(403, GeneraleRetour.BuildForbid(detail: "Accès refusé", instance: HttpContext.Request.Path));
 
             // arrêter le job en mémoire
@@ -284,12 +297,13 @@ namespace ask.Controllers
                 catch { }
             }
 
-            rec.r_status = STATUT_JOB.CANCELLED;
-            rec.r_is_active = false;
+            jobRec.r_status = STATUT_JOB.CANCELLED;
+            jobRec.r_is_active = false;
+            _dbContext.Update(jobRec);
             await _dbContext.SaveChangesAsync();
 
 
-            await _traceService.TraceActionAsync(TYPE_ACTION.ANNULATION_GENERATION_ZIP, userId: user.r_id, userEmail: user.r_email, description: $"Annulation de la génération de la tâche : {rec.r_job_id}");
+            await _traceService.TraceActionAsync(TYPE_ACTION.ANNULATION_GENERATION_ZIP, userId: user.r_id, userEmail: user.r_email, description: $"Annulation de la génération de la tâche : {jobRec.r_job_id}");
 
 
             return Ok(new { success = true });
@@ -366,6 +380,7 @@ namespace ask.Controllers
 
 
                 string statutSql = "";
+                string codeInteSql = "";
 
                 if (status == "ACTIVE")
                 {
@@ -376,13 +391,22 @@ namespace ask.Controllers
                     statutSql = " AND TRUNC(a.DATECHAT) < TRUNC(SYSDATE)";
                 }
 
+
+                // Filtre CODEINTE selon le type d'utilisateur
+                if (dataUser.r_type != TYPE_UTILISATEUR.Administrateur)
+                {
+                    codeInteSql = " AND a.CODEINTE = :codeInte";
+                }
+
+
                 // Requête SQL pour compter le nombre total d'attestations correspondant à la recherche
                 string _sqlCount = @"SELECT count(*) AS nb
                                         FROM attestation_risque a LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
                                         WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
                                           AND ( TRIM(a.NUMEIMMA) = :cleRecherche OR TRIM(a.NUMECHAS) = :cleRecherche OR TRIM(a.NUMATTDI) = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR TO_CHAR(a.CODEINTE) || '/' || TRIM(TO_CHAR(a.NUMEPOLI)) = :cleRecherche)
-                                           {statutSql}";
+                                           {statutSql}{codeInteSql}";
                 _sqlCount = _sqlCount.Replace("{statutSql}", statutSql);
+                _sqlCount = _sqlCount.Replace("{codeInteSql}", codeInteSql);
 
                 // Requête SQL sécurisée avec pagination Oracle (ROWNUM)
                 int offset = (page - 1) * limit;
@@ -400,7 +424,7 @@ namespace ask.Controllers
                                           AND (TRIM(a.NUMEIMMA) = :cleRecherche OR TRIM(a.NUMECHAS) = :cleRecherche OR 
                                                TRIM(a.NUMATTDI) = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR 
                                                TO_CHAR(a.CODEINTE) || '/' || TRIM(TO_CHAR(a.NUMEPOLI)) = :cleRecherche)
-                                           {statutSql}
+                                           {statutSql}{codeInteSql}
                                         ORDER BY a.CREE__LE DESC, a.DATECHAT DESC, a.DATEFFAT DESC
                                     ) t
                                     WHERE ROWNUM <= :maxRow
@@ -408,12 +432,17 @@ namespace ask.Controllers
                                 WHERE rn > :offset";
 
                 _sql = _sql.Replace("{statutSql}", statutSql);
+                _sql = _sql.Replace("{codeInteSql}", codeInteSql);
 
                 // Paramètres pour la requête COUNT
                 var countParameters = new Dictionary<string, object>
                 {
                     { ":cleRecherche", cleRecherche }
                 };
+
+                if (!string.IsNullOrWhiteSpace(codeInteSql))
+                    countParameters.Add(":codeInte", dataUser.r_site.r_code);
+
 
                 // Paramètres pour la requête paginée
                 var parameters = new Dictionary<string, object>
@@ -422,6 +451,9 @@ namespace ask.Controllers
                     { ":offset", offset },
                     { ":maxRow", offset + limit }
                 };
+
+                if (!string.IsNullOrWhiteSpace(codeInteSql))
+                    parameters.Add(":codeInte", dataUser.r_site.r_code);
 
 
 
@@ -670,7 +702,20 @@ namespace ask.Controllers
         }
 
 
+        [NonAction]
+        private bool HasAccessToJob(t_job jobRec, t_user user)
+        {
+            return user.r_type switch
+            {
+                TYPE_UTILISATEUR.Administrateur => true,
 
+                TYPE_UTILISATEUR.Responsable_site =>
+                    user.r_site_id_fk == jobRec.r_user?.r_site_id_fk,
+
+                _ =>
+                    jobRec.r_user_id_fk == user.r_id
+            };
+        }
     }
 
 }

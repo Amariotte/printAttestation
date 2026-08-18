@@ -58,7 +58,7 @@ namespace ask.Model
         public STATUT_USER r_statut { get; set; } = STATUT_USER.ACTIVE;
         public DateTime? r_date_last_statut { get; set; }
 
-        public TYPE_USER r_type { get; set; } = TYPE_USER.Utilisateur;
+        public TYPE_UTILISATEUR r_type { get; set; } = TYPE_UTILISATEUR.Utilisateur;
 
 
         public int? r_site_id_fk { get; set; }

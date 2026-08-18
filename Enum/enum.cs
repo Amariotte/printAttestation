@@ -13,11 +13,12 @@ public enum STATUT_SMS
     ECHOUE = 3
 }
 
-public enum TYPE_USER
+public enum TYPE_UTILISATEUR
 {
     Administrateur = 1,
-    Responsable_site = 2,
-    Utilisateur = 3
+    Responsable_Reseau = 2,
+    Responsable_site = 3,
+    Utilisateur = 4
 }
 
 public enum TYPE_JOB
