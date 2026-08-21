@@ -20,8 +20,15 @@
         public string? urlConnexion { get; set; }
         public string? nomSociete { get; set; }
         public string? defaultPassword { get; set; }
-
+  
+        public ImmatriculationSettings? immatriculation { get; set; }
+    
     }
+    public class ImmatriculationSettings
+    {
+        public string[] charactersToReplace { get; set; } = [];
+    }
+
     public class ParamMessageSMS
     {
         public string? login { get; set; }

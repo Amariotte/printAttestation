@@ -96,19 +96,29 @@ namespace ask.Controllers
             job.CancellationTokenSource = new System.Threading.CancellationTokenSource();
 
             var jobType = (type ?? "").Trim().ToLowerInvariant();
-            if (jobType != "atd" && jobType != "cedeao")
+            if (jobType != "atd" && jobType != "cedeao" && jobType != "atd_cedeao")
             {
-                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Type de tâche invalide (atd|cedeao)", instance: HttpContext.Request.Path));
+                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Type de tâche invalide (atd|cedeao|atd_cedeao)", instance: HttpContext.Request.Path));
             }
 
-            if (jobType == "cedeao")
+            switch (jobType)
             {
-                await _traceService.TraceActionAsync(TYPE_ACTION.GENERATION_CEDEAO_ZIP, userId: dataUser.r_id,userEmail: dataUser.r_email,description: $"Génération de l'archive de {numAttestations.Count} cedeao : ID = {job.r_job_id}");
+                case "cedeao":
+                    await _traceService.TraceActionAsync(TYPE_ACTION.GENERATION_CEDEAO_ZIP, userId: dataUser.r_id, userEmail: dataUser.r_email, description: $"Génération de l'archive de {numAttestations.Count} cedeao : ID = {job.r_job_id}");
+                    break;
+
+                case "atd":
+                    await _traceService.TraceActionAsync(TYPE_ACTION.GENERATION_ATD_ZIP, userId: dataUser.r_id, userEmail: dataUser.r_email, description: $"Génération de l'archive de {numAttestations.Count} attestation(s) : ID = {job.r_job_id}");
+                    break;
+                case "atd_cedeao":
+                    await _traceService.TraceActionAsync(TYPE_ACTION.GENERATION_ATD_CEDEAO_ZIP, userId: dataUser.r_id, userEmail: dataUser.r_email, description: $"Génération de l'archive de {numAttestations.Count} attestation(s) : ID = {job.r_job_id}");
+                    break;
+                default:
+                    // Cas par défaut
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Type de tâche invalide (atd|cedeao|atd_cedeao)", instance: HttpContext.Request.Path));
             }
-            else
-            {
-                await _traceService.TraceActionAsync(TYPE_ACTION.GENERATION_ATD_ZIP, userId: dataUser.r_id, userEmail: dataUser.r_email, description: $"Génération de l'archive de {numAttestations.Count} attestation(s) : ID = {job.r_job_id}");
-            }
+
+          
 
 
             job.r_created_by = dataUser.r_id;
@@ -130,14 +140,22 @@ namespace ask.Controllers
                     using var scope = _scopeFactory.CreateScope();
                     var svc = scope.ServiceProvider.GetRequiredService<ZipAttestationService>();
 
-                    if (jobType == "cedeao")
+
+                    switch (jobType)
                     {
-                        await svc.GenerateZipCEDEAO(job);
+                        case "cedeao":
+                            await svc.GenerateZipCEDEAO(job);
+                            break;
+
+                        case "atd":
+                            await svc.GenerateZipATD(job);
+                            break;
+                        case "atd_cedeao":
+                            await svc.GenerateZipATDAndCEDEAO(job);
+                            break;
                     }
-                    else
-                    {
-                        await svc.GenerateZipATD(job);
-                    }
+
+
               
                 }
                 catch (Exception ex)
@@ -383,6 +401,12 @@ namespace ask.Controllers
                 string statutSql = "";
                 string codeInteSql = "";
 
+
+                var caracteres = _param_app_settings.immatriculation.charactersToReplace ?? [];
+
+                var numeImmaSql = SqlReplace("a.NUMEIMMA", caracteres);
+                var cleRechercheSql = SqlReplace(":cleRecherche", caracteres);
+
                 if (status == "ACTIVE")
                 {
                     statutSql = " AND TRUNC(a.DATECHAT) >= TRUNC(SYSDATE)";
@@ -399,15 +423,16 @@ namespace ask.Controllers
                     codeInteSql = " AND a.CODEINTE = :codeInte";
                 }
 
-
                 // Requête SQL pour compter le nombre total d'attestations correspondant à la recherche
                 string _sqlCount = @"SELECT count(*) AS nb
                                         FROM attestation_risque a LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
                                         WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
-                                          AND ( TRIM(a.NUMEIMMA) = :cleRecherche OR TRIM(a.NUMECHAS) = :cleRecherche OR TRIM(a.NUMATTDI) = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR TO_CHAR(a.CODEINTE) || '/' || TRIM(TO_CHAR(a.NUMEPOLI)) = :cleRecherche)
+                                          AND ( UPPER(TRIM(a.NUMEIMMA)) = UPPER(:cleRecherche) OR UPPER({numeImmaSql}) = UPPER({cleRechercheSql}) OR UPPER(TRIM(a.NUMECHAS)) = UPPER(:cleRecherche) OR TRIM(a.NUMATTDI) = UPPER(:cleRecherche) OR UPPER(TO_CHAR(a.NUMEPOLI)) = UPPER(:cleRecherche) OR UPPER(TO_CHAR(a.CODEINTE)) || '/' || UPPER(TRIM(TO_CHAR(a.NUMEPOLI))) = UPPER(:cleRecherche))
                                            {statutSql}{codeInteSql}";
                 _sqlCount = _sqlCount.Replace("{statutSql}", statutSql);
                 _sqlCount = _sqlCount.Replace("{codeInteSql}", codeInteSql);
+                _sqlCount = _sqlCount.Replace("{numeImmaSql}", numeImmaSql);
+                _sqlCount = _sqlCount.Replace("{cleRechercheSql}", cleRechercheSql);
 
                 // Requête SQL sécurisée avec pagination Oracle (ROWNUM)
                 int offset = (page - 1) * limit;
@@ -422,9 +447,10 @@ namespace ask.Controllers
                                         FROM attestation_risque a 
                                         LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
                                         WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
-                                          AND (TRIM(a.NUMEIMMA) = :cleRecherche OR TRIM(a.NUMECHAS) = :cleRecherche OR 
-                                               TRIM(a.NUMATTDI) = :cleRecherche OR TO_CHAR(a.NUMEPOLI) = :cleRecherche OR 
-                                               TO_CHAR(a.CODEINTE) || '/' || TRIM(TO_CHAR(a.NUMEPOLI)) = :cleRecherche)
+                                          AND (UPPER(TRIM(a.NUMEIMMA)) = UPPER(:cleRecherche) OR UPPER(TRIM(a.NUMECHAS)) = UPPER(:cleRecherche) OR 
+                                               UPPER(TRIM(a.NUMATTDI)) = UPPER(:cleRecherche) OR UPPER(TO_CHAR(a.NUMEPOLI)) = :cleRecherche OR
+                                               UPPER({numeImmaSql}) = UPPER({cleRechercheSql}) OR
+                                               UPPER(TO_CHAR(a.CODEINTE)) || '/' || UPPER(TRIM(TO_CHAR(a.NUMEPOLI))) = UPPER(:cleRecherche))
                                            {statutSql}{codeInteSql}
                                         ORDER BY a.CREE__LE DESC, a.DATECHAT DESC, a.DATEFFAT DESC
                                     ) t
@@ -434,6 +460,8 @@ namespace ask.Controllers
 
                 _sql = _sql.Replace("{statutSql}", statutSql);
                 _sql = _sql.Replace("{codeInteSql}", codeInteSql);
+                _sql = _sql.Replace("{numeImmaSql}", numeImmaSql);
+                _sql = _sql.Replace("{cleRechercheSql}", cleRechercheSql);
 
                 // Paramètres pour la requête COUNT
                 var countParameters = new Dictionary<string, object>
@@ -716,6 +744,23 @@ namespace ask.Controllers
                 _ =>
                     jobRec.r_user_id_fk == user.r_id
             };
+        }
+
+
+
+
+
+        public static string SqlReplace(string expression, params string[] caracteres)
+        {
+            string resultat = $"TRIM({expression})";
+
+            foreach (var caractere in caracteres)
+            {
+                var caractereSql = caractere.Replace("'", "''");
+                resultat = $"REPLACE({resultat}, '{caractereSql}', '')";
+            }
+
+            return resultat;
         }
     }
 

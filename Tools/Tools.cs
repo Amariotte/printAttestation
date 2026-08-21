@@ -118,6 +118,7 @@ namespace ask.Tools
         }
 
 
+
         public static bool IsValidSearchKey(string key)
         {
             if (string.IsNullOrWhiteSpace(key))
@@ -214,6 +215,19 @@ namespace ask.Tools
             };
         }
 
+
+        public static string ReplaceCaracteres(string mot , string[] caracteres)
+        {
+            if (string.IsNullOrWhiteSpace(mot))
+                return mot;
+
+            foreach (var character in caracteres)
+            {
+                mot = mot.Replace(character, "");
+            }
+
+            return mot;
+        }
 
         public static jobReponseDto BuildJobToJobResponseDto(t_job j)
         {

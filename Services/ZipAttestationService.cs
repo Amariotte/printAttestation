@@ -2,10 +2,12 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.IO.Compression;
 using ask.ContextDb;
+using ask.Dtos.General;
 using ask.Model;
 using ask.Services;
 using ask.Tools;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using OracleApi.Services;
 using Org.BouncyCastle.Ocsp;
@@ -19,11 +21,12 @@ public class ZipAttestationService
     private readonly ServiceAsaci _ServiceAsaci;
     private readonly askContext _dbContext;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ParamAppSettings _param_app_settings;
 
 
     public ZipAttestationService(
         IOracleService oracleService,
-        IWebHostEnvironment env, ILogger<ZipAttestationService> logger, ServiceAsaci serviceAsaci, askContext dbContext, IHttpClientFactory httpClientFactory)
+        IWebHostEnvironment env, ILogger<ZipAttestationService> logger, ServiceAsaci serviceAsaci, IOptions<ParamAppSettings> param_app_settings, askContext dbContext, IHttpClientFactory httpClientFactory)
     {
         _oracleService = oracleService;
         _env = env;
@@ -31,6 +34,7 @@ public class ZipAttestationService
         _logger = logger;
         _dbContext = dbContext;
         _httpClientFactory = httpClientFactory;
+        _param_app_settings = param_app_settings.Value;
     }
     public async Task GenerateZipATD(t_job job)
     {
@@ -79,7 +83,7 @@ public class ZipAttestationService
 
 
             // Une seule requête Oracle
-            string sql = $@"SELECT  LIEN_PDF, LIEN_IMG,LIEN__QR, NUMATTDI 
+            string sql = $@"SELECT  LIEN_PDF, LIEN_IMG,LIEN__QR, NUMATTDI,NUMEIMMA
                                     FROM attestation_risque
                                          WHERE NUMATTDI IN ({string.Join(",", placeholders)})";
 
@@ -176,7 +180,10 @@ public class ZipAttestationService
                         bytes = await File.ReadAllBytesAsync(path, token);
                     }
 
-                    successes.Add(($"Attestation_{num}.png", bytes));
+                    string[] _caracteres = _param_app_settings.immatriculation.charactersToReplace ?? [];
+                    string _nameFile = num + "_" + Tools.ReplaceCaracteres(row["NUMEIMMA"]?.ToString(), _caracteres) + ".png";
+
+                    successes.Add((_nameFile, bytes));
 
                     // mettre à jour en base
                     await updateLigne(job.r_job_id, num, true, null);
@@ -370,7 +377,6 @@ public class ZipAttestationService
                     string fileNom = "CEDEAO_" + num + ".png";
                     successes.Add((fileNom, imageBytes));
 
-
                     await updateLigne(job.r_job_id, num, true, null);
                     await Send(job, "success", new
                     {
@@ -468,6 +474,338 @@ public class ZipAttestationService
 
     }
 
+
+    public async Task GenerateZipATDAndCEDEAO(t_job job)
+    {
+        try
+        {
+            var successes = new List<(string FileName, byte[] Bytes)>();
+            var errors = new List<string>();
+
+            string[] caracteres = _param_app_settings .immatriculation.charactersToReplace ?? [];
+
+            await Send(job, "start", new
+            {
+                total = job.r_total
+            });
+
+            var numList = job.r_attestations.ToList();
+
+            // ============================================================
+            // 1. RÉCUPÉRATION DES ATTESTATIONS ATD DEPUIS ORACLE
+            // ============================================================
+
+            var parameters = new Dictionary<string, object>();
+            var placeholders = new List<string>();
+
+            for (int i = 0; i < numList.Count; i++)
+            {
+                string paramName = $":num{i}";
+
+                placeholders.Add(paramName);
+                parameters.Add(paramName, numList[i]);
+            }
+
+            string sql = $@"SELECT LIEN_PDF,LIEN_IMG,LIEN__QR,NUMATTDI,NUMEIMMA FROM attestation_risque WHERE NUMATTDI IN ({string.Join(",", placeholders)})";
+            var rows = await _oracleService.ExecuteQueryAsync(sql, parameters);
+
+            var attestations = rows.ToDictionary(
+                x => x["NUMATTDI"]?.ToString(),
+                x => x
+            );
+
+            int current = 0;
+
+            var token = job.CancellationTokenSource?.Token
+                        ?? CancellationToken.None;
+
+
+            // ============================================================
+            // 2. TRAITEMENT DE CHAQUE NUMÉRO
+            // ============================================================
+
+            foreach (var num in numList)
+            {
+                if (token.IsCancellationRequested)
+                {
+                    await updateCompleted(
+                        job.r_job_id, STATUT_JOB.CANCELLED);
+
+                    await Send(job, "stopped", new{ message = "Job arrêté"});
+                    return;
+                }
+
+                current++;
+
+                await Send(job, "progress", new{ current, total = job.r_total,numero = num});
+
+                try
+                {
+                    // ====================================================
+                    // ATTESTATION ATD
+                    // ====================================================
+
+                    if (!attestations.TryGetValue(num, out var row))
+                    {
+                        errors.Add($"{num}: attestation introuvable");
+                        await Send(job, "error", new{numero = num, message = "Attestation introuvable"});
+                        await updateLigne(job.r_job_id,num,false,"Attestation introuvable");
+                        continue;
+                    }
+
+
+                    string? path = row["LIEN_PDF"]?.ToString() ?? row["LIEN_IMG"]?.ToString() ?? row["LIEN__QR"]?.ToString();
+
+
+                    if (string.IsNullOrEmpty(path))
+                    {
+                        errors.Add($"{num}: fichier attestation absent");
+
+                        await Send(job, "error", new{numero = num, message = "Fichier attestation absent"});
+                        await updateLigne(job.r_job_id, num,false,"Fichier attestation absent" );
+                        continue;
+                    }
+
+
+                    byte[] attestationBytes;
+
+                    if (path.StartsWith(
+                        "http",StringComparison.OrdinalIgnoreCase))
+                    {
+                        var client = _httpClientFactory.CreateClient();
+                        var response = await client.GetAsync(path,HttpCompletionOption.ResponseContentRead, token
+                        );
+
+                        response.EnsureSuccessStatusCode();
+
+                        attestationBytes = await response.Content.ReadAsByteArrayAsync(token);
+                    }
+                    else
+                    {
+                        if (!Path.IsPathRooted(path))
+                        {
+                            path = Path.Combine( _env.WebRootPath,path.TrimStart('/') );
+                        }
+
+                        attestationBytes = await File.ReadAllBytesAsync(path, token);
+                    }
+
+
+                    // ====================================================
+                    // NOM DE L'ATTESTATION
+                    // ====================================================
+
+                    string immatriculation = Tools.ReplaceCaracteres( row["NUMEIMMA"]?.ToString(),caracteres);
+
+                    string attestationFileName = num + "_" + immatriculation + ".png";
+
+                    successes.Add((attestationFileName, attestationBytes));
+
+                    // ====================================================
+                    // CEDEAO
+                    // ====================================================
+
+                    var result = await _ServiceAsaci.printCedeao(num);
+
+
+                    if (result == null)
+                    {
+                        errors.Add($"{num}: erreur service CEDEAO" );
+                        await Send(job, "error", new
+                        { numero = num,message = "Erreur service CEDEAO"});
+                        continue;
+                    }
+
+
+                    if (!Tools.RetourIsSucces(result.status))
+                    {
+                        errors.Add($"{num}: {result.detail}");
+                        await Send(job, "error", new{numero = num, message = result.detail});
+                        continue;
+                    }
+
+                    var resData = JsonConvert.DeserializeObject<dynamic>( result.data);
+
+                    string base64Image = resData.base64?.ToString();
+
+
+                    if (string.IsNullOrWhiteSpace(base64Image))
+                    {
+                        errors.Add( $"{num}: Base64 CEDEAO manquant");
+                        await Send(job, "error", new{ numero = num,message = "Image CEDEAO manquante"});
+                        continue;
+                    }
+
+                    byte[] cedeaoBytes =Tools.ConvertBase64ToImageBytes( base64Image );
+                    string cedeaoFileName = "CEDEAO_" + num + ".png";
+
+
+                    successes.Add((cedeaoFileName, cedeaoBytes) );
+
+                    // ====================================================
+                    // SUCCÈS
+                    // ====================================================
+
+                    await updateLigne(
+                        job.r_job_id,
+                        num,
+                        true,
+                        null
+                    );
+
+                    await Send(job, "success", new
+                    {
+                        numero = num,
+                        message = "Attestation et CEDEAO récupérées"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(
+                        $"{num}: {ex.Message}"
+                    );
+
+                    await updateLigne(
+                        job.r_job_id,
+                        num,
+                        false,
+                        ex.Message
+                    );
+
+                    await Send(job, "error", new
+                    {
+                        numero = num,
+                        message = ex.Message
+                    });
+                }
+            }
+
+
+            // ============================================================
+            // 3. CRÉATION DU ZIP
+            // ============================================================
+
+            var fileName =
+                $"Attestations_ATD_CEDEAO_{DateTime.UtcNow:yyyyMMddHHmmss}.zip";
+
+            var filePath = Path.Combine(Path.GetTempPath(),fileName);
+
+
+            try
+            {
+                await using var fs =
+                    new FileStream(filePath, FileMode.Create,FileAccess.Write, FileShare.None, 81920,true);
+
+                using (var archive =
+                    new ZipArchive(
+                        fs,
+                        ZipArchiveMode.Create,
+                        leaveOpen: false
+                    ))
+                {
+                    foreach (var item in successes)
+                    {
+                        token.ThrowIfCancellationRequested();
+
+                        var entry = archive.CreateEntry(item.FileName,CompressionLevel.Optimal);
+
+                        await using var stream = entry.Open();
+
+                        await stream.WriteAsync(item.Bytes, 0, item.Bytes.Length,token);
+                    }
+
+
+                    // ====================================================
+                    // FICHIER DES ERREURS
+                    // ====================================================
+
+                    if (errors.Any())
+                    {
+                        var entry =
+                            archive.CreateEntry("errors.txt");
+
+                        await using var writer =
+                            new StreamWriter(entry.Open());
+
+                        foreach (var error in errors)
+                        {
+                            await writer.WriteLineAsync(error);
+                        }
+                    }
+                }
+
+
+                // ========================================================
+                // 4. MISE À JOUR DU JOB
+                // ========================================================
+
+                var rec =
+                    await _dbContext.t_job
+                        .FirstOrDefaultAsync(
+                            x => x.r_job_id == job.r_job_id
+                        );
+
+                if (rec != null)
+                {
+                    rec.r_file_name = fileName;
+                    rec.r_file_path = filePath;
+                    rec.r_completed_at = DateTime.UtcNow;
+                    rec.r_status = STATUT_JOB.COMPLETED;
+
+                    _dbContext.Update(rec);
+
+                    await _dbContext.SaveChangesAsync();
+                }
+
+
+                // ========================================================
+                // 5. FIN
+                // ========================================================
+
+                await Send(job, "complete", new
+                {
+                    success = true,
+                    file = fileName,
+                    total = successes.Count,
+                    errors = errors.Count
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                await updateCompleted(
+                    job.r_job_id,
+                    STATUT_JOB.CANCELLED
+                );
+
+                await Send(job, "stopped", new
+                {
+                    message = "Job arrêté"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Erreur lors de la création du ZIP ATD + CEDEAO"
+                );
+
+                await Send(job, "error", new
+                {
+                    message = "Erreur lors de la création du ZIP"
+                });
+            }
+        }
+        finally
+        {
+            try
+            {
+                job.Events.Writer.Complete();
+            }
+            catch
+            {
+            }
+        }
+    }
 
     private async Task Send(t_job job, string type, object data)
     {
