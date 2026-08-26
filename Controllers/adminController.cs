@@ -8,7 +8,6 @@ using ask.Dtos.Response.auth;
 using ask.Model;
 using ask.Services;
 using print_attestation.Dtos.Reponses;
-using MailKit.Search;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -182,22 +181,23 @@ namespace ask.Controllers
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    search = search.Trim();
+                    search = search.ToUpper().Trim();
 
                     baseQuery = baseQuery.Where(x =>
-                        x.r_ip_address.Contains(search) ||
-                        x.r_type_action.Contains(search) ||
-                        x.r_description.Contains(search) ||
-                        x.r_user.r_nom.Contains(search) ||
-                        x.r_user.r_prenom.Contains(search) ||
-                        x.r_user.r_email.Contains(search)
+                        x.r_ip_address.ToUpper().Contains(search) ||
+                        x.r_type_action.ToUpper().Contains(search) ||
+                        x.r_description.ToUpper().Contains(search) ||
+                        x.r_user.r_nom.ToUpper().Contains(search) ||
+                        x.r_user.r_prenom.ToUpper().Contains(search) ||
+                        (x.r_user.r_nom + ' '+x.r_user.r_prenom).ToUpper().Contains(search) ||
+                        x.r_user.r_email.ToUpper().Contains(search)
                     );
                 }
 
                 if (!string.IsNullOrWhiteSpace(action))
                 {
-                    action = action.Trim();
-                    baseQuery = baseQuery.Where(x => x.r_type_action.Contains(action));
+                    action = action.ToUpper().Trim();
+                    baseQuery = baseQuery.Where(x => x.r_type_action.ToUpper().Contains(action));
                 }
 
                 // total avant pagination
@@ -259,18 +259,19 @@ namespace ask.Controllers
                     search = search.Trim();
 
                     baseQuery = baseQuery.Where(x =>
-                        x.r_ip_address.Contains(search) ||
-                        x.r_type_evenement.Contains(search) ||
-                        x.r_user.r_nom.Contains(search) ||
-                        x.r_user.r_prenom.Contains(search) ||
-                        x.r_user.r_email.Contains(search)
+                        x.r_ip_address.ToUpper().Contains(search) ||
+                        x.r_type_evenement.ToUpper().Contains(search) ||
+                        x.r_user.r_nom.ToUpper().Contains(search) ||
+                        (x.r_user.r_nom +' '+ x.r_user.r_prenom).ToUpper().Contains(search) ||
+                        x.r_user.r_prenom.ToUpper().Contains(search) ||
+                        x.r_user.r_email.ToUpper().Contains(search)
                     );
                 }
 
                 if (!string.IsNullOrWhiteSpace(action))
                 {
-                    action = action.Trim();
-                    baseQuery = baseQuery.Where(x => x.r_type_evenement.Contains(action));
+                    action = action.ToUpper().Trim();
+                    baseQuery = baseQuery.Where(x => x.r_type_evenement.ToUpper().Contains(action));
                 }
 
 
@@ -504,15 +505,15 @@ namespace ask.Controllers
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    search = search.Trim();
+                    search = search.ToUpper().Trim();
 
                     baseQuery = baseQuery.Where(x =>
-                        x.r_nom.Contains(search) ||
-                        (x.r_nom+' ' + x.r_prenom).Contains(search) ||
-                        x.r_email.Contains(search) ||
-                        x.r_telephone.Contains(search) ||
-                        x.r_prenom.Contains(search) ||
-                        x.r_site.r_nom.Contains(search)
+                        x.r_nom.ToUpper().Contains(search) ||
+                        (x.r_nom+' ' + x.r_prenom).ToUpper().Contains(search) ||
+                        x.r_email.ToUpper().Contains(search) ||
+                        x.r_telephone.ToUpper().Contains(search) ||
+                        x.r_prenom.ToUpper().Contains(search) ||
+                        x.r_site.r_nom.ToUpper().Contains(search)
                     );
                 }
 
@@ -931,11 +932,11 @@ namespace ask.Controllers
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    search = search.Trim();
+                    search = search.ToUpper().Trim();
 
                     baseQuery = baseQuery.Where(x =>
-                        x.r_nom.Contains(search) ||
-                        x.r_code.Contains(search)
+                        x.r_nom.ToUpper().Contains(search) ||
+                        x.r_code.ToUpper().Contains(search)
                     );
                 }
 
