@@ -7,6 +7,8 @@ using ask.Dtos.Response;
 using ask.Dtos.Response.auth;
 using ask.Model;
 using ask.Services;
+using print_attestation.Dtos.Reponses;
+using MailKit.Search;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -43,10 +45,129 @@ namespace ask.Controllers
             return null;
         }
 
+        [NonAction]
+        private static int ComputeEvolution(int currentValue, int previousValue)
+        {
+            if (previousValue <= 0)
+                return currentValue > 0 ? 100 : 0;
+
+            return (int)Math.Round(((currentValue - previousValue) / (double)previousValue) * 100);
+        }
+
+        [Authorize]
+        [HttpGet("dashboard")]
+        public async Task<IActionResult> DashBoard([FromQuery] int user = 0, [FromQuery] int site = 0)
+        {
+            var userInfo = GetInfoUser();
+            if (userInfo == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+            IQueryable<t_user> usersQuery = _dbContext.t_user.AsQueryable();
+
+            switch (userInfo.r_type)
+            {
+                case TYPE_UTILISATEUR.Administrateur:
+                    break;
+                case TYPE_UTILISATEUR.Responsable_Reseau:
+                    usersQuery = usersQuery.Where(u => u.r_type > TYPE_UTILISATEUR.Responsable_Reseau);
+                    break;
+                case TYPE_UTILISATEUR.Responsable_site:
+                    usersQuery = usersQuery.Where(u => u.r_site_id_fk == userInfo.r_site_id_fk);
+                    break;
+                default:
+                    usersQuery = usersQuery.Where(u => u.r_id == userInfo.r_id);
+                    break;
+            }
+
+            if (site > 0)
+                usersQuery = usersQuery.Where(u => u.r_site_id_fk == site);
+
+            if (user > 0)
+                usersQuery = usersQuery.Where(u => u.r_id == user);
+
+            var scopedUserIds = usersQuery.Select(u => u.r_id);
+
+            var jobsQuery = _dbContext.t_job.Where(j => scopedUserIds.Contains(j.r_user_id_fk));
+            var actionsQuery = _dbContext.t_trace_action.Where(a => a.r_user_id.HasValue && scopedUserIds.Contains(a.r_user_id.Value));
+            var connexionsQuery = _dbContext.t_trace_connexion.Where(c => c.r_user_id.HasValue && scopedUserIds.Contains(c.r_user_id.Value));
+
+            var now = DateTime.UtcNow;
+            var monthStart = new DateTime(now.Year, now.Month, 1);
+            var previousMonthStart = monthStart.AddMonths(-1);
+
+            var jobsTotal = await jobsQuery.CountAsync();
+            var jobsSuccess = await jobsQuery.CountAsync(j => j.r_status == STATUT_JOB.COMPLETED);
+            var jobsFailed = await jobsQuery.CountAsync(j => j.r_status == STATUT_JOB.FAILED);
+            var jobsPending = await jobsQuery.CountAsync(j => j.r_status == STATUT_JOB.RUNNING);
+            var jobsCancelled = await jobsQuery.CountAsync(j => j.r_status == STATUT_JOB.CANCELLED);
+
+            var jobsThisMonth = await jobsQuery.CountAsync(j => j.r_created_at >= monthStart);
+            var jobsPreviousMonth = await jobsQuery.CountAsync(j => j.r_created_at >= previousMonthStart && j.r_created_at < monthStart);
+
+            var downloadActions = new[]
+            {
+                TYPE_ACTION.TELECHARGEMENT_ATD.ToString(),
+                TYPE_ACTION.TELECHARGEMENT_CEDEAO.ToString(),
+                TYPE_ACTION.TELECHARGEMENT_ZIP.ToString()
+            };
+
+            var downloadTotal = await actionsQuery.CountAsync(a => downloadActions.Contains(a.r_type_action));
+            var downloadMonth = await actionsQuery.CountAsync(a => downloadActions.Contains(a.r_type_action) && a.r_created_at >= monthStart);
+            var downloadPreviousMonth = await actionsQuery.CountAsync(a => downloadActions.Contains(a.r_type_action) && a.r_created_at >= previousMonthStart && a.r_created_at < monthStart);
+
+            var searchTotal = await actionsQuery.CountAsync(a => a.r_type_action == TYPE_ACTION.RECHERCHE_ATTESTATION.ToString());
+            var searchMonth = await actionsQuery.CountAsync(a => a.r_type_action == TYPE_ACTION.RECHERCHE_ATTESTATION.ToString() && a.r_created_at >= monthStart);
+            var searchPreviousMonth = await actionsQuery.CountAsync(a => a.r_type_action == TYPE_ACTION.RECHERCHE_ATTESTATION.ToString() && a.r_created_at >= previousMonthStart && a.r_created_at < monthStart);
+
+            var usersTotal = await usersQuery.CountAsync();
+            var usersActive = await usersQuery.CountAsync(u => u.r_statut == STATUT_USER.ACTIVE);
+
+            var connexionsThisMonth = await connexionsQuery.CountAsync(c => c.r_created_at >= monthStart);
+            var connexionsPreviousMonth = await connexionsQuery.CountAsync(c => c.r_created_at >= previousMonthStart && c.r_created_at < monthStart);
+
+            var dashboard = new dashboardStatsDto
+            {
+                croissance = ComputeEvolution(jobsThisMonth, jobsPreviousMonth),
+                telechargements = new downloadStatsDto
+                {
+                    total = downloadTotal,
+                    mois = downloadMonth
+                },
+                search = new searchStatsDto
+                {
+                    total = searchTotal,
+                    previousMois = searchPreviousMonth,
+                    mois = searchMonth,
+                    croissance = ComputeEvolution(searchMonth, searchPreviousMonth)
+                },
+                users = new usersStatsDto
+                {
+                    total = usersTotal,
+                    actives = usersActive
+                },
+                jobs = new jobStatsDto
+                {
+                    total = jobsTotal,
+                    succes = jobsSuccess,
+                    failed = jobsFailed,
+                    cancelled = jobsCancelled,
+                    pending = jobsPending,
+                    mois = jobsThisMonth,
+                    previousMois = jobsPreviousMonth,
+                    croissance = ComputeEvolution(jobsThisMonth, jobsPreviousMonth)
+                },
+                attestationsEvolution = ComputeEvolution(jobsThisMonth, jobsPreviousMonth),
+                totalEvolution = ComputeEvolution(downloadMonth, downloadPreviousMonth),
+                totalEvconnexionsolution = ComputeEvolution(connexionsThisMonth, connexionsPreviousMonth)
+            };
+
+            return Ok(dashboard);
+        }
+
 
         [Authorize]
         [HttpGet("audits/actions")]
-        public async Task<IActionResult> GeLog([FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<IActionResult> GeLog([FromQuery] int page = 1, [FromQuery] int limit = 10 , [FromQuery] string action = "", [FromQuery] string search = "")
         {
             const string _desc_route = "Liste des logs";
 
@@ -57,6 +178,27 @@ namespace ask.Controllers
 
                 var baseQuery = _dbContext.t_trace_action
                  .Where(e => e.r_is_delete != true);
+
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.Trim();
+
+                    baseQuery = baseQuery.Where(x =>
+                        x.r_ip_address.Contains(search) ||
+                        x.r_type_action.Contains(search) ||
+                        x.r_description.Contains(search) ||
+                        x.r_user.r_nom.Contains(search) ||
+                        x.r_user.r_prenom.Contains(search) ||
+                        x.r_user.r_email.Contains(search)
+                    );
+                }
+
+                if (!string.IsNullOrWhiteSpace(action))
+                {
+                    action = action.Trim();
+                    baseQuery = baseQuery.Where(x => x.r_type_action.Contains(action));
+                }
 
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
@@ -99,7 +241,7 @@ namespace ask.Controllers
 
         [Authorize]
         [HttpGet("audits/acces")]
-        public async Task<IActionResult> GeLogAcces([FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<IActionResult> GeLogAcces([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "" , [FromQuery] string action = "")
         {
             const string _desc_route = "Liste des logs";
 
@@ -110,6 +252,27 @@ namespace ask.Controllers
 
                 var baseQuery = _dbContext.t_trace_connexion
                  .Where(e => e.r_is_delete != true);
+
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.Trim();
+
+                    baseQuery = baseQuery.Where(x =>
+                        x.r_ip_address.Contains(search) ||
+                        x.r_type_evenement.Contains(search) ||
+                        x.r_user.r_nom.Contains(search) ||
+                        x.r_user.r_prenom.Contains(search) ||
+                        x.r_user.r_email.Contains(search)
+                    );
+                }
+
+                if (!string.IsNullOrWhiteSpace(action))
+                {
+                    action = action.Trim();
+                    baseQuery = baseQuery.Where(x => x.r_type_evenement.Contains(action));
+                }
+
 
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
@@ -316,13 +479,13 @@ namespace ask.Controllers
         #region ========================= UTLISATEURS =========================
         [Authorize]
         [HttpGet("users")]
-        public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "", [FromQuery] int status = 0)
         {
             const string _desc_route = "Liste des utilisateurs";
 
             try
             {
-
+               
 
                 t_user userConnecte = GetInfoUser();
 
@@ -337,6 +500,27 @@ namespace ask.Controllers
 
                 IQueryable<t_user> baseQuery = _dbContext.t_user
                     .Where(u => !u.r_is_delete);
+
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.Trim();
+
+                    baseQuery = baseQuery.Where(x =>
+                        x.r_nom.Contains(search) ||
+                        (x.r_nom+' ' + x.r_prenom).Contains(search) ||
+                        x.r_email.Contains(search) ||
+                        x.r_telephone.Contains(search) ||
+                        x.r_prenom.Contains(search) ||
+                        x.r_site.r_nom.Contains(search)
+                    );
+                }
+
+                if (status > 0)
+                {
+                    baseQuery = baseQuery.Where(x => (int)x.r_statut == status);
+                }
+
 
                 // Filtrage selon le type de l'utilisateur connecté
                 switch (userConnecte.r_type)
@@ -731,7 +915,7 @@ namespace ask.Controllers
         #region ========================= SITES =========================
         [Authorize]
         [HttpGet("sites")]
-        public async Task<IActionResult> GetSites([FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<IActionResult> GetSites([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
         {
             const string _desc_route = "Liste des sites";
 
@@ -744,6 +928,16 @@ namespace ask.Controllers
 
                 var baseQuery = _dbContext.t_site
                     .Where(e => e.r_is_delete != true);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.Trim();
+
+                    baseQuery = baseQuery.Where(x =>
+                        x.r_nom.Contains(search) ||
+                        x.r_code.Contains(search)
+                    );
+                }
 
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
