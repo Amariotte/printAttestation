@@ -2,17 +2,18 @@ using System.Data;
 using ask.ContextDb;
 using ask.Dtos.General;
 using ask.Dtos.Reponses;
-using ask.Dtos.Request.auth;
 using ask.Dtos.Response;
 using ask.Dtos.Response.auth;
 using ask.Model;
 using ask.Services;
-using print_attestation.Dtos.Reponses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using print_attestation.Dtos.Reponses;
+using print_attestation.Dtos.Request;
+using print_attestation.Dtos.Response;
 
 namespace ask.Controllers
 {
@@ -1137,5 +1138,235 @@ namespace ask.Controllers
         }
 
         #endregion
+
+
+
+
+
+        #region ========================= MOTIFS D'ANNULATION =========================
+        [Authorize]
+        [HttpGet("motifs-annulation")]
+        public async Task<IActionResult> GetMotifsAnnulation([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
+        {
+            const string _desc_route = "Liste des motifs d'annulation";
+
+            try
+            {
+
+
+                var pagination = new PaginationParams(page, limit);
+
+
+                var baseQuery = _dbContext.t_motif_annulation
+                    .Where(e => e.r_is_delete != true);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.ToUpper().Trim();
+
+                    baseQuery = baseQuery.Where(x =>
+                        x.r_libelle.ToUpper().Contains(search) 
+                    );
+                }
+
+                // total avant pagination
+                var total = await baseQuery.CountAsync();
+
+                var motifs = await baseQuery
+                    .OrderBy(u => u.r_libelle)
+                    .Skip((pagination.Skip))
+                    .Take(pagination.Take)
+                    .ToListAsync();
+
+
+                var motifDto = motifs.Select(m => Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(m)).ToList();
+
+                return base.Ok(PaginatedResponse<MotifAnnulationResponseDto>.Create((List<MotifAnnulationResponseDto>)motifDto, total, page, limit));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+        [Authorize]
+        [HttpPost("motifs-annulation")]
+        public async Task<IActionResult> CréerUnMotifAnnulation([FromBody] MotifAnnulationDto _body)
+        {
+            const string _desc_route = "Créer un motif d'annulation";
+
+            try
+            {
+
+
+                var validator = new MotifAnnulationDtoValidator();
+                var results = validator.Validate(_body);
+
+                if (!results.IsValid)
+                {
+                    var invalidParams = results.Errors.Select(error => new InvalidParam
+                    {
+                        name = error.PropertyName,
+                        reason = error.ErrorMessage
+                    }).ToList();
+
+                    return BadRequest(GeneraleRetour.BuildBadRequest(
+                        detail: "Les données ne sont pas conformes",
+                        instance: HttpContext.Request.Path,
+                        invalidParams: invalidParams));
+                }
+
+                var existingMotif = await _dbContext.t_motif_annulation
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.r_libelle == _body.libelle && u.r_is_delete != true);
+
+                if (existingMotif != null)
+                    return Conflict(GeneraleRetour.BuildProblemResponse(
+                        new GeneraleRetour
+                        {
+                            status = 409,
+                            detail = "Un site existe déjà avec ce code. Veuillez utiliser un autre code."
+                        },
+                        instance: HttpContext.Request.Path));
+
+
+                var motif = new t_motif_annulation
+                {
+                    r_libelle = _body.libelle,
+                };
+
+
+                await _dbContext.t_motif_annulation.AddAsync(motif);
+                await _dbContext.SaveChangesAsync();
+
+                await _traceService.TraceActionAsync(TYPE_ACTION.CREATION_MOTIF_ANNULATION, description: $"Création d'un motif d'annulation : {_body.libelle}");
+
+                return Ok(Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(motif));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+
+        [Authorize]
+        [HttpPut("motifs-annulation/{id}")]
+        public async Task<IActionResult> ModifierUnMotifAnnulation(int id, [FromBody] MotifAnnulationDto _body)
+        {
+            const string _desc_route = "Modifier un motif d'annulation";
+
+            try
+            {
+                var validator = new MotifAnnulationDtoValidator();
+                var results = validator.Validate(_body);
+
+                if (!results.IsValid)
+                {
+                    var invalidParams = results.Errors.Select(error => new InvalidParam
+                    {
+                        name = error.PropertyName,
+                        reason = error.ErrorMessage
+                    }).ToList();
+
+                    return BadRequest(GeneraleRetour.BuildBadRequest(
+                        detail: "Les données ne sont pas conformes",
+                        instance: HttpContext.Request.Path,
+                        invalidParams: invalidParams));
+                }
+
+
+                var motif = await _dbContext.t_motif_annulation
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.r_id == id && s.r_is_delete != true);
+
+
+                if (motif == null)
+                {
+                    return NotFound(GeneraleRetour.BuildNotFound(
+                       detail: "Le motif d'annulation est introuvable",
+                       instance: HttpContext.Request.Path
+                    ));
+                }
+
+
+
+                var existingMotif = await _dbContext.t_motif_annulation
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.r_libelle == _body.libelle && s.r_is_delete != true && s.r_id != motif.r_id);
+
+                if (existingMotif != null)
+                    return Conflict(GeneraleRetour.BuildProblemResponse(
+                        new GeneraleRetour
+                        {
+                            status = 409,
+                            detail = "Un motif d'annulation existe déjà avec ce libellé. Veuillez utiliser un autre libellé."
+                        },
+                        instance: HttpContext.Request.Path));
+
+
+                motif.r_libelle = _body.libelle;
+
+                _dbContext.t_motif_annulation.Update(motif);
+                await _dbContext.SaveChangesAsync();
+                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_MOTIF_ANNULATION, description: $"Modification d'un motif d'annulation : {_body.libelle}");
+
+                return Ok(Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(motif));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+        [Authorize]
+        [HttpDelete("motifs-annulation/{id}")]
+        public async Task<IActionResult> SupprimerUnMotifAnnulation(int id)
+        {
+            const string _desc_route = "Supprimer un motif d'annulation";
+
+            try
+            {
+                if (id <= 0)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant du motif d'annulation est manquant", instance: HttpContext.Request.Path));
+
+                var resQuery = await _dbContext.t_motif_annulation
+                    .Where(e => e.r_id == id && e.r_is_delete != true)
+                    .FirstOrDefaultAsync();
+
+                if (resQuery == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le motif d'annulation n'existe pas", instance: HttpContext.Request.Path));
+
+                resQuery.r_is_delete = true;
+                _dbContext.t_motif_annulation.Update(resQuery);
+                await _dbContext.SaveChangesAsync();
+
+                await _traceService.TraceActionAsync(TYPE_ACTION.SUPPRESSION_MOTIF_ANNULATION, description: $"Suppression du motif d'annulation : {resQuery.r_libelle}");
+
+                return Ok(Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(resQuery));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+        #endregion
+
+
+
+
+
+
+
     }
 }

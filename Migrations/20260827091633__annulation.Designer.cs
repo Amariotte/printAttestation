@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ask.ContextDb;
 
@@ -11,9 +12,11 @@ using ask.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260827091633__annulation")]
+    partial class _annulation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,78 +24,6 @@ namespace print_attestation.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
-
-            modelBuilder.Entity("ask.Model.t_demande_annulation", b =>
-                {
-                    b.Property<int>("r_id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
-
-                    b.Property<DateTime?>("r_created_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_created_by")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("r_date_traitement")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("r_is_active")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_is_delete")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("r_motif_annulation_id_fk")
-                        .HasColumnType("int");
-
-                    b.Property<string>("r_motif_rejet")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("r_num_attestation")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("r_num_immatriculation")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("r_num_police")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<int?>("r_site_id_fk")
-                        .HasColumnType("int");
-
-                    b.Property<int>("r_status")
-                        .HasMaxLength(100)
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("r_updated_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_updated_by")
-                        .HasColumnType("int");
-
-                    b.Property<int>("r_user_id_fk")
-                        .HasColumnType("int");
-
-                    b.HasKey("r_id");
-
-                    b.HasIndex("r_created_at");
-
-                    b.HasIndex("r_motif_annulation_id_fk");
-
-                    b.HasIndex("r_site_id_fk");
-
-                    b.HasIndex("r_status");
-
-                    b.HasIndex("r_user_id_fk");
-
-                    b.ToTable("t_demande_annulation");
-                });
 
             modelBuilder.Entity("ask.Model.t_histo_email", b =>
                 {
@@ -409,44 +340,6 @@ namespace print_attestation.Migrations
                     b.HasKey("r_id");
 
                     b.ToTable("t_modele");
-                });
-
-            modelBuilder.Entity("ask.Model.t_motif_annulation", b =>
-                {
-                    b.Property<int>("r_id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
-
-                    b.Property<DateTime?>("r_created_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_created_by")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("r_is_active")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_is_delete")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("r_libelle")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<DateTime?>("r_updated_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_updated_by")
-                        .HasColumnType("int");
-
-                    b.HasKey("r_id");
-
-                    b.HasIndex("r_libelle");
-
-                    b.ToTable("t_motif_annulation");
                 });
 
             modelBuilder.Entity("ask.Model.t_refresh_token", b =>
@@ -871,32 +764,6 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_demande_annulation", b =>
-                {
-                    b.HasOne("ask.Model.t_motif_annulation", "r_motif_annulation")
-                        .WithMany("r_users")
-                        .HasForeignKey("r_motif_annulation_id_fk")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ask.Model.t_site", "r_site")
-                        .WithMany()
-                        .HasForeignKey("r_site_id_fk")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ask.Model.t_user", "r_user")
-                        .WithMany()
-                        .HasForeignKey("r_user_id_fk")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("r_motif_annulation");
-
-                    b.Navigation("r_site");
-
-                    b.Navigation("r_user");
-                });
-
             modelBuilder.Entity("ask.Model.t_job", b =>
                 {
                     b.HasOne("ask.Model.t_user", "r_user")
@@ -972,11 +839,6 @@ namespace print_attestation.Migrations
             modelBuilder.Entity("ask.Model.t_job", b =>
                 {
                     b.Navigation("r_job_details");
-                });
-
-            modelBuilder.Entity("ask.Model.t_motif_annulation", b =>
-                {
-                    b.Navigation("r_users");
                 });
 
             modelBuilder.Entity("ask.Model.t_site", b =>

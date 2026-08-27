@@ -4,6 +4,7 @@ using System.Text;
 using ask.Dtos.Reponses;
 using ask.Dtos.Response.auth;
 using ask.Model;
+using print_attestation.Dtos.Response;
 
 
 namespace ask.Tools
@@ -261,6 +262,17 @@ namespace ask.Tools
         }
 
 
+        
+        public static MotifAnnulationResponseDto BuildMotifAnnulationToMotifAnnulationResponseDto(t_motif_annulation m)
+        {
+            return new MotifAnnulationResponseDto
+            {
+                id = m.r_id,
+                libelle = m.r_libelle
+            };
+               
+        }
+
 
         public static string EquivalenceTypeUser(TYPE_UTILISATEUR typeUser)
         {
@@ -295,6 +307,27 @@ namespace ask.Tools
                 code = s.r_code
             };
         }
+
+
+        public static demandeAnnulationResponseDto BuildDemandeAnnulationResponseDto(t_demande_annulation d)
+        {
+            return new demandeAnnulationResponseDto
+            {
+                id = d.r_id,
+                motifLibelle = d.r_motif_annulation.r_libelle,
+                status = d.r_status,
+                numAttestation = d.r_num_attestation,
+                numImmatriculation = d.r_num_immatriculation,
+                createdAt = d.r_created_at,
+                dateTraitement = d.r_date_traitement,
+                motifId = d.r_motif_annulation.r_id,
+                numPolice = d.r_num_police,
+                motifRejet = d.r_motif_rejet,
+                user = d.r_user != null ? BuildUserToUserResponseDto(d.r_user) : null
+            };
+        }
+
+
 
 
     }

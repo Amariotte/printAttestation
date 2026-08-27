@@ -24,6 +24,8 @@ namespace ask.ContextDb
         public DbSet<t_trace_connexion> t_trace_connexion { get; set; } = null!;
         public DbSet<t_job> t_job { get; set; } = null!;
         public DbSet<t_job_details> t_job_details { get; set; } = null!;
+        public DbSet<t_demande_annulation> t_demande_annulation { get; set; } = null!;
+        public DbSet<t_motif_annulation> t_motif_annulation { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -84,6 +86,8 @@ namespace ask.ContextDb
             modelBuilder.Entity<t_histo_email>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_site>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_job_details>().HasQueryFilter(e => !e.r_is_delete);
+            modelBuilder.Entity<t_demande_annulation>().HasQueryFilter(e => !e.r_is_delete);
+            modelBuilder.Entity<t_motif_annulation>().HasQueryFilter(e => !e.r_is_delete);
 
             // Configuration des tables de traçabilité
             modelBuilder.Entity<t_trace_action>(entity =>
@@ -140,6 +144,35 @@ namespace ask.ContextDb
             {
                 entity.HasIndex(e => e.r_job_id_fk);
                 entity.HasIndex(e => e.r_created_at);
+            });
+
+            modelBuilder.Entity<t_motif_annulation>(entity =>
+            {
+                entity.HasIndex(e => e.r_libelle);
+            });
+
+            modelBuilder.Entity<t_demande_annulation>(entity =>
+            {
+                entity.HasIndex(e => e.r_user_id_fk);
+                entity.HasIndex(e => e.r_site_id_fk);
+                entity.HasIndex(e => e.r_motif_annulation_id_fk);
+                entity.HasIndex(e => e.r_status);
+                entity.HasIndex(e => e.r_created_at);
+
+                entity.HasOne(e => e.r_user)
+                    .WithMany()
+                    .HasForeignKey(e => e.r_user_id_fk)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.r_site)
+                    .WithMany()
+                    .HasForeignKey(e => e.r_site_id_fk)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.r_motif_annulation)
+                    .WithMany(m => m.r_users)
+                    .HasForeignKey(e => e.r_motif_annulation_id_fk)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
 

@@ -731,6 +731,79 @@ namespace ask.Controllers
         }
 
 
+
+
+        [Authorize]
+        [HttpGet("demandes/annulations")]
+        public async Task<IActionResult> ListDemandeAnnulation([FromQuery] int page = 1, [FromQuery] int limit = 20, [FromQuery] string? type = null, [FromQuery] int? status = null)
+        {
+
+            var user = GetInfoUser();
+            if (user == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+
+            var pagination = new PaginationParams(page, limit);
+
+            var query = _dbContext.t_demande_annulation.AsQueryable();
+
+            switch (user.r_type)
+            {
+                case TYPE_UTILISATEUR.Administrateur:
+                    // L'administrateur voit toutes les demandes d'annulation
+                    break;
+
+                case TYPE_UTILISATEUR.Responsable_site:
+                    // Le responsable de site voit les demandes d'annulation de son site
+                    query = query.Where(x =>
+                        x.r_user.r_site_id_fk == user.r_site_id_fk
+                    );
+                    break;
+
+                default:
+                    // Les autres utilisateurs voient uniquement leurs propres demandes d'annulation
+                    query = query.Where(x =>
+                        x.r_user_id_fk == user.r_id
+                    );
+                    break;
+            }
+
+            // Filtre par statut si fourni (valeurs : RUNNING, COMPLETED, CANCELLED)
+            if (status > 0)
+            {
+                query = query.Where(x => (int)x.r_status == status);
+            }
+
+
+            var total = await query.CountAsync();
+
+
+            var demandes = await query
+                 .Include(u => u.r_user)
+                 .Include(u => u.r_site)
+                 .Include(u => u.r_motif_annulation)
+                 .Include(x => x.r_user.r_site)
+                .OrderByDescending(x => x.r_created_at)
+                .Skip((pagination.page - 1) * pagination.limit)
+                .Take(pagination.limit)
+                .ToListAsync();
+
+
+            var demandesDto = demandes.Select(d => Tools.Tools.BuildDemandeAnnulationResponseDto(d)).ToList();
+
+            return Ok(PaginatedResponse<demandeAnnulationResponseDto>.Create(demandesDto, total, pagination.page, pagination.limit));
+
+        }
+
+
+
+
+
+
+
+
+
+
         [NonAction]
         private bool HasAccessToJob(t_job jobRec, t_user user)
         {

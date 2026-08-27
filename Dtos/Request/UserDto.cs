@@ -1,7 +1,7 @@
 ﻿using ask.Model;
 using FluentValidation;
 
-namespace ask.Dtos.Request.auth
+namespace print_attestation.Dtos.Request
 {
     public class UserDto
     {
