@@ -56,7 +56,7 @@ namespace ask.Controllers
 
         [Authorize]
         [HttpGet("dashboard")]
-        public async Task<IActionResult> DashBoard([FromQuery] int user = 0, [FromQuery] int site = 0)
+        public async Task<IActionResult> GetDashboard([FromQuery] int user = 0, [FromQuery] int site = 0)
         {
             var userInfo = GetInfoUser();
             if (userInfo == null)
@@ -163,6 +163,134 @@ namespace ask.Controllers
 
             return Ok(dashboard);
         }
+
+
+
+
+        [Authorize]
+        [HttpGet("dashboard/evolutions")]
+        public async Task<IActionResult> GetEvolutions(
+            [FromQuery] int? annee = null,
+            [FromQuery] int user = 0,
+            [FromQuery] int site = 0)
+        {
+            var userInfo = GetInfoUser();
+            if (userInfo == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+            // Périmètre selon le type d'utilisateur connecté
+            IQueryable<t_user> usersQuery = _dbContext.t_user.AsQueryable();
+
+            switch (userInfo.r_type)
+            {
+                case TYPE_UTILISATEUR.Administrateur:
+                    break;
+                case TYPE_UTILISATEUR.Responsable_Reseau:
+                    usersQuery = usersQuery.Where(u => u.r_type > TYPE_UTILISATEUR.Responsable_Reseau);
+                    break;
+                case TYPE_UTILISATEUR.Responsable_site:
+                    usersQuery = usersQuery.Where(u => u.r_site_id_fk == userInfo.r_site_id_fk);
+                    break;
+                default:
+                    usersQuery = usersQuery.Where(u => u.r_id == userInfo.r_id);
+                    break;
+            }
+
+            if (site > 0)
+                usersQuery = usersQuery.Where(u => u.r_site_id_fk == site);
+
+            if (user > 0)
+                usersQuery = usersQuery.Where(u => u.r_id == user);
+
+            var scopedUserIds = usersQuery.Select(u => u.r_id);
+
+            // Détermination de la plage temporelle
+            var now = DateTime.UtcNow;
+            int targetYear;
+            DateTime periodeDebut;
+            DateTime periodeFin;
+
+            if (annee.HasValue && annee.Value > 0)
+            {
+                // Année spécifique : 12 mois de janvier à décembre
+                targetYear = annee.Value;
+                periodeDebut = new DateTime(targetYear, 1, 1);
+                periodeFin = periodeDebut.AddYears(1);
+            }
+            else
+            {
+                // 12 derniers mois glissants
+                periodeDebut = new DateTime(now.Year, now.Month, 1).AddMonths(-11);
+                periodeFin = new DateTime(now.Year, now.Month, 1).AddMonths(1);
+                targetYear = 0; // mode glissant
+            }
+
+            // Chargement groupé des données en mémoire pour éviter N+1
+            var searchActionStr = TYPE_ACTION.RECHERCHE_ATTESTATION.ToString();
+
+            var jobsParMois = await _dbContext.t_job
+                .Where(j => scopedUserIds.Contains(j.r_user_id_fk)
+                         && j.r_created_at >= periodeDebut
+                         && j.r_created_at < periodeFin)
+                .GroupBy(j => new { j.r_created_at!.Value.Year, j.r_created_at!.Value.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .ToListAsync();
+
+            var recherchesParMois = await _dbContext.t_trace_action
+                .Where(a => a.r_user_id.HasValue
+                         && scopedUserIds.Contains(a.r_user_id.Value)
+                         && a.r_type_action == searchActionStr
+                         && a.r_created_at >= periodeDebut
+                         && a.r_created_at < periodeFin)
+                .GroupBy(a => new { a.r_created_at!.Value.Year, a.r_created_at!.Value.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .ToListAsync();
+
+            var annulationsParMois = await _dbContext.t_demande_annulation
+                .Where(d => scopedUserIds.Contains(d.r_user_id_fk)
+                         && d.r_created_at >= periodeDebut
+                         && d.r_created_at < periodeFin)
+                .GroupBy(d => new { d.r_created_at!.Value.Year, d.r_created_at!.Value.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .ToListAsync();
+
+            // Noms des mois en français
+            var nomsMois = new[]
+            {
+                "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+                "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+            };
+
+            // Construction de la liste des 12 mois
+            var moisList = new List<evolutionMoisDto>();
+
+            for (int i = 0; i < 12; i++)
+            {
+                DateTime moisCourant = periodeDebut.AddMonths(i);
+                int m = moisCourant.Month;
+                int y = moisCourant.Year;
+
+                moisList.Add(new evolutionMoisDto
+                {
+                    numero = i,
+                    nom = $"{nomsMois[m - 1]} {y}",
+                    taches = jobsParMois.FirstOrDefault(x => x.Year == y && x.Month == m)?.Count ?? 0,
+                    recherches = recherchesParMois.FirstOrDefault(x => x.Year == y && x.Month == m)?.Count ?? 0,
+                    demandesAnnulation = annulationsParMois.FirstOrDefault(x => x.Year == y && x.Month == m)?.Count ?? 0
+                });
+            }
+
+            var resultat = new evolutionMensuelleDto
+            {
+                annee = targetYear > 0 ? targetYear : now.Year,
+                mois = moisList
+            };
+
+            return Ok(resultat);
+        }
+
+
+
 
 
         [Authorize]
