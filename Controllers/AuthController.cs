@@ -186,9 +186,17 @@ namespace ask.Controllers
                         invalidParams: invalidParams));
                 }
 
-                var user = await _dbContext.t_user
-                    .Include(u => u.r_site)
-                    .FirstOrDefaultAsync(c => c.r_email == _body.email && c.r_is_delete != true);
+             //   var user = await _dbContext.t_user
+              //      .Include(u => u.r_site)
+               //     .FirstOrDefaultAsync(c => c.r_email == _body.email && c.r_is_delete != true);
+
+                var user = await _dbContext.t_user.Include(u => u.r_site)
+                    .Include(u => u.r_user_roles)
+                    .ThenInclude(ur => ur.r_role)
+                    .ThenInclude(r => r.r_role_scopes)
+                    .ThenInclude(rs => rs.r_scope)
+                    .FirstOrDefaultAsync( u => u.r_email == _body.email && u.r_is_delete != true);
+
 
                 if (user == null)
                 {
@@ -234,14 +242,29 @@ namespace ask.Controllers
                         instance: HttpContext.Request.Path));
                 }
 
-       
+
+                string[] roles = user.r_user_roles
+                    .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
+                    .Select(x => x.r_role.r_code)
+                    .Distinct()
+                    .ToArray();
+
+                string[] scopes = user.r_user_roles
+                    .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
+                    .SelectMany(x => x.r_role.r_role_scopes)
+                    .Where(x => x.r_scope != null && x.r_scope.r_is_active != false && x.r_scope.r_is_delete != true)
+                    .Select(x => x.r_scope.r_code)
+                    .Distinct()
+                    .ToArray();
+
 
                 // Générer le JWT
                 JwtIssueOptions _dataJwt = new JwtIssueOptions
                 {
                     UserId = user.r_id,
                     UserEmail = user.r_email,
-                    Roles = [user.r_type.ToString()]
+                    Roles = roles ?? Array.Empty<string>(),
+                    Scopes = scopes ?? Array.Empty<string>()
                 };
 
                 string accessToken = _jwtService.GenerateJwtToken(_dataJwt);
@@ -357,12 +380,27 @@ namespace ask.Controllers
                 existingRefresh.r_updated_at = DateTime.UtcNow;
 
 
+                string[] roles = dataUser.r_user_roles
+                   .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
+                   .Select(x => x.r_role.r_code)
+                   .Distinct()
+                   .ToArray();
+
+                string[] scopes = dataUser.r_user_roles
+                    .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
+                    .SelectMany(x => x.r_role.r_role_scopes)
+                    .Where(x => x.r_scope != null && x.r_scope.r_is_active != false && x.r_scope.r_is_delete != true)
+                    .Select(x => x.r_scope.r_code)
+                    .Distinct()
+                    .ToArray();
+
                 // Générer un nouveau JWT et refresh token
                 var newAccessToken = _jwtService.GenerateJwtToken(new JwtIssueOptions
                 {
                     UserId = dataUser.r_id,
                     UserEmail = dataUser.r_email,
-                    Roles = [dataUser.r_type.ToString()]
+                    Roles = roles ?? Array.Empty<string>(),
+                    Scopes = scopes ?? Array.Empty<string>()
                 });
 
                 var newRefreshToken = await _jwtService.GenerateRefreshToken(dataUser.r_id);

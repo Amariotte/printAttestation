@@ -26,7 +26,13 @@ namespace ask.ContextDb
         public DbSet<t_job_details> t_job_details { get; set; } = null!;
         public DbSet<t_demande_annulation> t_demande_annulation { get; set; } = null!;
         public DbSet<t_motif_annulation> t_motif_annulation { get; set; } = null!;
+        public DbSet<t_role> t_role { get; set; } = null!;
+        public DbSet<t_scope> t_scope { get; set; } = null!;
 
+        public DbSet<t_user_role> t_user_role { get; set; } = null!;
+        public DbSet<t_user_scope> t_user_scope { get; set; } = null!;
+        public DbSet<t_role_scope> t_role_scope { get; set; } = null!;
+      
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

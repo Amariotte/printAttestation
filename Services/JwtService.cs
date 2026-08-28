@@ -107,7 +107,23 @@ namespace ask.Services
             foreach (var r in opt.Roles)
                 claims.Add(new Claim(ClaimTypes.Role, r));
 
-          
+            // ============================== // SCOPES // ==============================
+            if (opt.Scopes != null && opt.Scopes.Any())
+            {
+                var scopeValue = string.Join(
+                    " ",
+                    opt.Scopes
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Distinct()
+                );
+                if (!string.IsNullOrWhiteSpace(scopeValue))
+                {
+                    claims.Add(
+                        new Claim("scope", scopeValue)
+                    );
+                }
+            }
+
             // Construction du JWT
             var token = new JwtSecurityToken(
                 issuer: jwtSettings["Issuer"],

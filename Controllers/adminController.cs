@@ -282,7 +282,9 @@ namespace ask.Controllers
 
             var resultat = new evolutionMensuelleDto
             {
-                annee = targetYear > 0 ? targetYear : now.Year,
+                recherches = moisList.Sum(x => x.recherches),
+                taches = moisList.Sum(x => x.taches),
+                demandes = moisList.Sum(x => x.demandesAnnulation),
                 mois = moisList
             };
 

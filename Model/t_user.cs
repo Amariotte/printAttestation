@@ -69,5 +69,7 @@ namespace ask.Model
         public ICollection<t_refresh_token>? r_refresh_tokens { get; set; }
         public ICollection<t_session>? r_sessions { get; set; }
         public ICollection<t_job>? r_jobs { get; set; }
+        public ICollection<t_user_role>? r_user_roles { get; set; }
+        public ICollection<t_user_scope>? r_user_scopes { get; set; }
     }
 }

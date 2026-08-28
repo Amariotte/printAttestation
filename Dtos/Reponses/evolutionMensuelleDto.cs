@@ -2,7 +2,9 @@ namespace ask.Dtos.Reponses
 {
     public class evolutionMensuelleDto
     {
-        public int annee { get; set; }
+        public int recherches { get; set; }
+        public int taches { get; set; }
+        public int demandes { get; set; }
         public List<evolutionMoisDto> mois { get; set; } = new();
     }
 
