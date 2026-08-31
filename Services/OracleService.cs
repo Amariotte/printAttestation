@@ -1,5 +1,4 @@
 using Oracle.ManagedDataAccess.Client;
-using System.Linq;
 using System.Text.RegularExpressions;
 namespace OracleApi.Services
 {

@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     /// <summary>
     /// Classe de base pour tous les modèles avec audit et soft delete

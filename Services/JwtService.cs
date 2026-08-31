@@ -2,13 +2,13 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using ask.Dtos;
-using ask.Interface;
-using ask.Model;
 using Microsoft.IdentityModel.Tokens;
+using print_attestation.Dtos;
+using print_attestation.Interface;
+using print_attestation.Model;
 
 
-namespace ask.Services
+namespace print_attestation.Services
 {
     public class JwtService
     {

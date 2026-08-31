@@ -5,7 +5,7 @@
 namespace print_attestation.Migrations
 {
     /// <inheritdoc />
-    public partial class _annulation : Migration
+    public partial class _upd_second : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

@@ -1,10 +1,9 @@
-﻿using ask.ContextDb;
-using ask.Implementation;
-using ask.Interface;
-using ask.Model;
+﻿using print_attestation.ContextDb;
+using print_attestation.Model;
 using Microsoft.EntityFrameworkCore;
+using print_attestation.Interface;
 
-namespace InteroperabiliteProject.Implementation
+namespace print_attestation.Implementation
 {
     public class HistoEmailRepo : BaseRepo<t_histo_email>, IHistoEmailRepo
     {

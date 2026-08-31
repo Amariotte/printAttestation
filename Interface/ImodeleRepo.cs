@@ -1,6 +1,6 @@
-﻿using ask.Model;
+﻿using print_attestation.Model;
 
-namespace ask.Interface
+namespace print_attestation.Interface
 {
     public interface ImodeleRepo : IbaseRepo<t_modele>
     {

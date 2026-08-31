@@ -4,10 +4,12 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+
 namespace print_attestation.Migrations
 {
     /// <inheritdoc />
-    public partial class _init_data : Migration
+    public partial class _init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -110,6 +112,70 @@ namespace print_attestation.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "t_motif_annulation",
+                columns: table => new
+                {
+                    r_id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    r_libelle = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_created_by = table.Column<int>(type: "int", nullable: true),
+                    r_created_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_by = table.Column<int>(type: "int", nullable: true),
+                    r_is_active = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    r_is_delete = table.Column<bool>(type: "tinyint(1)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_t_motif_annulation", x => x.r_id);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "t_role",
+                columns: table => new
+                {
+                    r_id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    r_ordre = table.Column<int>(type: "int", nullable: true),
+                    r_nom = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_code = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_description = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_created_by = table.Column<int>(type: "int", nullable: true),
+                    r_created_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_by = table.Column<int>(type: "int", nullable: true),
+                    r_is_active = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    r_is_delete = table.Column<bool>(type: "tinyint(1)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_t_role", x => x.r_id);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "t_scope",
+                columns: table => new
+                {
+                    r_code = table.Column<string>(type: "varchar(255)", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_nom = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_description = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_t_scope", x => x.r_code);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "t_site",
                 columns: table => new
                 {
@@ -129,6 +195,40 @@ namespace print_attestation.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_t_site", x => x.r_id);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "t_role_scope",
+                columns: table => new
+                {
+                    r_id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    r_scope_code_fk = table.Column<string>(type: "varchar(255)", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_role_id_fk = table.Column<int>(type: "int", nullable: false),
+                    r_created_by = table.Column<int>(type: "int", nullable: true),
+                    r_created_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_by = table.Column<int>(type: "int", nullable: true),
+                    r_is_active = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    r_is_delete = table.Column<bool>(type: "tinyint(1)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_t_role_scope", x => x.r_id);
+                    table.ForeignKey(
+                        name: "FK_t_role_scope_t_role_r_role_id_fk",
+                        column: x => x.r_role_id_fk,
+                        principalTable: "t_role",
+                        principalColumn: "r_id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_t_role_scope_t_scope_r_scope_code_fk",
+                        column: x => x.r_scope_code_fk,
+                        principalTable: "t_scope",
+                        principalColumn: "r_code",
+                        onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -167,6 +267,56 @@ namespace print_attestation.Migrations
                         name: "FK_t_user_t_site_r_site_id_fk",
                         column: x => x.r_site_id_fk,
                         principalTable: "t_site",
+                        principalColumn: "r_id",
+                        onDelete: ReferentialAction.Restrict);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "t_demande_annulation",
+                columns: table => new
+                {
+                    r_id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    r_status = table.Column<int>(type: "int", maxLength: 100, nullable: false),
+                    r_num_police = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_num_attestation = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_num_immatriculation = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_motif_rejet = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_date_traitement = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_site_id_fk = table.Column<int>(type: "int", nullable: true),
+                    r_user_id_fk = table.Column<int>(type: "int", nullable: false),
+                    r_motif_annulation_id_fk = table.Column<int>(type: "int", nullable: false),
+                    r_created_by = table.Column<int>(type: "int", nullable: true),
+                    r_created_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_by = table.Column<int>(type: "int", nullable: true),
+                    r_is_active = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    r_is_delete = table.Column<bool>(type: "tinyint(1)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_t_demande_annulation", x => x.r_id);
+                    table.ForeignKey(
+                        name: "FK_t_demande_annulation_t_motif_annulation_r_motif_annulation_i~",
+                        column: x => x.r_motif_annulation_id_fk,
+                        principalTable: "t_motif_annulation",
+                        principalColumn: "r_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_t_demande_annulation_t_site_r_site_id_fk",
+                        column: x => x.r_site_id_fk,
+                        principalTable: "t_site",
+                        principalColumn: "r_id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_t_demande_annulation_t_user_r_user_id_fk",
+                        column: x => x.r_user_id_fk,
+                        principalTable: "t_user",
                         principalColumn: "r_id",
                         onDelete: ReferentialAction.Restrict);
                 })
@@ -371,6 +521,73 @@ namespace print_attestation.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "t_user_role",
+                columns: table => new
+                {
+                    r_id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    r_role_id_fk = table.Column<int>(type: "int", nullable: false),
+                    r_user_id_fk = table.Column<int>(type: "int", nullable: false),
+                    r_created_by = table.Column<int>(type: "int", nullable: true),
+                    r_created_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_by = table.Column<int>(type: "int", nullable: true),
+                    r_is_active = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    r_is_delete = table.Column<bool>(type: "tinyint(1)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_t_user_role", x => x.r_id);
+                    table.ForeignKey(
+                        name: "FK_t_user_role_t_role_r_role_id_fk",
+                        column: x => x.r_role_id_fk,
+                        principalTable: "t_role",
+                        principalColumn: "r_id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_t_user_role_t_user_r_user_id_fk",
+                        column: x => x.r_user_id_fk,
+                        principalTable: "t_user",
+                        principalColumn: "r_id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "t_user_scope",
+                columns: table => new
+                {
+                    r_id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    r_scope_code_fk = table.Column<string>(type: "varchar(255)", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_user_id_fk = table.Column<int>(type: "int", nullable: false),
+                    r_created_by = table.Column<int>(type: "int", nullable: true),
+                    r_created_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    r_updated_by = table.Column<int>(type: "int", nullable: true),
+                    r_is_active = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    r_is_delete = table.Column<bool>(type: "tinyint(1)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_t_user_scope", x => x.r_id);
+                    table.ForeignKey(
+                        name: "FK_t_user_scope_t_scope_r_scope_code_fk",
+                        column: x => x.r_scope_code_fk,
+                        principalTable: "t_scope",
+                        principalColumn: "r_code",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_t_user_scope_t_user_r_user_id_fk",
+                        column: x => x.r_user_id_fk,
+                        principalTable: "t_user",
+                        principalColumn: "r_id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "t_job_details",
                 columns: table => new
                 {
@@ -400,6 +617,59 @@ namespace print_attestation.Migrations
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.InsertData(
+                table: "t_scope",
+                columns: new[] { "r_code", "r_description", "r_nom" },
+                values: new object[,]
+                {
+                    { "attestations.read", "Permet de consulter les attestations", "Lecture des attestations" },
+                    { "attestations.read.all", "Permet de consulter les attestations de tous les intermediaires", "Lecture des attestations de tous les intermediaires" },
+                    { "audits.acces.read", "Permet de consulter les audits liés aux connexions", "Lecture des audits connexions" },
+                    { "audits.acces.read.all", "Permet de consulter les audits liés aux connexions de tous les utilisateurs", "Lecture des audits connexions de tous les utilisateurs" },
+                    { "audits.acces.read.site", "Permet de consulter les audits liés aux connexions de mon site", "Lecture des audits connexions de mon site" },
+                    { "audits.actions.read", "Permet de consulter les audits liés aux actions", "Lecture des audits actions" },
+                    { "audits.actions.read.all", "Permet de consulter les audits liés aux actions de tous les utilisateurs", "Lecture des audits actions de tous les utilisateurs" },
+                    { "audits.actions.read.site", "Permet de consulter les audits liés aux actions de mon site", "Lecture des audits actions de mon site" },
+                    { "demandes-annulations.read", "Permet de consulter les demandes d'annulation", "Lecture des demandes d'annulation" },
+                    { "demandes-annulations.read.all", "Permet de consulter les demandes d'annulation de tous les intermediaires", "Lecture des demandes d'annulation de tous les intermediaires" },
+                    { "demandes-annulations.read.site", "Permet de consulter les demandes d'annulation de tous les intermediaires", "Lecture des demandes d'annulation de mon intérmediaire" },
+                    { "taches.read", "Permet de consulter les taches", "Lecture des taches" },
+                    { "taches.read.all", "Permet de consulter les taches de tous les utilisateurs", "Lecture des taches de tous les utilisateurs" },
+                    { "taches.read.site", "Permet de consulter les taches de mon site", "Lecture des taches de mon site" },
+                    { "taches.update", "Permet d'annuler les taches", "Annulation des taches" },
+                    { "taches.update.all", "Permet d'annuler les taches de tous les utilisateurs", "Annulation des taches de tous les utilisateurs" },
+                    { "taches.update.site", "Permet d'annuler les taches de mon site", "Annulation des taches de mon site" },
+                    { "users.create", "Permet de créer des utilisateurs", "Création des utilisateurs" },
+                    { "users.delete", "Permet de supprimer les utilisateurs", "Suppression des utilisateurs" },
+                    { "users.read", "Permet de consulter les utilisateurs", "Lecture des utilisateurs" },
+                    { "users.update", "Permet de modifier les utilisateurs", "Modification des utilisateurs" }
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_demande_annulation_r_created_at",
+                table: "t_demande_annulation",
+                column: "r_created_at");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_demande_annulation_r_motif_annulation_id_fk",
+                table: "t_demande_annulation",
+                column: "r_motif_annulation_id_fk");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_demande_annulation_r_site_id_fk",
+                table: "t_demande_annulation",
+                column: "r_site_id_fk");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_demande_annulation_r_status",
+                table: "t_demande_annulation",
+                column: "r_status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_demande_annulation_r_user_id_fk",
+                table: "t_demande_annulation",
+                column: "r_user_id_fk");
 
             migrationBuilder.CreateIndex(
                 name: "IX_HistoEmail_CreatedAt",
@@ -462,6 +732,21 @@ namespace print_attestation.Migrations
                 column: "r_job_id_fk");
 
             migrationBuilder.CreateIndex(
+                name: "IX_t_job_details_r_created_at",
+                table: "t_job_details",
+                column: "r_created_at");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_job_details_r_job_id_fk",
+                table: "t_job_details",
+                column: "r_job_id_fk");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_motif_annulation_r_libelle",
+                table: "t_motif_annulation",
+                column: "r_libelle");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RefreshToken_ExpiresAt",
                 table: "t_refresh_token",
                 column: "r_expires_at");
@@ -491,6 +776,16 @@ namespace print_attestation.Migrations
                 name: "IX_RefreshToken_UserId_IsRevoked_ExpiresAt",
                 table: "t_refresh_token",
                 columns: new[] { "r_user_id_fk", "r_is_revoked", "r_expires_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_role_scope_r_role_id_fk",
+                table: "t_role_scope",
+                column: "r_role_id_fk");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_role_scope_r_scope_code_fk",
+                table: "t_role_scope",
+                column: "r_scope_code_fk");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Session_IsActive",
@@ -593,11 +888,34 @@ namespace print_attestation.Migrations
                 name: "IX_User_Telephone",
                 table: "t_user",
                 column: "r_telephone");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_user_role_r_role_id_fk",
+                table: "t_user_role",
+                column: "r_role_id_fk");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_user_role_r_user_id_fk",
+                table: "t_user_role",
+                column: "r_user_id_fk");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_user_scope_r_scope_code_fk",
+                table: "t_user_scope",
+                column: "r_scope_code_fk");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_t_user_scope_r_user_id_fk",
+                table: "t_user_scope",
+                column: "r_user_id_fk");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "t_demande_annulation");
+
             migrationBuilder.DropTable(
                 name: "t_histo_email");
 
@@ -614,6 +932,9 @@ namespace print_attestation.Migrations
                 name: "t_refresh_token");
 
             migrationBuilder.DropTable(
+                name: "t_role_scope");
+
+            migrationBuilder.DropTable(
                 name: "t_session");
 
             migrationBuilder.DropTable(
@@ -623,7 +944,22 @@ namespace print_attestation.Migrations
                 name: "t_trace_connexion");
 
             migrationBuilder.DropTable(
+                name: "t_user_role");
+
+            migrationBuilder.DropTable(
+                name: "t_user_scope");
+
+            migrationBuilder.DropTable(
+                name: "t_motif_annulation");
+
+            migrationBuilder.DropTable(
                 name: "t_job");
+
+            migrationBuilder.DropTable(
+                name: "t_role");
+
+            migrationBuilder.DropTable(
+                name: "t_scope");
 
             migrationBuilder.DropTable(
                 name: "t_user");

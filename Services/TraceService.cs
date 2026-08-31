@@ -1,9 +1,9 @@
-using ask.ContextDb;
-using ask.Model;
+using print_attestation.ContextDb;
+using print_attestation.Model;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
-namespace ask.Services
+namespace print_attestation.Services
 {
     /// <summary>
     /// Service de traçabilité pour les actions utilisateur et événements de connectivité

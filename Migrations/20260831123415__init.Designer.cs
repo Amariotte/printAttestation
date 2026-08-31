@@ -5,15 +5,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using ask.ContextDb;
+using print_attestation.ContextDb;
 
 #nullable disable
 
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    [Migration("20260827091633__annulation")]
-    partial class _annulation
+    [Migration("20260831123415__init")]
+    partial class _init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,78 @@ namespace print_attestation.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+
+            modelBuilder.Entity("ask.Model.t_demande_annulation", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("r_date_traitement")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("r_motif_annulation_id_fk")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_motif_rejet")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("r_num_attestation")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("r_num_immatriculation")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("r_num_police")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("r_site_id_fk")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_status")
+                        .HasMaxLength(100)
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_user_id_fk")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_created_at");
+
+                    b.HasIndex("r_motif_annulation_id_fk");
+
+                    b.HasIndex("r_site_id_fk");
+
+                    b.HasIndex("r_status");
+
+                    b.HasIndex("r_user_id_fk");
+
+                    b.ToTable("t_demande_annulation");
+                });
 
             modelBuilder.Entity("ask.Model.t_histo_email", b =>
                 {
@@ -342,6 +414,44 @@ namespace print_attestation.Migrations
                     b.ToTable("t_modele");
                 });
 
+            modelBuilder.Entity("ask.Model.t_motif_annulation", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("r_libelle")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_libelle");
+
+                    b.ToTable("t_motif_annulation");
+                });
+
             modelBuilder.Entity("ask.Model.t_refresh_token", b =>
                 {
                     b.Property<int>("r_id")
@@ -419,6 +529,236 @@ namespace print_attestation.Migrations
                     b.HasIndex(new[] { "r_user_id_fk" }, "IX_RefreshToken_UserId");
 
                     b.ToTable("t_refresh_token");
+                });
+
+            modelBuilder.Entity("ask.Model.t_role", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<string>("r_code")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_description")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("r_nom")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("r_ordre")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.ToTable("t_role");
+                });
+
+            modelBuilder.Entity("ask.Model.t_role_scope", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("r_role_id_fk")
+                        .IsRequired()
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_scope_code_fk")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_role_id_fk");
+
+                    b.HasIndex("r_scope_code_fk");
+
+                    b.ToTable("t_role_scope");
+                });
+
+            modelBuilder.Entity("ask.Model.t_scope", b =>
+                {
+                    b.Property<string>("r_code")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("r_description")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("r_nom")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("r_code");
+
+                    b.ToTable("t_scope");
+
+                    b.HasData(
+                        new
+                        {
+                            r_code = "attestations.read",
+                            r_description = "Permet de consulter les attestations",
+                            r_nom = "Lecture des attestations"
+                        },
+                        new
+                        {
+                            r_code = "attestations.read.all",
+                            r_description = "Permet de consulter les attestations de tous les intermediaires",
+                            r_nom = "Lecture des attestations de tous les intermediaires"
+                        },
+                        new
+                        {
+                            r_code = "demandes-annulations.read",
+                            r_description = "Permet de consulter les demandes d'annulation",
+                            r_nom = "Lecture des demandes d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "demandes-annulations.read.site",
+                            r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
+                            r_nom = "Lecture des demandes d'annulation de mon intérmediaire"
+                        },
+                        new
+                        {
+                            r_code = "demandes-annulations.read.all",
+                            r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
+                            r_nom = "Lecture des demandes d'annulation de tous les intermediaires"
+                        },
+                        new
+                        {
+                            r_code = "taches.read",
+                            r_description = "Permet de consulter les taches",
+                            r_nom = "Lecture des taches"
+                        },
+                        new
+                        {
+                            r_code = "taches.read.site",
+                            r_description = "Permet de consulter les taches de mon site",
+                            r_nom = "Lecture des taches de mon site"
+                        },
+                        new
+                        {
+                            r_code = "taches.read.all",
+                            r_description = "Permet de consulter les taches de tous les utilisateurs",
+                            r_nom = "Lecture des taches de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "taches.update",
+                            r_description = "Permet d'annuler les taches",
+                            r_nom = "Annulation des taches"
+                        },
+                        new
+                        {
+                            r_code = "taches.update.site",
+                            r_description = "Permet d'annuler les taches de mon site",
+                            r_nom = "Annulation des taches de mon site"
+                        },
+                        new
+                        {
+                            r_code = "taches.update.all",
+                            r_description = "Permet d'annuler les taches de tous les utilisateurs",
+                            r_nom = "Annulation des taches de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "audits.actions.read",
+                            r_description = "Permet de consulter les audits liés aux actions",
+                            r_nom = "Lecture des audits actions"
+                        },
+                        new
+                        {
+                            r_code = "audits.actions.read.site",
+                            r_description = "Permet de consulter les audits liés aux actions de mon site",
+                            r_nom = "Lecture des audits actions de mon site"
+                        },
+                        new
+                        {
+                            r_code = "audits.actions.read.all",
+                            r_description = "Permet de consulter les audits liés aux actions de tous les utilisateurs",
+                            r_nom = "Lecture des audits actions de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "audits.acces.read",
+                            r_description = "Permet de consulter les audits liés aux connexions",
+                            r_nom = "Lecture des audits connexions"
+                        },
+                        new
+                        {
+                            r_code = "audits.acces.read.site",
+                            r_description = "Permet de consulter les audits liés aux connexions de mon site",
+                            r_nom = "Lecture des audits connexions de mon site"
+                        },
+                        new
+                        {
+                            r_code = "audits.acces.read.all",
+                            r_description = "Permet de consulter les audits liés aux connexions de tous les utilisateurs",
+                            r_nom = "Lecture des audits connexions de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.read",
+                            r_description = "Permet de consulter les utilisateurs",
+                            r_nom = "Lecture des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.create",
+                            r_description = "Permet de créer des utilisateurs",
+                            r_nom = "Création des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.update",
+                            r_description = "Permet de modifier les utilisateurs",
+                            r_nom = "Modification des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.delete",
+                            r_description = "Permet de supprimer les utilisateurs",
+                            r_nom = "Suppression des utilisateurs"
+                        });
                 });
 
             modelBuilder.Entity("ask.Model.t_session", b =>
@@ -764,6 +1104,115 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user");
                 });
 
+            modelBuilder.Entity("ask.Model.t_user_role", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("r_role_id_fk")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_user_id_fk")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_role_id_fk");
+
+                    b.HasIndex("r_user_id_fk");
+
+                    b.ToTable("t_user_role");
+                });
+
+            modelBuilder.Entity("ask.Model.t_user_scope", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("r_scope_code_fk")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_user_id_fk")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_scope_code_fk");
+
+                    b.HasIndex("r_user_id_fk");
+
+                    b.ToTable("t_user_scope");
+                });
+
+            modelBuilder.Entity("ask.Model.t_demande_annulation", b =>
+                {
+                    b.HasOne("ask.Model.t_motif_annulation", "r_motif_annulation")
+                        .WithMany("r_users")
+                        .HasForeignKey("r_motif_annulation_id_fk")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ask.Model.t_site", "r_site")
+                        .WithMany()
+                        .HasForeignKey("r_site_id_fk")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ask.Model.t_user", "r_user")
+                        .WithMany()
+                        .HasForeignKey("r_user_id_fk")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("r_motif_annulation");
+
+                    b.Navigation("r_site");
+
+                    b.Navigation("r_user");
+                });
+
             modelBuilder.Entity("ask.Model.t_job", b =>
                 {
                     b.HasOne("ask.Model.t_user", "r_user")
@@ -795,6 +1244,25 @@ namespace print_attestation.Migrations
                         .IsRequired();
 
                     b.Navigation("r_user");
+                });
+
+            modelBuilder.Entity("ask.Model.t_role_scope", b =>
+                {
+                    b.HasOne("ask.Model.t_role", "r_role")
+                        .WithMany("r_role_scopes")
+                        .HasForeignKey("r_role_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ask.Model.t_scope", "r_scope")
+                        .WithMany("r_role_scopes")
+                        .HasForeignKey("r_scope_code_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("r_role");
+
+                    b.Navigation("r_scope");
                 });
 
             modelBuilder.Entity("ask.Model.t_session", b =>
@@ -836,9 +1304,66 @@ namespace print_attestation.Migrations
                     b.Navigation("r_site");
                 });
 
+            modelBuilder.Entity("ask.Model.t_user_role", b =>
+                {
+                    b.HasOne("ask.Model.t_role", "r_role")
+                        .WithMany("r_user_roles")
+                        .HasForeignKey("r_role_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ask.Model.t_user", "r_user")
+                        .WithMany("r_user_roles")
+                        .HasForeignKey("r_user_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("r_role");
+
+                    b.Navigation("r_user");
+                });
+
+            modelBuilder.Entity("ask.Model.t_user_scope", b =>
+                {
+                    b.HasOne("ask.Model.t_scope", "r_scope")
+                        .WithMany("r_user_scopes")
+                        .HasForeignKey("r_scope_code_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ask.Model.t_user", "r_user")
+                        .WithMany("r_user_scopes")
+                        .HasForeignKey("r_user_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("r_scope");
+
+                    b.Navigation("r_user");
+                });
+
             modelBuilder.Entity("ask.Model.t_job", b =>
                 {
                     b.Navigation("r_job_details");
+                });
+
+            modelBuilder.Entity("ask.Model.t_motif_annulation", b =>
+                {
+                    b.Navigation("r_users");
+                });
+
+            modelBuilder.Entity("ask.Model.t_role", b =>
+                {
+                    b.Navigation("r_role_scopes");
+
+                    b.Navigation("r_user_roles");
+                });
+
+            modelBuilder.Entity("ask.Model.t_scope", b =>
+                {
+                    b.Navigation("r_role_scopes");
+
+                    b.Navigation("r_user_scopes");
                 });
 
             modelBuilder.Entity("ask.Model.t_site", b =>
@@ -853,6 +1378,10 @@ namespace print_attestation.Migrations
                     b.Navigation("r_refresh_tokens");
 
                     b.Navigation("r_sessions");
+
+                    b.Navigation("r_user_roles");
+
+                    b.Navigation("r_user_scopes");
                 });
 #pragma warning restore 612, 618
         }

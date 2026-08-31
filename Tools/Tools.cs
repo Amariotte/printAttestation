@@ -1,13 +1,12 @@
 ﻿using System.Data;
 using System.Security.Cryptography;
 using System.Text;
-using ask.Dtos.Reponses;
-using ask.Dtos.Response.auth;
-using ask.Model;
 using print_attestation.Dtos.Response;
+using print_attestation.Dtos.Response.auth;
+using print_attestation.Model;
 
 
-namespace ask.Tools
+namespace print_attestation.Tools
 {
     public static class Tools
     {
@@ -328,7 +327,18 @@ namespace ask.Tools
         }
 
 
+        public static RoleResponseDto BuildRoleToRoleResponseDto(t_role r)
+        {
+            return new RoleResponseDto
+            {
+                id = r.r_id,
+                nom = r.r_nom,
+                code = r.r_code,
+                description = r.r_description
+            };
+        }
 
+    
 
     }
 

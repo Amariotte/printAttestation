@@ -1,9 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Threading.Channels;
-using Microsoft.EntityFrameworkCore;
 
-namespace ask.Model
+
+namespace print_attestation.Model
 {
     public class t_demande_annulation : t_base
     {

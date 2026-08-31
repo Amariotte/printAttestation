@@ -1,6 +1,4 @@
-using print_attestation.Dtos.Reponses;
-
-namespace ask.Dtos.General
+namespace print_attestation.Dtos.Response
 {
     /// <summary>
     /// Réponse standardisée pour les listes paginées

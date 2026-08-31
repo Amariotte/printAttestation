@@ -1,4 +1,4 @@
-namespace ask.Dtos.Reponses
+namespace print_attestation.Dtos.Response
 {
     public class ModeleDto
     {

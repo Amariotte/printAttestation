@@ -1,8 +1,6 @@
+using print_attestation.Dtos.Response.auth;
 
-using ask.Dtos.Request.auth;
-using ask.Dtos.Response.auth;
-
-namespace ask.Dtos.Reponses
+namespace print_attestation.Dtos.Response
 {
     public class jobReponseDto
     {

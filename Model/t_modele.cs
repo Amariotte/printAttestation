@@ -1,6 +1,6 @@
 ﻿
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     public class t_modele : t_base
     {

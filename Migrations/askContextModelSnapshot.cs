@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using ask.ContextDb;
+using print_attestation.ContextDb;
 
 #nullable disable
 
@@ -22,7 +22,7 @@ namespace print_attestation.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
-            modelBuilder.Entity("ask.Model.t_demande_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_demande_annulation", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -94,7 +94,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_demande_annulation");
                 });
 
-            modelBuilder.Entity("ask.Model.t_histo_email", b =>
+            modelBuilder.Entity("print_attestation.Model.t_histo_email", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -172,7 +172,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_histo_email");
                 });
 
-            modelBuilder.Entity("ask.Model.t_histo_sms", b =>
+            modelBuilder.Entity("print_attestation.Model.t_histo_sms", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -235,7 +235,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_histo_sms");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -300,12 +300,6 @@ namespace print_attestation.Migrations
                     b.Property<int>("r_user_id_fk")
                         .HasColumnType("int");
 
-                    b.Property<int?>("t_roler_id")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("t_scoper_id")
-                        .HasColumnType("int");
-
                     b.HasKey("r_id");
 
                     b.HasIndex("r_created_at");
@@ -314,10 +308,6 @@ namespace print_attestation.Migrations
 
                     b.HasIndex("r_user_id_fk");
 
-                    b.HasIndex("t_roler_id");
-
-                    b.HasIndex("t_scoper_id");
-
                     b.HasIndex(new[] { "r_job_id" }, "IX_Job_JobId");
 
                     b.HasIndex(new[] { "r_user_id_fk" }, "IX_Job_UserId");
@@ -325,7 +315,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_job");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job_details", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job_details", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -375,7 +365,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_job_details");
                 });
 
-            modelBuilder.Entity("ask.Model.t_modele", b =>
+            modelBuilder.Entity("print_attestation.Model.t_modele", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -421,7 +411,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_modele");
                 });
 
-            modelBuilder.Entity("ask.Model.t_motif_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_motif_annulation", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -459,7 +449,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_motif_annulation");
                 });
 
-            modelBuilder.Entity("ask.Model.t_refresh_token", b =>
+            modelBuilder.Entity("print_attestation.Model.t_refresh_token", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -518,17 +508,7 @@ namespace print_attestation.Migrations
                     b.Property<int>("r_user_id_fk")
                         .HasColumnType("int");
 
-                    b.Property<int?>("t_roler_id")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("t_scoper_id")
-                        .HasColumnType("int");
-
                     b.HasKey("r_id");
-
-                    b.HasIndex("t_roler_id");
-
-                    b.HasIndex("t_scoper_id");
 
                     b.HasIndex("r_expires_at", "r_is_delete")
                         .HasDatabaseName("IX_RefreshToken_ExpiresAt_IsDelete");
@@ -548,7 +528,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_refresh_token");
                 });
 
-            modelBuilder.Entity("ask.Model.t_role", b =>
+            modelBuilder.Entity("print_attestation.Model.t_role", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -591,7 +571,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_role");
                 });
 
-            modelBuilder.Entity("ask.Model.t_role_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_role_scope", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -611,11 +591,13 @@ namespace print_attestation.Migrations
                     b.Property<bool>("r_is_delete")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<int>("r_role_id_fk")
+                    b.Property<int?>("r_role_id_fk")
+                        .IsRequired()
                         .HasColumnType("int");
 
-                    b.Property<int>("r_scope_id_fk")
-                        .HasColumnType("int");
+                    b.Property<string>("r_scope_code_fk")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
@@ -627,52 +609,234 @@ namespace print_attestation.Migrations
 
                     b.HasIndex("r_role_id_fk");
 
-                    b.HasIndex("r_scope_id_fk");
+                    b.HasIndex("r_scope_code_fk");
 
                     b.ToTable("t_role_scope");
                 });
 
-            modelBuilder.Entity("ask.Model.t_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_scope", b =>
                 {
-                    b.Property<int>("r_id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
-
                     b.Property<string>("r_code")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("r_created_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_created_by")
-                        .HasColumnType("int");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("r_description")
                         .HasColumnType("longtext");
 
-                    b.Property<bool>("r_is_active")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_is_delete")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<string>("r_nom")
                         .HasColumnType("longtext");
 
-                    b.Property<DateTime?>("r_updated_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_updated_by")
-                        .HasColumnType("int");
-
-                    b.HasKey("r_id");
+                    b.HasKey("r_code");
 
                     b.ToTable("t_scope");
+
+                    b.HasData(
+                        new
+                        {
+                            r_code = "attestations.read",
+                            r_description = "Permet de consulter les attestations",
+                            r_nom = "Lecture des attestations"
+                        },
+                        new
+                        {
+                            r_code = "attestations.read.all",
+                            r_description = "Permet de consulter les attestations de tous les intermediaires",
+                            r_nom = "Lecture des attestations de tous les intermediaires"
+                        },
+                        new
+                        {
+                            r_code = "demandes-annulations.read",
+                            r_description = "Permet de consulter les demandes d'annulation",
+                            r_nom = "Lecture des demandes d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "demandes-annulations.read.site",
+                            r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
+                            r_nom = "Lecture des demandes d'annulation de mon intérmediaire"
+                        },
+                        new
+                        {
+                            r_code = "demandes-annulations.read.all",
+                            r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
+                            r_nom = "Lecture des demandes d'annulation de tous les intermediaires"
+                        },
+                        new
+                        {
+                            r_code = "taches.read",
+                            r_description = "Permet de consulter les taches",
+                            r_nom = "Lecture des taches"
+                        },
+                        new
+                        {
+                            r_code = "taches.read.site",
+                            r_description = "Permet de consulter les taches de mon site",
+                            r_nom = "Lecture des taches de mon site"
+                        },
+                        new
+                        {
+                            r_code = "taches.read.all",
+                            r_description = "Permet de consulter les taches de tous les utilisateurs",
+                            r_nom = "Lecture des taches de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "taches.update",
+                            r_description = "Permet d'annuler les taches",
+                            r_nom = "Annulation des taches"
+                        },
+                        new
+                        {
+                            r_code = "taches.update.site",
+                            r_description = "Permet d'annuler les taches de mon site",
+                            r_nom = "Annulation des taches de mon site"
+                        },
+                        new
+                        {
+                            r_code = "taches.update.all",
+                            r_description = "Permet d'annuler les taches de tous les utilisateurs",
+                            r_nom = "Annulation des taches de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "audits.actions.read",
+                            r_description = "Permet de consulter les audits liés aux actions",
+                            r_nom = "Lecture des audits actions"
+                        },
+                        new
+                        {
+                            r_code = "audits.actions.read.site",
+                            r_description = "Permet de consulter les audits liés aux actions de mon site",
+                            r_nom = "Lecture des audits actions de mon site"
+                        },
+                        new
+                        {
+                            r_code = "audits.actions.read.all",
+                            r_description = "Permet de consulter les audits liés aux actions de tous les utilisateurs",
+                            r_nom = "Lecture des audits actions de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "audits.acces.read",
+                            r_description = "Permet de consulter les audits liés aux connexions",
+                            r_nom = "Lecture des audits connexions"
+                        },
+                        new
+                        {
+                            r_code = "audits.acces.read.site",
+                            r_description = "Permet de consulter les audits liés aux connexions de mon site",
+                            r_nom = "Lecture des audits connexions de mon site"
+                        },
+                        new
+                        {
+                            r_code = "audits.acces.read.all",
+                            r_description = "Permet de consulter les audits liés aux connexions de tous les utilisateurs",
+                            r_nom = "Lecture des audits connexions de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.read",
+                            r_description = "Permet de consulter les utilisateurs",
+                            r_nom = "Lecture des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "sites.create",
+                            r_description = "Permet de créer des intermédiaires",
+                            r_nom = "Création des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "sites.update",
+                            r_description = "Permet de modifier les intermédiaires",
+                            r_nom = "Modification des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "sites.delete",
+                            r_description = "Permet de supprimer les intermédiaires",
+                            r_nom = "Suppression des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "sites.read",
+                            r_description = "Permet de consulter les intermédiaires",
+                            r_nom = "Lecture des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "sites.upload",
+                            r_description = "Permet de téléverser les intermédiaires",
+                            r_nom = "Téléversement des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "users.create",
+                            r_description = "Permet de créer des utilisateurs",
+                            r_nom = "Création des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.update",
+                            r_description = "Permet de modifier les utilisateurs",
+                            r_nom = "Modification des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.delete",
+                            r_description = "Permet de supprimer les utilisateurs",
+                            r_nom = "Suppression des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.read",
+                            r_description = "Permet de consulter les profils d'utilisateurs",
+                            r_nom = "Lecture des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.create",
+                            r_description = "Permet de créer les profils d'utilisateurs",
+                            r_nom = "Création des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.update",
+                            r_description = "Permet de modifier les profils d'utilisateurs",
+                            r_nom = "Modification des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.delete",
+                            r_description = "Permet de supprimer les profils d'utilisateurs",
+                            r_nom = "Suppression des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.read",
+                            r_description = "Permet de consulter les motifs d'annulation",
+                            r_nom = "Lecture des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.create",
+                            r_description = "Permet de créer les motifs d'annulation",
+                            r_nom = "Création des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.update",
+                            r_description = "Permet de modifier les motifs d'annulation",
+                            r_nom = "Modification des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.delete",
+                            r_description = "Permet de supprimer les motifs d'annulation",
+                            r_nom = "Suppression des motifs d'annulation"
+                        });
                 });
 
-            modelBuilder.Entity("ask.Model.t_session", b =>
+            modelBuilder.Entity("print_attestation.Model.t_session", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -719,17 +883,7 @@ namespace print_attestation.Migrations
                     b.Property<int>("r_user_id_fk")
                         .HasColumnType("int");
 
-                    b.Property<int?>("t_roler_id")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("t_scoper_id")
-                        .HasColumnType("int");
-
                     b.HasKey("r_id");
-
-                    b.HasIndex("t_roler_id");
-
-                    b.HasIndex("t_scoper_id");
 
                     b.HasIndex("r_user_id_fk", "r_is_active", "r_login_at")
                         .HasDatabaseName("IX_Session_UserId_IsActive_LoginAt");
@@ -745,7 +899,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_session");
                 });
 
-            modelBuilder.Entity("ask.Model.t_site", b =>
+            modelBuilder.Entity("print_attestation.Model.t_site", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -791,7 +945,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_site");
                 });
 
-            modelBuilder.Entity("ask.Model.t_trace_action", b =>
+            modelBuilder.Entity("print_attestation.Model.t_trace_action", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -869,7 +1023,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_trace_action");
                 });
 
-            modelBuilder.Entity("ask.Model.t_trace_connexion", b =>
+            modelBuilder.Entity("print_attestation.Model.t_trace_connexion", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -949,7 +1103,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_trace_connexion");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -1025,7 +1179,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_role", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_role", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -1066,7 +1220,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user_role");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_scope", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -1086,8 +1240,9 @@ namespace print_attestation.Migrations
                     b.Property<bool>("r_is_delete")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<int>("r_scope_id_fk")
-                        .HasColumnType("int");
+                    b.Property<string>("r_scope_code_fk")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
@@ -1100,27 +1255,27 @@ namespace print_attestation.Migrations
 
                     b.HasKey("r_id");
 
-                    b.HasIndex("r_scope_id_fk");
+                    b.HasIndex("r_scope_code_fk");
 
                     b.HasIndex("r_user_id_fk");
 
                     b.ToTable("t_user_scope");
                 });
 
-            modelBuilder.Entity("ask.Model.t_demande_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_demande_annulation", b =>
                 {
-                    b.HasOne("ask.Model.t_motif_annulation", "r_motif_annulation")
+                    b.HasOne("print_attestation.Model.t_motif_annulation", "r_motif_annulation")
                         .WithMany("r_users")
                         .HasForeignKey("r_motif_annulation_id_fk")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_site", "r_site")
+                    b.HasOne("print_attestation.Model.t_site", "r_site")
                         .WithMany()
                         .HasForeignKey("r_site_id_fk")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany()
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1133,28 +1288,20 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_jobs")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_role", null)
-                        .WithMany("r_jobs")
-                        .HasForeignKey("t_roler_id");
-
-                    b.HasOne("ask.Model.t_scope", null)
-                        .WithMany("r_jobs")
-                        .HasForeignKey("t_scoper_id");
-
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job_details", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job_details", b =>
                 {
-                    b.HasOne("ask.Model.t_job", "r_job")
+                    b.HasOne("print_attestation.Model.t_job", "r_job")
                         .WithMany("r_job_details")
                         .HasForeignKey("r_job_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1163,36 +1310,28 @@ namespace print_attestation.Migrations
                     b.Navigation("r_job");
                 });
 
-            modelBuilder.Entity("ask.Model.t_refresh_token", b =>
+            modelBuilder.Entity("print_attestation.Model.t_refresh_token", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_refresh_tokens")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_role", null)
-                        .WithMany("r_refresh_tokens")
-                        .HasForeignKey("t_roler_id");
-
-                    b.HasOne("ask.Model.t_scope", null)
-                        .WithMany("r_refresh_tokens")
-                        .HasForeignKey("t_scoper_id");
-
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_role_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_role_scope", b =>
                 {
-                    b.HasOne("ask.Model.t_role", "r_role")
+                    b.HasOne("print_attestation.Model.t_role", "r_role")
                         .WithMany("r_role_scopes")
                         .HasForeignKey("r_role_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_scope", "r_scope")
+                    b.HasOne("print_attestation.Model.t_scope", "r_scope")
                         .WithMany("r_role_scopes")
-                        .HasForeignKey("r_scope_id_fk")
+                        .HasForeignKey("r_scope_code_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1201,46 +1340,38 @@ namespace print_attestation.Migrations
                     b.Navigation("r_scope");
                 });
 
-            modelBuilder.Entity("ask.Model.t_session", b =>
+            modelBuilder.Entity("print_attestation.Model.t_session", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_sessions")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_role", null)
-                        .WithMany("r_sessions")
-                        .HasForeignKey("t_roler_id");
-
-                    b.HasOne("ask.Model.t_scope", null)
-                        .WithMany("r_sessions")
-                        .HasForeignKey("t_scoper_id");
-
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_trace_action", b =>
+            modelBuilder.Entity("print_attestation.Model.t_trace_action", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany()
                         .HasForeignKey("r_user_id");
 
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_trace_connexion", b =>
+            modelBuilder.Entity("print_attestation.Model.t_trace_connexion", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany()
                         .HasForeignKey("r_user_id");
 
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user", b =>
                 {
-                    b.HasOne("ask.Model.t_site", "r_site")
+                    b.HasOne("print_attestation.Model.t_site", "r_site")
                         .WithMany("r_users")
                         .HasForeignKey("r_site_id_fk")
                         .OnDelete(DeleteBehavior.Restrict);
@@ -1248,15 +1379,15 @@ namespace print_attestation.Migrations
                     b.Navigation("r_site");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_role", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_role", b =>
                 {
-                    b.HasOne("ask.Model.t_role", "r_role")
+                    b.HasOne("print_attestation.Model.t_role", "r_role")
                         .WithMany("r_user_roles")
                         .HasForeignKey("r_role_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_user_roles")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1267,15 +1398,15 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_scope", b =>
                 {
-                    b.HasOne("ask.Model.t_scope", "r_scope")
+                    b.HasOne("print_attestation.Model.t_scope", "r_scope")
                         .WithMany("r_user_scopes")
-                        .HasForeignKey("r_scope_id_fk")
+                        .HasForeignKey("r_scope_code_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_user_scopes")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1286,48 +1417,36 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job", b =>
                 {
                     b.Navigation("r_job_details");
                 });
 
-            modelBuilder.Entity("ask.Model.t_motif_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_motif_annulation", b =>
                 {
                     b.Navigation("r_users");
                 });
 
-            modelBuilder.Entity("ask.Model.t_role", b =>
+            modelBuilder.Entity("print_attestation.Model.t_role", b =>
                 {
-                    b.Navigation("r_jobs");
-
-                    b.Navigation("r_refresh_tokens");
-
                     b.Navigation("r_role_scopes");
-
-                    b.Navigation("r_sessions");
 
                     b.Navigation("r_user_roles");
                 });
 
-            modelBuilder.Entity("ask.Model.t_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_scope", b =>
                 {
-                    b.Navigation("r_jobs");
-
-                    b.Navigation("r_refresh_tokens");
-
                     b.Navigation("r_role_scopes");
-
-                    b.Navigation("r_sessions");
 
                     b.Navigation("r_user_scopes");
                 });
 
-            modelBuilder.Entity("ask.Model.t_site", b =>
+            modelBuilder.Entity("print_attestation.Model.t_site", b =>
                 {
                     b.Navigation("r_users");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user", b =>
                 {
                     b.Navigation("r_jobs");
 

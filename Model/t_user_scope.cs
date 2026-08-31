@@ -2,14 +2,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
  
     public class t_user_scope : t_base
     {
         [Required]
         [ForeignKey(nameof(r_scope))]
-        public int r_scope_id_fk { get; set; }
+        public string? r_scope_code_fk { get; set; }
 
         public t_scope? r_scope { get; set; }
 

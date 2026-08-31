@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     public class t_motif_annulation : t_base
     {

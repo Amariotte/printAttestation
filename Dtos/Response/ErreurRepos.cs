@@ -1,4 +1,4 @@
-namespace ask.Dtos.Reponses
+namespace print_attestation.Dtos.Response
 {
     /// <summary>
     /// Classe pour encapsuler les résultats des opérations du repository

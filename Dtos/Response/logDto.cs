@@ -1,7 +1,7 @@
 
-using ask.Dtos.Response.auth;
+using print_attestation.Dtos.Response.auth;
 
-namespace ask.Dtos.Response
+namespace print_attestation.Dtos.Response
 {
     public class logDto
     {
@@ -18,7 +18,7 @@ namespace ask.Dtos.Response
         public string? description { get; set; }
         public int? statusCode { get; set; }
         public long? durationMs { get; set; }
-
+        
         public UserResponseDto? user { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-namespace ask.Dtos.General
+namespace print_attestation.Dtos.General
 {
     /// <summary>
     /// Paramètres de pagination pour les requêtes

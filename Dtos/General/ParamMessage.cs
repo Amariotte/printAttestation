@@ -1,4 +1,4 @@
-﻿namespace ask.Dtos.General
+﻿namespace print_attestation.Dtos.General
 {
     public class ParamAsaci
     {

@@ -1,14 +1,10 @@
 ﻿using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
-using System.Text;
-using System.Net.Mail;
+using print_attestation.Dtos.General;
 using System.Net;
-using ask.Interface;
-using ask.Dtos.General;
-using InteroperabiliteProject.Dtos;
-using ask.Model;
 
-namespace ask.Services
+
+namespace print_attestation.Services
 {
     public class ServiceAsaci
     {

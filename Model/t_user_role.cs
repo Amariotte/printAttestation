@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
  
     public class t_user_role : t_base

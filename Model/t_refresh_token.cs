@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     /// <summary>
     /// Token de rafraîchissement pour l'authentification JWT

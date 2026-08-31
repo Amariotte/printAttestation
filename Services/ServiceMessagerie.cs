@@ -1,17 +1,15 @@
-﻿using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
+﻿using System.Net;
 using System.Text;
-using System.Net.Mail;
-using System.Net;
-using ask.Interface;
-using ask.Dtos.General;
-using InteroperabiliteProject.Dtos;
-using ask.Model;
-using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.Extensions.Options;
 using MimeKit;
+using Newtonsoft.Json;
+using print_attestation.Dtos;
+using print_attestation.Dtos.General;
+using print_attestation.Interface;
+using print_attestation.Model;
 
-namespace ask.Services
+namespace print_attestation.Services
 {
     public class ServiceMessagerie
     {

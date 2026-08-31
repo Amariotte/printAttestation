@@ -1,11 +1,12 @@
 ﻿
-using ask.ContextDb;
-using ask.Dtos.Reponses;
-using ask.Model;
+using print_attestation.ContextDb;
+using print_attestation.Model;
 using Microsoft.EntityFrameworkCore;
+using print_attestation.Interface;
+using print_attestation.Dtos.Response;
 
 
-namespace ask.Implementation
+namespace print_attestation.Implementation
 {
     public class BaseRepo<T> : IbaseRepo<T> where T : t_base
     {

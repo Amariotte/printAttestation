@@ -1,4 +1,4 @@
-﻿namespace print_attestation.Dtos.Reponses
+﻿namespace print_attestation.Dtos.Response
 {
   
 

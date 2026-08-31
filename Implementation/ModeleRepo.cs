@@ -1,9 +1,9 @@
-﻿using ask.ContextDb;
-using ask.Interface;
-using ask.Model;
+﻿using print_attestation.ContextDb;
+using print_attestation.Interface;
+using print_attestation.Model;
 using Microsoft.EntityFrameworkCore;
 
-namespace ask.Implementation
+namespace print_attestation.Implementation
 {
     public class ModeleRepo : BaseRepo<t_modele>, ImodeleRepo
     {

@@ -1,18 +1,20 @@
 ﻿using System.Data;
 using System.Net;
-using ask.ContextDb;
-using ask.Dtos.General;
-using ask.Dtos.Reponses;
-using ask.Dtos.Response;
-using ask.Model;
-using ask.Services;
-using InteroperabiliteProject.Dtos;
+using print_attestation.ContextDb;
+using print_attestation.Dtos.Response;
+using print_attestation.Model;
+using print_attestation.Services;
+using print_attestation.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using OracleApi.Services;
+using print_attestation.ScopeAttribute;
+using print_attestation.Security;
+using print_attestation.Dtos.General;
+using print_attestation.Tools;
 
 
 namespace ask.Controllers
@@ -61,11 +63,11 @@ namespace ask.Controllers
      
 
         [NonAction]
-        public Model.t_user GetInfoUser()
+        public t_user GetInfoUser()
         {
             if (HttpContext.Items.ContainsKey("User"))
             {
-                return (Model.t_user)HttpContext.Items["User"];
+                return (t_user)HttpContext.Items["User"];
             }
             else
             {
@@ -75,6 +77,7 @@ namespace ask.Controllers
 
         #region Attestation
         [Authorize]
+        [RequireScope(Scopes.TachesCreate)]
         [HttpPost("attestations/{type}/jobs")]
         public async Task<IActionResult> CreateJobsByType(string type, [FromBody] List<string> numAttestations)
         {
@@ -203,6 +206,8 @@ namespace ask.Controllers
         }
 
         [Authorize]
+
+        [RequireAnyScope(Scopes.TachesRead, Scopes.TachesReadSite, Scopes.TachesReadAll)]
         [HttpGet("attestations/jobs")]
         public async Task<IActionResult> ListJobs([FromQuery] int page = 1, [FromQuery] int limit = 20, [FromQuery] string? type = null, [FromQuery] int? status = null)
         {
@@ -216,25 +221,21 @@ namespace ask.Controllers
 
             var query = _dbContext.t_job.AsQueryable();
 
-            switch (user.r_type)
+
+            if (User.HasClaim("scope", Scopes.TachesReadAll))
             {
-                case TYPE_UTILISATEUR.Administrateur:
-                    // L'administrateur voit tous les jobs
-                    break;
-
-                case TYPE_UTILISATEUR.Responsable_site:
-                    // Le responsable de site voit les jobs de son site
-                    query = query.Where(x =>
-                        x.r_user.r_site_id_fk == user.r_site_id_fk
-                    );
-                    break;
-
-                default:
-                    // Les autres utilisateurs voient uniquement leurs propres jobs
-                    query = query.Where(x =>
-                        x.r_user_id_fk == user.r_id
-                    );
-                    break;
+                // Tous les sites
+            }
+            else if (User.HasClaim("scope", Scopes.TachesReadSite)) // Uniquement le site de l'utilisateur connecté
+            {
+                query = query.Where(x =>
+                       x.r_user.r_site_id_fk == user.r_site_id_fk);
+            }
+            else
+            {
+                query = query.Where(x =>
+                       x.r_user_id_fk == user.r_id
+                   );   // Uniquement les jobs de l'utilisateur connecté
             }
 
             // Filtre par statut si fourni (valeurs : RUNNING, COMPLETED, CANCELLED)
@@ -263,7 +264,7 @@ namespace ask.Controllers
                 .ToListAsync();
 
             
-              var jobsDto = jobs.Select(j => Tools.Tools.BuildJobToJobResponseDto(j)).ToList();
+              var jobsDto = jobs.Select(j => Tools.BuildJobToJobResponseDto(j)).ToList();
 
             return Ok(PaginatedResponse<jobReponseDto>.Create(jobsDto, total, pagination.page, pagination.limit));
 
@@ -271,6 +272,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireAnyScope(Scopes.TachesRead, Scopes.TachesReadSite, Scopes.TachesReadAll)]
         [HttpGet("attestations/jobs/{jobId}")]
         public async Task<IActionResult> GetJobDetail(string jobId)
         {
@@ -285,11 +287,12 @@ namespace ask.Controllers
             if (!(HasAccessToJob(jobRec, user)))
                 return StatusCode(403,GeneraleRetour.BuildForbid(instance: HttpContext.Request.Path, detail:"Accès refusé"));
 
-            return Ok(Tools.Tools.BuildJobToJobResponseDto(jobRec));
+            return Ok(Tools.BuildJobToJobResponseDto(jobRec));
         }
 
 
         [Authorize]
+        [RequireAnyScope(Scopes.TachesUpdate)]
         [HttpPost("attestations/jobs/{jobId}/cancel")]
         public async Task<IActionResult> StopJob(string jobId)
         {
@@ -367,6 +370,7 @@ namespace ask.Controllers
         }
 
         [Authorize]
+        [RequireAnyScope(Scopes.AttestationsRead, Scopes.AttestationsReadAll)]
         [HttpGet("attestations/{cleRechercheEncode}")]
         public async Task<IActionResult> GetAttestation(string cleRechercheEncode, [FromQuery] int page = 1, [FromQuery] int limit = 10,[FromQuery] string status = "")
         {
@@ -391,7 +395,7 @@ namespace ask.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
 
                 // Validation de sécurité pour éviter les injections SQL
-                if (!Tools.Tools.IsValidSearchKey(cleRecherche))
+                if (!Tools.IsValidSearchKey(cleRecherche))
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format de recherche invalide", instance: HttpContext.Request.Path));
 
 
@@ -416,12 +420,16 @@ namespace ask.Controllers
                     statutSql = " AND TRUNC(a.DATECHAT) < TRUNC(SYSDATE)";
                 }
 
-
-                // Filtre CODEINTE selon le type d'utilisateur
-                if (dataUser.r_type != TYPE_UTILISATEUR.Administrateur)
+                if (User.HasClaim("scope", Scopes.AttestationsReadAll))
+                {
+                    // Tous les sites
+                }
+                else if (User.HasClaim("scope", Scopes.AttestationsRead)) // Uniquement le site de l'utilisateur connecté
                 {
                     codeInteSql = " AND a.CODEINTE = :codeInte";
                 }
+               
+
 
                 // Requête SQL pour compter le nombre total d'attestations correspondant à la recherche
                 string _sqlCount = @"SELECT count(*) AS nb
@@ -505,7 +513,7 @@ namespace ask.Controllers
                 var rows = await _oracleService.ExecuteQueryAsync(_sql, parameters);
 
                 // Mapper les résultats (pagination déjà effectuée dans la requête SQL)
-                var results = rows.Select(row => new Dtos.Response.AttestationResponseDto
+                var results = rows.Select(row => new AttestationResponseDto
                 {
                     numPolice = row.ContainsKey("NUMEPOLI") ? row["NUMEPOLI"]?.ToString() : null,
                     dateEffet = row.ContainsKey("DATEFFAT") ? (row["DATEFFAT"] as DateTime?) : null,
@@ -675,7 +683,8 @@ namespace ask.Controllers
         }
 
         #endregion
-        [NonAction]
+        [Authorize]
+        [RequireScope(Scopes.SitesUpload)]
         [HttpGet("sites")]
         public async Task<IActionResult> ChargerLesSites()
         {
@@ -734,6 +743,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.DemandesAnnulationsRead)]
         [HttpGet("demandes/annulations")]
         public async Task<IActionResult> ListDemandeAnnulation([FromQuery] int page = 1, [FromQuery] int limit = 20, [FromQuery] string? type = null, [FromQuery] int? status = null)
         {
@@ -789,7 +799,7 @@ namespace ask.Controllers
                 .ToListAsync();
 
 
-            var demandesDto = demandes.Select(d => Tools.Tools.BuildDemandeAnnulationResponseDto(d)).ToList();
+            var demandesDto = demandes.Select(d => Tools.BuildDemandeAnnulationResponseDto(d)).ToList();
 
             return Ok(PaginatedResponse<demandeAnnulationResponseDto>.Create(demandesDto, total, pagination.page, pagination.limit));
 

@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 
 
-namespace ask.Dtos.Request.auth
+namespace print_attestation.Dtos.Request.auth
 {
     public class UpdatePasswordUserDto
     {

@@ -1,7 +1,7 @@
 
-using ask.Dtos.Response.auth;
+using print_attestation.Dtos.Response.auth;
 
-namespace ask.Dtos.Response
+namespace print_attestation.Dtos.Response
 {
     public class logAccesDto
     {

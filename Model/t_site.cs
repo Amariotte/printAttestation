@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     [Index(nameof(r_code), IsUnique = true, Name = "IX_Site_Code")]
     [Index(nameof(r_nom), Name = "IX_Site_Nom")]

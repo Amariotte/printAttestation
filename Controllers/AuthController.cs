@@ -1,20 +1,19 @@
 using System.Data;
-using ask.ContextDb;
-using ask.Dtos;
-using ask.Dtos.General;
-using ask.Dtos.Request.auth;
-using ask.Dtos.Request.Auth;
-using ask.Dtos.Response.auth;
-using ask.Interface;
-using ask.Model;
-using ask.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using print_attestation.ContextDb;
+using print_attestation.Dtos;
+using print_attestation.Dtos.General;
 using print_attestation.Dtos.Request;
+using print_attestation.Dtos.Request.auth;
+using print_attestation.Dtos.Response.auth;
+using print_attestation.Interface;
+using print_attestation.Model;
+using print_attestation.Services;
 
-namespace ask.Controllers
+namespace print_attestation.Controllers
 {
     [Route("api/auth")]
     [ApiController]
@@ -78,6 +77,7 @@ namespace ask.Controllers
         /// POST api/auth/register
         /// Inscription d'un nouvel utilisateur avec envoi d'un OTP de confirmation.
         /// </summary>
+        
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<IActionResult> Inscription([FromBody] UserDto _body)
@@ -252,7 +252,7 @@ namespace ask.Controllers
                 string[] scopes = user.r_user_roles
                     .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
                     .SelectMany(x => x.r_role.r_role_scopes)
-                    .Where(x => x.r_scope != null && x.r_scope.r_is_active != false && x.r_scope.r_is_delete != true)
+                    .Where(x => x.r_scope != null)
                     .Select(x => x.r_scope.r_code)
                     .Distinct()
                     .ToArray();
@@ -389,7 +389,7 @@ namespace ask.Controllers
                 string[] scopes = dataUser.r_user_roles
                     .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
                     .SelectMany(x => x.r_role.r_role_scopes)
-                    .Where(x => x.r_scope != null && x.r_scope.r_is_active != false && x.r_scope.r_is_delete != true)
+                    .Where(x => x.r_scope != null )
                     .Select(x => x.r_scope.r_code)
                     .Distinct()
                     .ToArray();

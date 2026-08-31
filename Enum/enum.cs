@@ -113,6 +113,14 @@ public enum TYPE_ACTION
     SUPPRESSION_SITE,
 
 
+    // Création role
+    CONSULTATION_ROLE,
+    MODIFICATION_ROLE,
+    CREATION_ROLE,
+    SUPPRESSION_ROLE,
+
+
+
     // Création motif d'annulation
     CONSULTATION_MOTIF_ANNULATION,
     MODIFICATION_MOTIF_ANNULATION,

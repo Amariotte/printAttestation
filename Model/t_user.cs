@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     /// <summary>
     /// Modèle représentant un utilisateur du système

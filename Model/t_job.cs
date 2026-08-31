@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     [Index(nameof(r_job_id), Name = "IX_Job_JobId")]
     [Index(nameof(r_user_id_fk), Name = "IX_Job_UserId")]

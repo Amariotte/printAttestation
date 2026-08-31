@@ -1,8 +1,8 @@
 
 using System.ComponentModel.DataAnnotations;
-using ask.Dtos.Response.auth;
+using print_attestation.Dtos.Response.auth;
 
-namespace ask.Dtos.Reponses
+namespace print_attestation.Dtos.Response
 {
     public class demandeAnnulationResponseDto
     {

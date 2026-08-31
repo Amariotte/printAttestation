@@ -1,19 +1,21 @@
 using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
-using ask.ContextDb;
-using ask.Dtos.General;
-using ask.Implementation;
-using ask.Interface;
-using ask.Services;
-using InteroperabiliteProject.Implementation;
+using print_attestation.Implementation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
 using OracleApi.Services;
+using print_attestation.ContextDb;
+using print_attestation.Dtos.General;
+using print_attestation.Implementation;
+using print_attestation.Interface;
+using print_attestation.ScopeAttribute;
+using print_attestation.Services;
 using Serilog;
 
 
@@ -58,6 +60,8 @@ namespace ask
 
 
             builder.Services.AddAuthorization();
+            builder.Services.AddSingleton< IAuthorizationPolicyProvider, ScopeAuthorizationPolicyProvider>();
+            builder.Services.AddSingleton<IAuthorizationHandler, ScopeAuthorizationHandler>();
             builder.Services.AddControllers();
 
             builder.Services.AddEndpointsApiExplorer();
@@ -181,13 +185,7 @@ namespace ask
 
             var app = builder.Build();
 
-            // Stockage du ServiceProvider global
-            //// Appliquer automatiquement les migrations au démarrage
-            //using (var scope = app.Services.CreateScope())
-            //{
-            //    var dbContext = scope.ServiceProvider.GetRequiredService<InteropContext>();
-            //    dbContext.Database.Migrate(); // Cette ligne applique les migrations automatiquement
-            //}
+          
 
             app.UseStaticFiles();
             app.UseForwardedHeaders();
@@ -259,31 +257,12 @@ namespace ask
             app.UseHttpsRedirection();
 
             app.UseAuthentication();
-            app.UseMiddleware<JwtSecureMiddleware>();
-
-
             app.UseAuthorization();
-            //*******************************************TEST ENCODAG DES CARACTERE POUR LINUX**************************************
-            //app.Use(async (context, next) =>
-            //{
-            //    context.Request.Headers["Accept-Charset"] = "utf-8";
 
-            //    if (string.IsNullOrEmpty(context.Request.Headers["Content-Type"]))
-            //        context.Request.Headers["Content-Type"] = "application/json; charset=utf-8";
+            app.UseMiddleware<JwtSecureMiddleware>();
+            app.UseMiddleware<ForbiddenMiddleware>();
 
-            //    await next();
-            //});
 
-            //*******************************************TEST ENCODAG DES CARACTERE POUR LINUX**************************************
-
-            //using (var scope = app.Services.CreateScope())
-            //{
-            //    var dbContext = scope.ServiceProvider.GetRequiredService<InteropContext>();
-
-            //    // Crée la base si elle n'existe pas
-            //    dbContext.Database.Migrate();
-
-            //}
             app.MapControllers().RequireRateLimiting("MobilePolicy"); ;
             //app.MapControllers() ;
             //   app.UseMiddleware<TraceMidleware>();

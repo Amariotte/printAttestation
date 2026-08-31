@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 
-namespace ask.Dtos.Request.Auth
+namespace print_attestation.Dtos.Request.auth
 {
     public class ConnexionDto
     {

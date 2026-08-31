@@ -1,0 +1,23 @@
+﻿using FluentValidation;
+
+namespace print_attestation.Dtos.Request
+{
+    public class RoleDto
+    {
+        public string? nom { get; set; }
+        public string? code { get; set; }
+        public string? description { get; set; }
+    }
+
+    public class RoleDtoValidator : AbstractValidator<RoleDto>
+    {
+        public RoleDtoValidator()
+        {
+            RuleFor(x => x.nom)
+               .NotEmpty().WithMessage("Le nom est obligatoire.");
+
+            RuleFor(x => x.code)
+                .NotEmpty().WithMessage("Le code est obligatoire.");
+        }
+    }
+}

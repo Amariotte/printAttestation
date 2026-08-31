@@ -1,5 +1,4 @@
-﻿using ask.Model;
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace print_attestation.Dtos.Request
 {

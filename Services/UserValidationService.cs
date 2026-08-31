@@ -1,6 +1,6 @@
 ﻿using System.Text;
-using ask.ContextDb;
-using ask.Dtos.General; // <- pour GeneraleRetour / ProblemsDetails
+using print_attestation.ContextDb;
+using print_attestation.Dtos.General; // <- pour GeneraleRetour / ProblemsDetails
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 

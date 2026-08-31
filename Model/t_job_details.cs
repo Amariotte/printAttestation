@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     [Index(nameof(r_job_id_fk), Name = "IX_Job_JobIdFk")]
     public class t_job_details : t_base

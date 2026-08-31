@@ -1,9 +1,7 @@
-﻿
+﻿using print_attestation.Dtos.Response;
+using print_attestation.Model;
 
-using ask.Dtos.Reponses;
-using ask.Model;
-
-namespace ask
+namespace print_attestation.Interface
 {
     public interface IbaseRepo<T> where T : t_base
     {

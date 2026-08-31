@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ask.Model
+namespace print_attestation.Model
 {
     /// <summary>
     /// Modèle de traçabilité des événements de connectivité

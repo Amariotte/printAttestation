@@ -1,9 +1,9 @@
-﻿using ask.ContextDb;
-using ask.Model;
-using ask.Interface;
+﻿using print_attestation.ContextDb;
+using print_attestation.Model;
 using Microsoft.EntityFrameworkCore;
+using print_attestation.Interface;
 
-namespace ask.Implementation
+namespace print_attestation.Implementation
 {
     public class HistoSmsRepo : BaseRepo<t_histo_sms>, IHistoSmsRepo
     {

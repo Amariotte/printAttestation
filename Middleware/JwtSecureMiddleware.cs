@@ -1,8 +1,8 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using ask.Dtos.General;
-using ask.ContextDb;
+using print_attestation.Dtos.General;
+using print_attestation.ContextDb;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
@@ -160,6 +160,8 @@ public class JwtSecureMiddleware
         }
     }
 
+
+    
     private static async Task WriteProblemAsync(HttpContext context, int statusCode, object problem)
     {
         if (context.Response.HasStarted) return;

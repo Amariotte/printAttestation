@@ -1,4 +1,4 @@
-namespace ask.Dtos.Response
+namespace print_attestation.Dtos.Response
 {
     public class AttestationCedeaoDto
     {

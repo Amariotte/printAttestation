@@ -1,11 +1,9 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.IO.Compression;
-using ask.ContextDb;
-using ask.Dtos.General;
-using ask.Model;
-using ask.Services;
-using ask.Tools;
+using print_attestation.ContextDb;
+using print_attestation.Dtos.General;
+using print_attestation.Model;
+using print_attestation.Services;
+using print_attestation.Tools;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;

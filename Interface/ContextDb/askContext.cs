@@ -1,7 +1,8 @@
-﻿using ask.Model;
+﻿using print_attestation.Model;
 using Microsoft.EntityFrameworkCore;
+using print_attestation.Security;
 
-namespace ask.ContextDb
+namespace print_attestation.ContextDb
 {
     /// <summary>
     /// Contexte de base de données Entity Framework pour l'application ASK
@@ -180,6 +181,265 @@ namespace ask.ContextDb
                     .HasForeignKey(e => e.r_motif_annulation_id_fk)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+
+
+
+            modelBuilder.Entity<t_scope>().HasData(
+                
+
+                // Attestations
+                new t_scope
+                {
+                    r_code = Scopes.AttestationsRead,
+                    r_nom = "Lecture des attestations",
+                    r_description = "Permet de consulter les attestations",
+               
+                },
+
+                 new t_scope
+                 {
+                     r_code = Scopes.AttestationsReadAll,
+                     r_nom = "Lecture des attestations de tous les intermediaires",
+                     r_description = "Permet de consulter les attestations de tous les intermediaires",
+              
+                 },
+
+
+                // demandes d'annulation
+                new t_scope
+                {
+                    r_code = Scopes.DemandesAnnulationsRead,
+                    r_nom = "Lecture des demandes d'annulation",
+                    r_description = "Permet de consulter les demandes d'annulation",
+               
+                },
+
+                 new t_scope
+                 {
+                     r_code = Scopes.DemandesAnnulationsReadSite,
+                     r_nom = "Lecture des demandes d'annulation de mon intérmediaire",
+                     r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
+                    
+                 },
+
+                  new t_scope
+                  {
+                      r_code = Scopes.DemandesAnnulationsReadAll,
+                      r_nom = "Lecture des demandes d'annulation de tous les intermediaires",
+                      r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
+                 
+                  },
+
+                  // Taches
+                  new t_scope
+                 {
+                      r_code = Scopes.TachesRead,
+                      r_nom = "Lecture des taches",
+                      r_description = "Permet de consulter les taches",
+                 
+                 },
+                   new t_scope
+                   {
+                       r_code = Scopes.TachesReadSite,
+                       r_nom = "Lecture des taches de mon site",
+                       r_description = "Permet de consulter les taches de mon site",
+                  
+                   },
+                     new t_scope
+                     {
+                         r_code = Scopes.TachesReadAll,
+                         r_nom = "Lecture des taches de tous les utilisateurs",
+                         r_description = "Permet de consulter les taches de tous les utilisateurs",
+                
+                     },
+                new t_scope
+                {
+                    r_code = Scopes.TachesUpdate,
+                    r_nom = "Annulation des taches",
+                    r_description = "Permet d'annuler les taches",
+                 
+                },
+                new t_scope
+                {
+                    r_code = Scopes.TachesUpdateSite,
+                    r_nom = "Annulation des taches de mon site",
+                    r_description = "Permet d'annuler les taches de mon site",
+               
+                },
+                new t_scope
+                {
+                    r_code = Scopes.TachesUpdateAll,
+                    r_nom = "Annulation des taches de tous les utilisateurs",
+                    r_description = "Permet d'annuler les taches de tous les utilisateurs",
+               
+                },
+                
+                // Audits
+                new t_scope
+                {
+                    r_code = Scopes.AuditsActionsRead,
+                    r_nom = "Lecture des audits actions",
+                    r_description = "Permet de consulter les audits liés aux actions",
+             
+                },
+                 new t_scope
+                 {
+                     r_code = Scopes.AuditsActionsReadSite,
+                     r_nom = "Lecture des audits actions de mon site",
+                     r_description = "Permet de consulter les audits liés aux actions de mon site",
+                  
+                 },
+                    new t_scope
+                    {
+                        r_code = Scopes.AuditsActionsReadAll,
+                        r_nom = "Lecture des audits actions de tous les utilisateurs",
+                        r_description = "Permet de consulter les audits liés aux actions de tous les utilisateurs",
+                    
+                    },
+                new t_scope
+                {
+                    r_code = Scopes.AuditsAccesRead,
+                    r_nom = "Lecture des audits connexions",
+                    r_description = "Permet de consulter les audits liés aux connexions",
+                 
+                },
+                 new t_scope
+                 {
+                     r_code = Scopes.AuditsAccesReadSite,
+                     r_nom = "Lecture des audits connexions de mon site",
+                     r_description = "Permet de consulter les audits liés aux connexions de mon site",
+                  
+                 },
+                 new t_scope
+                 {
+                     r_code = Scopes.AuditsAccesReadAll,
+                     r_nom = "Lecture des audits connexions de tous les utilisateurs",
+                     r_description = "Permet de consulter les audits liés aux connexions de tous les utilisateurs",
+                
+                 },
+                new t_scope
+                {
+                    r_code = Scopes.UsersRead,
+                    r_nom = "Lecture des utilisateurs",
+                    r_description = "Permet de consulter les utilisateurs",
+                
+                },
+                new t_scope
+                {
+                    r_code = Scopes.SitesCreate,
+                    r_nom = "Création des intermédiaires",
+                    r_description = "Permet de créer des intermédiaires",
+                
+
+                },
+                new t_scope
+                {
+                    r_code = Scopes.SitesUpdate,
+                    r_nom = "Modification des intermédiaires",
+                    r_description = "Permet de modifier les intermédiaires",
+               
+                },
+                new t_scope
+                {
+                    r_code = Scopes.SitesDelete,
+                    r_nom = "Suppression des intermédiaires",
+                    r_description = "Permet de supprimer les intermédiaires",
+              
+                },
+                new t_scope
+                {
+                    r_code = Scopes.SitesRead,
+                    r_nom = "Lecture des intermédiaires",
+                    r_description = "Permet de consulter les intermédiaires",
+
+                },
+                 new t_scope
+                 {
+                     r_code = Scopes.SitesUpload,
+                     r_nom = "Téléversement des intermédiaires",
+                     r_description = "Permet de téléverser les intermédiaires",
+
+                 },
+                new t_scope
+                {
+                    r_code = Scopes.UsersCreate,
+                    r_nom = "Création des utilisateurs",
+                    r_description = "Permet de créer des utilisateurs",
+
+
+                },
+                new t_scope
+                {
+                    r_code = Scopes.UsersUpdate,
+                    r_nom = "Modification des utilisateurs",
+                    r_description = "Permet de modifier les utilisateurs",
+
+                },
+                new t_scope
+                {
+                    r_code = Scopes.UsersDelete,
+                    r_nom = "Suppression des utilisateurs",
+                    r_description = "Permet de supprimer les utilisateurs",
+
+                }
+                ,
+
+                new t_scope
+                {
+                    r_code = Scopes.RolesRead,
+                    r_nom = "Lecture des profils d'utilisateurs",
+                    r_description = "Permet de consulter les profils d'utilisateurs",
+
+                },
+                new t_scope
+                {
+                    r_code = Scopes.RolesCreate,
+                    r_nom = "Création des profils d'utilisateurs",
+                    r_description = "Permet de créer les profils d'utilisateurs",
+                },
+                new t_scope
+                {
+                    r_code = Scopes.RolesUpdate,
+                    r_nom = "Modification des profils d'utilisateurs",
+                    r_description = "Permet de modifier les profils d'utilisateurs",
+                },
+                new t_scope
+                {
+                    r_code = Scopes.RolesDelete,
+                    r_nom = "Suppression des profils d'utilisateurs",
+                    r_description = "Permet de supprimer les profils d'utilisateurs",
+                },
+
+                new t_scope
+                {
+                    r_code = Scopes.MotifAnnulationRead,
+                    r_nom = "Lecture des motifs d'annulation",
+                    r_description = "Permet de consulter les motifs d'annulation",
+
+                },
+                new t_scope
+                {
+                    r_code = Scopes.MotifAnnulationCreate,
+                    r_nom = "Création des motifs d'annulation",
+                    r_description = "Permet de créer les motifs d'annulation",
+                },
+                new t_scope
+                {
+                    r_code = Scopes.MotifAnnulationUpdate,
+                    r_nom = "Modification des motifs d'annulation",
+                    r_description = "Permet de modifier les motifs d'annulation",
+                },
+                new t_scope
+                {
+                    r_code = Scopes.MotifAnnulationDelete,
+                    r_nom = "Suppression des motifs d'annulation",
+                    r_description = "Permet de supprimer les motifs d'annulation",
+                }
+
+            );
+
+
         }
 
         /// <summary>
@@ -246,5 +506,16 @@ namespace ask.ContextDb
                 }
             }
         }
+
+
+
+
+
+
+
+
+
+
+
     }
 }

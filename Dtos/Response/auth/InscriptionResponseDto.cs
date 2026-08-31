@@ -1,4 +1,4 @@
-namespace ask.Dtos.Response.auth
+namespace print_attestation.Dtos.Response.auth
 {
     /// <summary>
     /// DTO de réponse pour l'inscription d'un utilisateur

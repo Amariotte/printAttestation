@@ -1,21 +1,21 @@
 using System.Data;
-using ask.ContextDb;
-using ask.Dtos.General;
-using ask.Dtos.Reponses;
-using ask.Dtos.Response;
-using ask.Dtos.Response.auth;
-using ask.Model;
-using ask.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
-using print_attestation.Dtos.Reponses;
+using print_attestation.ContextDb;
+using print_attestation.Dtos.General;
 using print_attestation.Dtos.Request;
 using print_attestation.Dtos.Response;
+using print_attestation.Dtos.Response.auth;
+using print_attestation.Model;
+using print_attestation.ScopeAttribute;
+using print_attestation.Security;
+using print_attestation.Services;
 
-namespace ask.Controllers
+
+namespace print_attestation.Controllers
 {
     [Route("api/[controller]")]
     public class adminController : ControllerBase
@@ -167,6 +167,9 @@ namespace ask.Controllers
 
 
 
+
+
+
         [Authorize]
         [HttpGet("dashboard/evolutions")]
         public async Task<IActionResult> GetEvolutions(
@@ -292,10 +295,8 @@ namespace ask.Controllers
         }
 
 
-
-
-
         [Authorize]
+        [RequireAnyScope(Scopes.AuditsActionsRead, Scopes.AuditsActionsReadSite, Scopes.AuditsActionsReadAll)]
         [HttpGet("audits/actions")]
         public async Task<IActionResult> GeLog([FromQuery] int page = 1, [FromQuery] int limit = 10 , [FromQuery] string action = "", [FromQuery] string search = "")
         {
@@ -303,6 +304,9 @@ namespace ask.Controllers
 
             try
             {
+
+                t_user userConnecte = GetInfoUser();
+
 
                 var pagination = new PaginationParams(page, limit);
 
@@ -330,6 +334,23 @@ namespace ask.Controllers
                     action = action.ToUpper().Trim();
                     baseQuery = baseQuery.Where(x => x.r_type_action.ToUpper().Contains(action));
                 }
+
+
+                if (User.HasClaim("scope", "audits.actions.read.all"))
+                {
+                    // Tous les sites
+                }
+                else if (User.HasClaim("scope", "audits.actions.read.site"))
+                {
+                    baseQuery = baseQuery.Where(u => u.r_user.r_site_id_fk == userConnecte.r_site_id_fk);
+                }
+                else 
+                {
+                    baseQuery = baseQuery.Where(u => u.r_user.r_id == userConnecte.r_id);
+                }
+
+
+
 
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
@@ -371,6 +392,7 @@ namespace ask.Controllers
         }
 
         [Authorize]
+        [RequireAnyScope(Scopes.AuditsAccesRead, Scopes.AuditsAccesReadSite, Scopes.AuditsAccesReadAll)]
         [HttpGet("audits/acces")]
         public async Task<IActionResult> GeLogAcces([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "" , [FromQuery] string action = "")
         {
@@ -380,6 +402,8 @@ namespace ask.Controllers
             {
 
                 var pagination = new PaginationParams(page, limit);
+
+                t_user userConnecte = GetInfoUser();
 
                 var baseQuery = _dbContext.t_trace_connexion
                  .Where(e => e.r_is_delete != true);
@@ -405,6 +429,18 @@ namespace ask.Controllers
                     baseQuery = baseQuery.Where(x => x.r_type_evenement.ToUpper().Contains(action));
                 }
 
+                if (User.HasClaim("scope", "audits.acces.read.all"))
+                {
+                    // Tous les sites
+                }
+                else if (User.HasClaim("scope", "audits.acces.read.site"))
+                {
+                    baseQuery = baseQuery.Where(u => u.r_user.r_site_id_fk == userConnecte.r_site_id_fk);
+                }
+                else
+                {
+                    baseQuery = baseQuery.Where(u => u.r_user.r_id == userConnecte.r_id);
+                }
 
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
@@ -446,6 +482,7 @@ namespace ask.Controllers
         #region ========================= MODELES =========================
 
         [Authorize]
+        [RequireScope("modeles.read")]
         [HttpGet("modeles")]
         public async Task<IActionResult> GetModeles()
         {
@@ -480,6 +517,7 @@ namespace ask.Controllers
         }
 
         [Authorize]
+        [RequireScope("modeles.create")]
         [HttpPost("modeles")]
         public async Task<IActionResult> CreateModele([FromBody] ModeleDto _body)
         {
@@ -531,6 +569,7 @@ namespace ask.Controllers
         }
 
         [Authorize]
+        [RequireScope("modeles.update")]
         [HttpPut("modeles/{id}")]
         public async Task<IActionResult> UpdateModele(int id, [FromBody] ModeleDto _body)
         {
@@ -575,6 +614,7 @@ namespace ask.Controllers
         }
 
         [Authorize]
+        [RequireScope("modeles.delete")]
         [HttpDelete("modeles/{id}")]
         public async Task<IActionResult> DeleteModele(int id)
         {
@@ -592,8 +632,7 @@ namespace ask.Controllers
                 if (resQuery == null)
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Le modèle n'existe pas", instance: HttpContext.Request.Path));
 
-                resQuery.r_is_delete = true;
-                _dbContext.t_modele.Update(resQuery);
+                _dbContext.t_modele.Remove(resQuery);
                 await _dbContext.SaveChangesAsync();
 
                 return StatusCode(204, "Modèle supprimé avec succès");
@@ -610,6 +649,7 @@ namespace ask.Controllers
 
         #region ========================= UTLISATEURS =========================
         [Authorize]
+        [RequireScope(Scopes.UsersRead)]
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "", [FromQuery] int status = 0)
         {
@@ -701,6 +741,7 @@ namespace ask.Controllers
         }
 
         [Authorize]
+        [RequireScope(Scopes.UsersCreate)]
         [HttpPost("users")]
         public async Task<IActionResult> CréerUnUtilisateur([FromBody] UserDto _body)
         {
@@ -806,6 +847,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.UsersUpdate)]
         [HttpPut("users/{id}")]
         public async Task<IActionResult> ModifierUnUtilisateur(int id, [FromBody] UserDto _body)
         {
@@ -899,6 +941,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.UsersUpdate)]
         [HttpPut("users/{id}/desactivations")]
         public async Task<IActionResult> DesactiverUnUtilisateur(int id)
         {
@@ -946,6 +989,7 @@ namespace ask.Controllers
         }
 
         [Authorize]
+        [RequireScope(Scopes.UsersUpdate)]
         [HttpPut("users/{id}/activations")]
         public async Task<IActionResult> ActiverUnUtilisateur(int id)
         {
@@ -991,6 +1035,7 @@ namespace ask.Controllers
         #endregion
 
         [Authorize]
+        [RequireScope(Scopes.UsersUpdate)]
         [HttpPut("users/{id}/reset-password")]
         public async Task<IActionResult> ReinistialiserLeMotDePasse(int id)
         {
@@ -1046,6 +1091,7 @@ namespace ask.Controllers
 
         #region ========================= SITES =========================
         [Authorize]
+        [RequireAnyScope(Scopes.SitesRead,Scopes.UsersCreate)]
         [HttpGet("sites")]
         public async Task<IActionResult> GetSites([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
         {
@@ -1095,6 +1141,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.SitesCreate)]
         [HttpPost("sites")]
         public async Task<IActionResult> CréerUnSite([FromBody] SiteDto _body)
         {
@@ -1159,6 +1206,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.SitesUpdate)]
         [HttpPut("sites/{id}")]
         public async Task<IActionResult> ModifierUnSite(int id, [FromBody] SiteDto _body)
         {
@@ -1235,6 +1283,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.SitesDelete)]
         [HttpDelete("sites/{id}")]
         public async Task<IActionResult> SupprimerUnSite(int id)
         {
@@ -1252,13 +1301,27 @@ namespace ask.Controllers
                 if (resQuery == null)
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Le site n'existe pas", instance: HttpContext.Request.Path));
 
-                resQuery.r_is_delete = true;
-                _dbContext.t_site.Update(resQuery);
+                /// Vérifiez si le site est associé à des utilisateurs
+
+                var resUsers = await _dbContext.t_user
+                    .Where(e => e.r_site_id_fk == id && e.r_is_delete != true)
+                    .FirstOrDefaultAsync();
+
+                if (resUsers != null)
+                    return Conflict(GeneraleRetour.BuildProblemResponse(
+                        new GeneraleRetour
+                        {
+                            status = 409,
+                            detail = "Le site est associé à des utilisateurs. Impossible de le supprimer."
+                        },
+                        instance: HttpContext.Request.Path));
+
+                _dbContext.t_site.Remove(resQuery);
                 await _dbContext.SaveChangesAsync();
 
                 await _traceService.TraceActionAsync(TYPE_ACTION.SUPPRESSION_SITE, description: $"Suppression du site : {resQuery.r_nom}");
 
-                return Ok(Tools.Tools.BuildSiteToSiteResponseDto(resQuery));
+                return NotFound();
             }
             catch (Exception ex)
             {
@@ -1271,10 +1334,243 @@ namespace ask.Controllers
 
 
 
+        #region ========================= ROLES =========================
+        [Authorize]
+        [RequireAnyScope(Scopes.RolesRead)]
+        [HttpGet("roles")]
+        public async Task<IActionResult> GetRoles([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
+        {
+            const string _desc_route = "Liste des rôles";
+
+            try
+            {
+
+
+                var pagination = new PaginationParams(page, limit);
+
+
+                var baseQuery = _dbContext.t_role
+                    .Where(e => e.r_is_delete != true);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.ToUpper().Trim();
+
+                    baseQuery = baseQuery.Where(x =>
+                        x.r_nom.ToUpper().Contains(search) ||
+                        x.r_code.ToUpper().Contains(search)
+                    );
+                }
+
+                // total avant pagination
+                var total = await baseQuery.CountAsync();
+
+                var sites = await baseQuery
+                    .OrderBy(u => u.r_nom)
+                    .Skip((pagination.Skip))
+                    .Take(pagination.Take)
+                    .ToListAsync();
+
+
+                var roleDto = sites.Select(m => Tools.Tools.BuildRoleToRoleResponseDto(m)).ToList();
+
+                return Ok(PaginatedResponse<RoleResponseDto>.Create(roleDto, total, page, limit));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+        [Authorize]
+        [RequireScope(Scopes.RolesCreate)]
+        [HttpPost("roles")]
+        public async Task<IActionResult> CréerUnRole([FromBody] RoleDto _body)
+        {
+            const string _desc_route = "Créer un role";
+
+            try
+            {
+
+
+                var validator = new RoleDtoValidator();
+                var results = validator.Validate(_body);
+
+                if (!results.IsValid)
+                {
+                    var invalidParams = results.Errors.Select(error => new InvalidParam
+                    {
+                        name = error.PropertyName,
+                        reason = error.ErrorMessage
+                    }).ToList();
+
+                    return BadRequest(GeneraleRetour.BuildBadRequest(
+                        detail: "Les données ne sont pas conformes",
+                        instance: HttpContext.Request.Path,
+                        invalidParams: invalidParams));
+                }
+
+                var existingSite = await _dbContext.t_site
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.r_code == _body.code && u.r_is_delete != true);
+
+                if (existingSite != null)
+                    return Conflict(GeneraleRetour.BuildProblemResponse(
+                        new GeneraleRetour
+                        {
+                            status = 409,
+                            detail = "Un rôle existe déjà avec ce code. Veuillez utiliser un autre code."
+                        },
+                        instance: HttpContext.Request.Path));
+
+
+
+                var role = new t_role
+                {
+                    r_nom = _body.nom,
+                    r_code = _body.code,
+                    r_description = _body.description,
+                };
+
+
+                await _dbContext.t_role.AddAsync(role);
+                await _dbContext.SaveChangesAsync();
+
+                await _traceService.TraceActionAsync(TYPE_ACTION.CREATION_ROLE, description: $"Création d'un rôle : {_body.nom}");
+
+                return Ok(Tools.Tools.BuildRoleToRoleResponseDto(role));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+
+        [Authorize]
+        [RequireScope(Scopes.RolesUpdate)]
+        [HttpPut("roles/{id}")]
+        public async Task<IActionResult> ModifierUnRole(int id, [FromBody] RoleDto _body)
+        {
+            const string _desc_route = "Modifier un rôle";
+
+            try
+            {
+                var validator = new RoleDtoValidator();
+                var results = validator.Validate(_body);
+
+                if (!results.IsValid)
+                {
+                    var invalidParams = results.Errors.Select(error => new InvalidParam
+                    {
+                        name = error.PropertyName,
+                        reason = error.ErrorMessage
+                    }).ToList();
+
+                    return BadRequest(GeneraleRetour.BuildBadRequest(
+                        detail: "Les données ne sont pas conformes",
+                        instance: HttpContext.Request.Path,
+                        invalidParams: invalidParams));
+                }
+
+
+                var role = await _dbContext.t_role
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.r_id == id && s.r_is_delete != true);
+
+
+                if (role == null)
+                {
+                    return NotFound(GeneraleRetour.BuildNotFound(
+                       detail: "Le rôle est introuvable",
+                       instance: HttpContext.Request.Path
+                    ));
+                }
+
+
+
+                var existingRole = await _dbContext.t_role
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.r_code == _body.code && s.r_is_delete != true && s.r_id != role.r_id);
+
+                if (existingRole != null)
+                    return Conflict(GeneraleRetour.BuildProblemResponse(
+                        new GeneraleRetour
+                        {
+                            status = 409,
+                            detail = "Un rôle existe déjà avec ce code. Veuillez utiliser un autre code."
+                        },
+                        instance: HttpContext.Request.Path));
+
+
+                string myPass = Tools.Tools.GeneratePassword(includeSpecialChars: false);
+
+
+                role.r_nom = _body.nom;
+                role.r_code = _body.code;
+                role.r_description = _body.description;
+
+                _dbContext.t_role.Update(role);
+                await _dbContext.SaveChangesAsync();
+                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_ROLE, description: $"Modification d'un rôle : {_body.nom}");
+
+                return Ok(Tools.Tools.BuildRoleToRoleResponseDto(role));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+        [Authorize]
+        [RequireScope(Scopes.RolesDelete)]
+        [HttpDelete("roles/{id}")]
+        public async Task<IActionResult> SupprimerUnRole(int id)
+        {
+            const string _desc_route = "Supprimer un rôle";
+
+            try
+            {
+                if (id <= 0)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant du rôle est manquant", instance: HttpContext.Request.Path));
+
+                var resQuery = await _dbContext.t_role
+                    .Where(e => e.r_id == id && e.r_is_delete != true)
+                    .FirstOrDefaultAsync();
+
+                if (resQuery == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le rôle n'existe pas", instance: HttpContext.Request.Path));
+
+           
+                 _dbContext.t_role.Remove(resQuery);
+                await _dbContext.SaveChangesAsync();
+
+                await _traceService.TraceActionAsync(TYPE_ACTION.SUPPRESSION_ROLE, description: $"Suppression du rôle : {resQuery.r_nom}");
+
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+        #endregion
+
 
 
         #region ========================= MOTIFS D'ANNULATION =========================
         [Authorize]
+        [RequireScope(Scopes.MotifAnnulationRead)]
         [HttpGet("motifs-annulation")]
         public async Task<IActionResult> GetMotifsAnnulation([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
         {
@@ -1323,6 +1619,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.MotifAnnulationCreate)]
         [HttpPost("motifs-annulation")]
         public async Task<IActionResult> CréerUnMotifAnnulation([FromBody] MotifAnnulationDto _body)
         {
@@ -1386,6 +1683,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.MotifAnnulationUpdate)]
         [HttpPut("motifs-annulation/{id}")]
         public async Task<IActionResult> ModifierUnMotifAnnulation(int id, [FromBody] MotifAnnulationDto _body)
         {
@@ -1458,6 +1756,7 @@ namespace ask.Controllers
 
 
         [Authorize]
+        [RequireScope(Scopes.MotifAnnulationDelete)]
         [HttpDelete("motifs-annulation/{id}")]
         public async Task<IActionResult> SupprimerUnMotifAnnulation(int id)
         {
@@ -1475,13 +1774,12 @@ namespace ask.Controllers
                 if (resQuery == null)
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Le motif d'annulation n'existe pas", instance: HttpContext.Request.Path));
 
-                resQuery.r_is_delete = true;
-                _dbContext.t_motif_annulation.Update(resQuery);
+                _dbContext.t_motif_annulation.Remove(resQuery);
                 await _dbContext.SaveChangesAsync();
 
                 await _traceService.TraceActionAsync(TYPE_ACTION.SUPPRESSION_MOTIF_ANNULATION, description: $"Suppression du motif d'annulation : {resQuery.r_libelle}");
 
-                return Ok(Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(resQuery));
+                return NotFound();
             }
             catch (Exception ex)
             {

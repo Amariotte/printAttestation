@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace InteroperabiliteProject.Dtos
+namespace print_attestation.Dtos
 {
     public class QuerySmsDto
     {

@@ -1,6 +1,6 @@
-﻿using ask.Model;
+﻿using print_attestation.Model;
 
-namespace ask.Interface
+namespace print_attestation.Interface
 {
     public interface IRefreshTokenRepo : IbaseRepo<t_refresh_token>
     {
