@@ -17,7 +17,7 @@ using print_attestation.Dtos.General;
 using print_attestation.Tools;
 
 
-namespace ask.Controllers
+namespace print_attestation.Controllers
 {
     [Route("api/[controller]")]
 
@@ -207,64 +207,53 @@ namespace ask.Controllers
 
         [Authorize]
 
-        [RequireAnyScope(Scopes.TachesRead, Scopes.TachesReadSite, Scopes.TachesReadAll)]
+        [RequireAnyScope(Scopes.TachesRead, Scopes.TachesReadSite)]
         [HttpGet("attestations/jobs")]
         public async Task<IActionResult> ListJobs([FromQuery] int page = 1, [FromQuery] int limit = 20, [FromQuery] string? type = null, [FromQuery] int? status = null)
         {
 
-            var user = GetInfoUser();
-            if (user == null)
+            var userConnecte = GetInfoUser();
+            if (userConnecte == null)
                 return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
 
 
             var pagination = new PaginationParams(page, limit);
 
-            var query = _dbContext.t_job.AsQueryable();
+            var baseQuery = _dbContext.t_job.AsQueryable();
 
-
-            if (User.HasClaim("scope", Scopes.TachesReadAll))
-            {
-                // Tous les sites
-            }
-            else if (User.HasClaim("scope", Scopes.TachesReadSite)) // Uniquement le site de l'utilisateur connecté
-            {
-                query = query.Where(x =>
-                       x.r_user.r_site_id_fk == user.r_site_id_fk);
-            }
-            else
-            {
-                query = query.Where(x =>
-                       x.r_user_id_fk == user.r_id
-                   );   // Uniquement les jobs de l'utilisateur connecté
-            }
+           // Tous les types de sites de l'utilisateur connecté
+           var userSiteTypeIds = await Tools.Tools.returnUserSiteTypeIds(userConnecte);
+           baseQuery = baseQuery.Where(u =>
+               (u.r_user.r_site != null && userSiteTypeIds.Contains((int)u.r_user.r_site.r_type)) ||
+               u.r_user.r_site_id_fk == userConnecte.r_site_id_fk);
 
             // Filtre par statut si fourni (valeurs : RUNNING, COMPLETED, CANCELLED)
             if (status > 0)
             {
-               query = query.Where(x => (int)x.r_status == status);
-           }
+                baseQuery = baseQuery.Where(x => (int)x.r_status == status);
+            }
 
             // Filtre par type si fourni (atd|cedeao)
             if (!string.IsNullOrWhiteSpace(type))
             {
                 var t = type.Trim();
-                query = query.Where(x => x.r_type == type);
+                baseQuery = baseQuery.Where(x => x.r_type == type);
             }
 
       
-            var total = await query.CountAsync();
+            var total = await baseQuery.CountAsync();
 
 
-            var jobs = await query
+            var jobs = await baseQuery
                  .Include(u => u.r_user)
-                 .Include(x => x.r_user.r_site)
+                        .ThenInclude(us => us.r_site)
                 .OrderByDescending(x => x.r_created_at)
                 .Skip((pagination.page - 1) * pagination.limit)
                 .Take(pagination.limit)
                 .ToListAsync();
 
             
-              var jobsDto = jobs.Select(j => Tools.BuildJobToJobResponseDto(j)).ToList();
+              var jobsDto = jobs.Select(j => Tools.Tools.BuildJobToJobResponseDto(j)).ToList();
 
             return Ok(PaginatedResponse<jobReponseDto>.Create(jobsDto, total, pagination.page, pagination.limit));
 
@@ -272,22 +261,24 @@ namespace ask.Controllers
 
 
         [Authorize]
-        [RequireAnyScope(Scopes.TachesRead, Scopes.TachesReadSite, Scopes.TachesReadAll)]
+        [RequireAnyScope(Scopes.TachesRead, Scopes.TachesReadSite)]
         [HttpGet("attestations/jobs/{jobId}")]
         public async Task<IActionResult> GetJobDetail(string jobId)
         {
-            var user = GetInfoUser();
-            if (user == null)
+            var userConnecte = GetInfoUser();
+            if (userConnecte == null)
                 return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
 
             var jobRec = await _dbContext.t_job.FirstOrDefaultAsync(x => x.r_job_id == jobId);
             if (jobRec == null)
                 return NotFound(GeneraleRetour.BuildNotFound(detail: "Job introuvable", instance: HttpContext.Request.Path));
 
-            if (!(HasAccessToJob(jobRec, user)))
+        
+
+            if (!(await HasAccessToJob(jobRec, userConnecte)))
                 return StatusCode(403,GeneraleRetour.BuildForbid(instance: HttpContext.Request.Path, detail:"Accès refusé"));
 
-            return Ok(Tools.BuildJobToJobResponseDto(jobRec));
+            return Ok(Tools.Tools.BuildJobToJobResponseDto(jobRec));
         }
 
 
@@ -304,7 +295,9 @@ namespace ask.Controllers
             if (jobRec == null)
                 return NotFound(GeneraleRetour.BuildNotFound(detail: "Job introuvable", instance: HttpContext.Request.Path));
 
-            if (!(HasAccessToJob(jobRec, user)))
+
+
+            if (!(await HasAccessToJob(jobRec, user)))
                 return StatusCode(403, GeneraleRetour.BuildForbid(detail: "Accès refusé", instance: HttpContext.Request.Path));
 
             // arrêter le job en mémoire
@@ -395,7 +388,7 @@ namespace ask.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
 
                 // Validation de sécurité pour éviter les injections SQL
-                if (!Tools.IsValidSearchKey(cleRecherche))
+                if (!Tools.Tools.IsValidSearchKey(cleRecherche))
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format de recherche invalide", instance: HttpContext.Request.Path));
 
 
@@ -420,13 +413,13 @@ namespace ask.Controllers
                     statutSql = " AND TRUNC(a.DATECHAT) < TRUNC(SYSDATE)";
                 }
 
-                if (User.HasClaim("scope", Scopes.AttestationsReadAll))
+                if (User.HasScope(Scopes.AttestationsReadAll))
                 {
                     // Tous les sites
                 }
-                else if (User.HasClaim("scope", Scopes.AttestationsRead)) // Uniquement le site de l'utilisateur connecté
+                else if (User.HasScope(Scopes.AttestationsRead)) // Uniquement le site de l'utilisateur connecté
                 {
-                    codeInteSql = " AND a.CODEINTE = :codeInte";
+                    codeInteSql = " AND a.CODEINTE IN :codeInte";
                 }
                
 
@@ -477,10 +470,7 @@ namespace ask.Controllers
                     { ":cleRecherche", cleRecherche }
                 };
 
-                if (!string.IsNullOrWhiteSpace(codeInteSql))
-                    countParameters.Add(":codeInte", dataUser.r_site.r_code);
-
-
+               
                 // Paramètres pour la requête paginée
                 var parameters = new Dictionary<string, object>
                 {
@@ -490,8 +480,12 @@ namespace ask.Controllers
                 };
 
                 if (!string.IsNullOrWhiteSpace(codeInteSql))
-                    parameters.Add(":codeInte", dataUser.r_site.r_code);
-
+                {
+                    // Concatener la liste des codes des sites de l'utilisateur connecté pour la clause IN
+                    string codeInte = dataUser.r_site != null ? dataUser.r_site.r_code : string.Empty;
+                    parameters.Add(":codeInte", codeInte);
+                    countParameters.Add(":codeInte", codeInte);
+                }
 
 
                 var rowsCount = await _oracleService.ExecuteQueryAsync(_sqlCount, countParameters);
@@ -757,27 +751,8 @@ namespace ask.Controllers
 
             var query = _dbContext.t_demande_annulation.AsQueryable();
 
-            switch (user.r_type)
-            {
-                case TYPE_UTILISATEUR.Administrateur:
-                    // L'administrateur voit toutes les demandes d'annulation
-                    break;
-
-                case TYPE_UTILISATEUR.Responsable_site:
-                    // Le responsable de site voit les demandes d'annulation de son site
-                    query = query.Where(x =>
-                        x.r_user.r_site_id_fk == user.r_site_id_fk
-                    );
-                    break;
-
-                default:
-                    // Les autres utilisateurs voient uniquement leurs propres demandes d'annulation
-                    query = query.Where(x =>
-                        x.r_user_id_fk == user.r_id
-                    );
-                    break;
-            }
-
+          
+   
             // Filtre par statut si fourni (valeurs : RUNNING, COMPLETED, CANCELLED)
             if (status > 0)
             {
@@ -792,41 +767,34 @@ namespace ask.Controllers
                  .Include(u => u.r_user)
                  .Include(u => u.r_site)
                  .Include(u => u.r_motif_annulation)
-                 .Include(x => x.r_user.r_site)
+                        .Include(us => us.r_site)
                 .OrderByDescending(x => x.r_created_at)
                 .Skip((pagination.page - 1) * pagination.limit)
                 .Take(pagination.limit)
                 .ToListAsync();
 
 
-            var demandesDto = demandes.Select(d => Tools.BuildDemandeAnnulationResponseDto(d)).ToList();
+            var demandesDto = demandes.Select(d => Tools.Tools.BuildDemandeAnnulationResponseDto(d)).ToList();
 
             return Ok(PaginatedResponse<demandeAnnulationResponseDto>.Create(demandesDto, total, pagination.page, pagination.limit));
 
         }
 
 
-
-
-
-
-
-
-
-
         [NonAction]
-        private bool HasAccessToJob(t_job jobRec, t_user user)
+        private async Task<bool> HasAccessToJob(t_job jobRec, t_user user)
         {
-            return user.r_type switch
-            {
-                TYPE_UTILISATEUR.Administrateur => true,
 
-                TYPE_UTILISATEUR.Responsable_site =>
-                    user.r_site_id_fk == jobRec.r_user?.r_site_id_fk,
+            var userSiteTypeIds = await Tools.Tools.returnUserSiteTypeIds(user);
 
-                _ =>
-                    jobRec.r_user_id_fk == user.r_id
-            };
+          
+            if (userSiteTypeIds == null || userSiteTypeIds.Count == 0)
+                return jobRec.r_user_id_fk == user.r_id;
+
+            if ((jobRec.r_user.r_site != null && userSiteTypeIds.Contains((int)jobRec.r_user.r_site.r_type)) || jobRec.r_user_id_fk == user.r_id)
+                return true;
+
+            return false;
         }
 
 

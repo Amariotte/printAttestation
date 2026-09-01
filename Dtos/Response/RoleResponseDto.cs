@@ -10,7 +10,24 @@ namespace print_attestation.Dtos.Response.auth
         public string? description { get; set; }
         public string? nom { get; set; }
         public string? code { get; set; }
+
+        public siteTypeResponseDto[]? siteTypes { get; set; }
+        public ScopeResponseDto[]? scopes { get; set; }
      
      
 }
+
+    public class siteTypeResponseDto
+    {
+
+        public int id { get; set; }
+        public string? libelle { get; set; }
+
+    }
+
+
+
+
+
+
 }

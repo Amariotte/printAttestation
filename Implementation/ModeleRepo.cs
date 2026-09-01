@@ -8,11 +8,11 @@ namespace print_attestation.Implementation
     public class ModeleRepo : BaseRepo<t_modele>, ImodeleRepo
     {
         private readonly askContext _context;
-        private readonly DbSet<ModeleRepo> _dbset;
+        private readonly DbSet<t_modele> _dbset;
         public ModeleRepo(askContext context) : base(context)
         {
             _context = context;
-            _dbset = context.Set<ModeleRepo>();
+            _dbset = context.Set<t_modele>();
         }
         public async Task<List<t_modele>> GetModelesByType( TYPE_MODELE type)
         {

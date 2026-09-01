@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
+using print_attestation.Dtos.Response.auth;
 
 namespace print_attestation.Model
 {
@@ -51,6 +53,16 @@ namespace print_attestation.Model
 
         public bool r_password_change_required { get; set; } = true;
 
+        public TYPE_SITE[] r_sites_types { get; set; } = Array.Empty<TYPE_SITE>();
+
+
+
+        [Required]
+        [ForeignKey(nameof(r_site))]
+        public int r_site_id_fk { get; set; }
+
+        public t_site? r_site{ get; set; }
+
 
         /// <summary>
         /// Statut du compte utilisateur
@@ -58,18 +70,17 @@ namespace print_attestation.Model
         public STATUT_USER r_statut { get; set; } = STATUT_USER.ACTIVE;
         public DateTime? r_date_last_statut { get; set; }
 
-        public TYPE_UTILISATEUR r_type { get; set; } = TYPE_UTILISATEUR.Utilisateur;
-
-
-        public int? r_site_id_fk { get; set; }
-
-        public t_site? r_site { get; set; }
 
         // Relations de navigation
-        public ICollection<t_refresh_token>? r_refresh_tokens { get; set; }
-        public ICollection<t_session>? r_sessions { get; set; }
-        public ICollection<t_job>? r_jobs { get; set; }
-        public ICollection<t_user_role>? r_user_roles { get; set; }
-        public ICollection<t_user_scope>? r_user_scopes { get; set; }
+        public ICollection<t_refresh_token>? r_refresh_tokens { get; set; } = new List<t_refresh_token>();
+
+        public ICollection<t_session>? r_sessions { get; set; } = new List<t_session>();
+        public ICollection<t_job>? r_jobs { get; set; } = new List<t_job>();
+        public ICollection<t_user_role>? r_user_roles { get; set; } = new List<t_user_role>();
+        public ICollection<t_user_scope>? r_user_scopes { get; set; } = new List<t_user_scope>();
+
+
+
+
     }
 }

@@ -51,8 +51,7 @@ namespace print_attestation.Model
 
 
         [NotMapped]
-    public Channel<object> Events { get; set; }
-            = Channel.CreateUnbounded<object>();
+        public Channel<object> Events { get; set; } = Channel.CreateUnbounded<object>();
 
         // Permet d'annuler l'exécution en arrière-plan
         [NotMapped]

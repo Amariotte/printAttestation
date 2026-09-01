@@ -11,11 +11,11 @@ namespace print_attestation.Dtos.Response.auth
         public string? prenom { get; set; }
         public string? email { get; set; }
         public string? telephone { get; set; }
-        public string? role { get; set; }
-        public TYPE_UTILISATEUR? roleId { get; set; }
-        public Boolean? actif { get; set; }
+        public bool? actif { get; set; }
 
-        public SiteResponseDto? site { get; set; }
-     
-}
+        public int?[] sites { get; set; }
+        public string?[] roles { get; set; }
+
+
+    }
 }

@@ -125,7 +125,7 @@ public class JwtSecureMiddleware
             await using var db = await dbFactory.CreateDbContextAsync(context.RequestAborted);
 
             var user = await db.t_user
-                 .Include(u => u.r_site)
+                .Include(u => u.r_user_roles)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.r_id == userId && u.r_is_delete != true, context.RequestAborted);
 
@@ -133,7 +133,17 @@ public class JwtSecureMiddleware
             {
                 await WriteProblemAsync(context, StatusCodes.Status401Unauthorized,
                     GeneraleRetour.BuildUnauthorized(
-                        detail: "Utilisateur introuvable ou désactivé.",
+                        detail: "Utilisateur introuvable.",
+                        instance: context.Request.Path));
+                return;
+            }
+
+
+            if (user.r_statut == STATUT_USER.DESACTIVE)
+            {
+                await WriteProblemAsync(context, StatusCodes.Status401Unauthorized,
+                    GeneraleRetour.BuildUnauthorized(
+                        detail: "Votre compte est désactivé.",
                         instance: context.Request.Path));
                 return;
             }

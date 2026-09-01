@@ -169,110 +169,199 @@ namespace print_attestation.Controllers
 
             try
             {
+                // ============================================================
+                // 1. VALIDATION DES DONNÉES
+                // ============================================================
+
                 var validator = new ConnexionDtoValidator();
                 var results = validator.Validate(_body);
 
                 if (!results.IsValid)
                 {
-                    var invalidParams = results.Errors.Select(error => new InvalidParam
-                    {
-                        name = error.PropertyName,
-                        reason = error.ErrorMessage
-                    }).ToList();
+                    var invalidParams = results.Errors
+                        .Select(error => new InvalidParam
+                        {
+                            name = error.PropertyName,
+                            reason = error.ErrorMessage
+                        })
+                        .ToList();
 
-                    return BadRequest(GeneraleRetour.BuildBadRequest(
-                        detail: "Les données ne sont pas conformes",
-                        instance: HttpContext.Request.Path,
-                        invalidParams: invalidParams));
+                    return BadRequest(
+                        GeneraleRetour.BuildBadRequest(
+                            detail: "Les données ne sont pas conformes",
+                            instance: HttpContext.Request.Path,
+                            invalidParams: invalidParams
+                        )
+                    );
                 }
 
-             //   var user = await _dbContext.t_user
-              //      .Include(u => u.r_site)
-               //     .FirstOrDefaultAsync(c => c.r_email == _body.email && c.r_is_delete != true);
 
-                var user = await _dbContext.t_user.Include(u => u.r_site)
-                    .Include(u => u.r_user_roles)
-                    .ThenInclude(ur => ur.r_role)
-                    .ThenInclude(r => r.r_role_scopes)
-                    .ThenInclude(rs => rs.r_scope)
-                    .FirstOrDefaultAsync( u => u.r_email == _body.email && u.r_is_delete != true);
+                // ============================================================
+                // 2. RÉCUPÉRATION DE L'UTILISATEUR
+                // ============================================================
 
+                var user = await _dbContext.t_user
+                     .Include(u => u.r_user_roles)
+                        .ThenInclude(ur => ur.r_role)
+                            .ThenInclude(r => r.r_role_scopes)
+                                .ThenInclude(rs => rs.r_scope)
+                    .FirstOrDefaultAsync(u => u.r_email == _body.email && u.r_is_delete != true);
+
+
+                // ============================================================
+                // 3. UTILISATEUR INEXISTANT
+                // ============================================================
 
                 if (user == null)
                 {
-                    // Tracer tentative de connexion avec email inconnu
                     await _traceService.TraceConnexionAsync(
                         TYPE_CONNEXION.CONNEXION_ECHOUEE_COMPTE_INEXISTANT,
                         succes: false,
                         email: _body.email,
-                        raisonEchec: "Compte inexistant");
+                        raisonEchec: "Compte inexistant"
+                    );
 
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(
-                        detail: "Identifiants invalides",
-                        instance: HttpContext.Request.Path));
+                    return Unauthorized(
+                        GeneraleRetour.BuildUnauthorized(
+                            detail: "Identifiants invalides",
+                            instance: HttpContext.Request.Path
+                        )
+                    );
                 }
 
-                if (string.IsNullOrEmpty(user.r_password) || !BCrypt.Net.BCrypt.Verify(_body.password, user.r_password))
+
+                // ============================================================
+                // 4. VÉRIFICATION DU MOT DE PASSE
+                // ============================================================
+
+                if (string.IsNullOrEmpty(user.r_password) ||!BCrypt.Net.BCrypt.Verify(_body.password, user.r_password))
                 {
-                    // Tracer tentative avec mot de passe incorrect
                     await _traceService.TraceConnexionAsync(
                         TYPE_CONNEXION.CONNEXION_ECHOUEE_MOT_DE_PASSE,
                         succes: false,
                         email: user.r_email,
                         userId: user.r_id,
-                        raisonEchec: "Mot de passe incorrect");
+                        raisonEchec: "Mot de passe incorrect"
+                    );
 
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(
-                        detail: "Identifiants invalides",
-                        instance: HttpContext.Request.Path));
+                    return Unauthorized(
+                        GeneraleRetour.BuildUnauthorized(
+                            detail: "Identifiants invalides",
+                            instance: HttpContext.Request.Path
+                        )
+                    );
                 }
+
+
+                // ============================================================
+                // 5. VÉRIFICATION DU COMPTE
+                // ============================================================
 
                 if (user.r_is_active != true)
                 {
-                    // Tracer tentative avec compte désactivé
                     await _traceService.TraceConnexionAsync(
                         TYPE_CONNEXION.CONNEXION_ECHOUEE_COMPTE_DESACTIVE,
                         succes: false,
                         email: user.r_email,
                         userId: user.r_id,
-                        raisonEchec: "Compte désactivé");
+                        raisonEchec: "Compte désactivé"
+                    );
 
-                    return Unauthorized(GeneraleRetour.BuildUnauthorized(
-                        detail: "Le compte n'est pas actif",
-                        instance: HttpContext.Request.Path));
+                    return Unauthorized(
+                        GeneraleRetour.BuildUnauthorized(
+                            detail: "Le compte n'est pas actif",
+                            instance: HttpContext.Request.Path
+                        )
+                    );
                 }
 
 
-                string[] roles = user.r_user_roles
-                    .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
-                    .Select(x => x.r_role.r_code)
+                // ============================================================
+                // 6. RÉCUPÉRATION DES RÔLES
+                // ============================================================
+
+                string[] roles = user.r_user_roles?
+                    .Where(x =>
+                        x.r_role != null &&
+                        x.r_role.r_is_active != false &&
+                        x.r_role.r_is_delete != true
+                    )
+                    .Select(x => x.r_role!.r_code)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
                     .Distinct()
+                    .ToArray()
+                    ?? Array.Empty<string>();
+
+
+                // ============================================================
+                // 7. SCOPES DIRECTS DE L'UTILISATEUR
+                // ============================================================
+
+                string[] scopesUser = user.r_user_scopes?
+                    .Where(x =>
+                        x.r_scope != null &&
+                        x.r_is_active != false
+                    )
+                    .Select(x => x.r_scope!.r_code)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct()
+                    .ToArray()
+                    ?? Array.Empty<string>();
+
+
+                // ============================================================
+                // 8. SCOPES DES RÔLES
+                // ============================================================
+
+                string[] scopeRoles = user.r_user_roles?
+                    .Where(x =>
+                        x.r_role != null &&
+                        x.r_role.r_is_active != false &&
+                        x.r_role.r_is_delete != true
+                    )
+                    .SelectMany(x =>
+                        x.r_role!.r_role_scopes
+                        ?? Enumerable.Empty<t_role_scope>()
+                    )
+                    .Where(x =>
+                        x.r_scope != null &&
+                        x.r_is_active != false
+                    )
+                    .Select(x => x.r_scope!.r_code)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct()
+                    .ToArray()
+                    ?? Array.Empty<string>();
+
+
+                // ============================================================
+                // 9. FUSION DES SCOPES
+                // ============================================================
+
+                string[] scopes = scopesUser
+                    .Concat(scopeRoles)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToArray();
 
-                string[] scopes = user.r_user_roles
-                    .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
-                    .SelectMany(x => x.r_role.r_role_scopes)
-                    .Where(x => x.r_scope != null)
-                    .Select(x => x.r_scope.r_code)
-                    .Distinct()
-                    .ToArray();
 
+                // ============================================================
+                // 11. GÉNÉRATION DU JWT
+                // ============================================================
 
-                // Générer le JWT
                 JwtIssueOptions _dataJwt = new JwtIssueOptions
                 {
                     UserId = user.r_id,
                     UserEmail = user.r_email,
-                    Roles = roles ?? Array.Empty<string>(),
-                    Scopes = scopes ?? Array.Empty<string>()
+                    Roles = roles,
+                    Scopes = scopes
                 };
 
                 string accessToken = _jwtService.GenerateJwtToken(_dataJwt);
+            
+                t_refresh_token refreshTokenData = await _jwtService.GenerateRefreshToken( user.r_id );
 
-                // Générer le refresh token
-                t_refresh_token refreshTokenData = await _jwtService.GenerateRefreshToken(user.r_id);
 
-                // Enregistrer la session
                 var session = new t_session
                 {
                     r_user_id_fk = user.r_id,
@@ -281,47 +370,112 @@ namespace print_attestation.Controllers
                     r_login_at = DateTime.UtcNow,
                     r_is_active = true
                 };
+
                 await _dbContext.t_session.AddAsync(session);
                 await _dbContext.SaveChangesAsync();
 
-                // Tracer la connexion réussie
+
+                // ============================================================
+                // 14. TRACE CONNEXION
+                // ============================================================
+
                 await _traceService.TraceConnexionAsync(
                     TYPE_CONNEXION.CONNEXION_REUSSIE,
                     succes: true,
                     email: user.r_email,
                     userId: user.r_id,
-                    sessionTokenHash: TraceService.HashToken(refreshTokenData.r_token),
-                    tokenExpiresAt: refreshTokenData.r_expires_at);
+                    sessionTokenHash:
+                        TraceService.HashToken(
+                            refreshTokenData.r_token
+                        ),
+                    tokenExpiresAt:
+                        refreshTokenData.r_expires_at
+                );
 
-                // Action de connexion
+
+                // ============================================================
+                // 15. TRACE ACTION
+                // ============================================================
+
                 await _traceService.TraceActionAsync(
                     TYPE_ACTION.CONNEXION_REUSSIE,
                     userId: user.r_id,
                     userEmail: user.r_email,
-                    description : "Connexion réussie email = "+user.r_email);
+                    description:
+                        "Connexion réussie email = " +
+                        user.r_email
+                );
 
-                int expirySeconds = int.TryParse(_configuration["JwtSettings:ExpiryInSecond"], out var sec) ? sec : 3600;
-                int refreshExpiry = (int)(refreshTokenData.r_expires_at - DateTime.UtcNow).TotalSeconds;
 
-                return Ok(new AuthSecurityRetourDto
-                {
-                    access_token = accessToken,
-                    refresh_token = refreshTokenData.r_token,
-                    token_type = "Bearer",
-                    expires_in = expirySeconds,
-                    refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0,
-                    password_change_required = user.r_password_change_required,
-                    user = Tools.Tools.BuildUserToUserResponseDto(user),
-                });
+                // ============================================================
+                // 16. DURÉE DU TOKEN
+                // ============================================================
 
+                int expirySeconds =
+                    int.TryParse(
+                        _configuration[
+                            "JwtSettings:ExpiryInSecond"
+                        ],
+                        out var sec
+                    )
+                        ? sec
+                        : 3600;
+
+
+                int refreshExpiry =
+                    (int)(
+                        refreshTokenData.r_expires_at -
+                        DateTime.UtcNow
+                    ).TotalSeconds;
+
+
+                // ============================================================
+                // 17. RÉPONSE
+                // ============================================================
+
+                return Ok(
+                    new AuthSecurityRetourDto
+                    {
+                        access_token = accessToken,
+
+                        refresh_token =
+                            refreshTokenData.r_token,
+
+                        token_type = "Bearer",
+
+                        expires_in = expirySeconds,
+
+                        refresh_expires_in =
+                            refreshExpiry > 0
+                                ? refreshExpiry
+                                : 0,
+
+                        password_change_required =
+                            user.r_password_change_required,
+
+                        user =
+                            Tools.Tools.BuildUserToUserResponseDto(
+                                user
+                            )
+                    }
+                );
             }
             catch (Exception ex)
             {
-                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+                _logger.LogError(
+                    ex,
+                    "[Endpoint {Endpoint}] Erreur lors de l'authentification",
+                    _desc_route
+                );
+
+                return StatusCode(
+                    500,
+                    GeneraleRetour.BuildProblemResponse500(
+                        instance: HttpContext.Request.Path
+                    )
+                );
             }
         }
-
 
         /// <summary>
         /// POST api/auth/refresh-token

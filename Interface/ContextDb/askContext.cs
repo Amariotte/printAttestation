@@ -33,6 +33,7 @@ namespace print_attestation.ContextDb
         public DbSet<t_user_role> t_user_role { get; set; } = null!;
         public DbSet<t_user_scope> t_user_scope { get; set; } = null!;
         public DbSet<t_role_scope> t_role_scope { get; set; } = null!;
+   
       
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -56,10 +57,7 @@ namespace print_attestation.ContextDb
                       .HasForeignKey(j => j.r_user_id_fk)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasOne(u => u.r_site)
-                      .WithMany(s => s.r_users)
-                      .HasForeignKey(u => u.r_site_id_fk)
-                      .OnDelete(DeleteBehavior.Restrict);
+               
             });
 
             // Configuration t_refresh_token
@@ -223,14 +221,6 @@ namespace print_attestation.ContextDb
                     
                  },
 
-                  new t_scope
-                  {
-                      r_code = Scopes.DemandesAnnulationsReadAll,
-                      r_nom = "Lecture des demandes d'annulation de tous les intermediaires",
-                      r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
-                 
-                  },
-
                   // Taches
                   new t_scope
                  {
@@ -246,13 +236,6 @@ namespace print_attestation.ContextDb
                        r_description = "Permet de consulter les taches de mon site",
                   
                    },
-                     new t_scope
-                     {
-                         r_code = Scopes.TachesReadAll,
-                         r_nom = "Lecture des taches de tous les utilisateurs",
-                         r_description = "Permet de consulter les taches de tous les utilisateurs",
-                
-                     },
                 new t_scope
                 {
                     r_code = Scopes.TachesUpdate,
@@ -290,13 +273,7 @@ namespace print_attestation.ContextDb
                      r_description = "Permet de consulter les audits liés aux actions de mon site",
                   
                  },
-                    new t_scope
-                    {
-                        r_code = Scopes.AuditsActionsReadAll,
-                        r_nom = "Lecture des audits actions de tous les utilisateurs",
-                        r_description = "Permet de consulter les audits liés aux actions de tous les utilisateurs",
                     
-                    },
                 new t_scope
                 {
                     r_code = Scopes.AuditsAccesRead,
@@ -311,13 +288,7 @@ namespace print_attestation.ContextDb
                      r_description = "Permet de consulter les audits liés aux connexions de mon site",
                   
                  },
-                 new t_scope
-                 {
-                     r_code = Scopes.AuditsAccesReadAll,
-                     r_nom = "Lecture des audits connexions de tous les utilisateurs",
-                     r_description = "Permet de consulter les audits liés aux connexions de tous les utilisateurs",
-                
-                 },
+               
                 new t_scope
                 {
                     r_code = Scopes.UsersRead,

@@ -9,7 +9,10 @@ namespace print_attestation.Dtos.Response.auth
         public int id { get; set; }
         public string nom { get; set; }
         public string code { get; set; }
-     
-     
-}
+
+        public TYPE_SITE? type { get; set; }
+        public string? typeLibelle { get; set; }
+
+
+    }
 }

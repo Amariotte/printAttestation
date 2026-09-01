@@ -7,6 +7,9 @@ namespace print_attestation.Dtos.Request
         public string? nom { get; set; }
         public string? code { get; set; }
         public string? description { get; set; }
+
+        public TYPE_SITE[]? siteTypeIds { get; set; }
+        public string[]? scopes { get; set; }
     }
 
     public class RoleDtoValidator : AbstractValidator<RoleDto>

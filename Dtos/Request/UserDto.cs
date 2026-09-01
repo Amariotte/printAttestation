@@ -8,8 +8,11 @@ namespace print_attestation.Dtos.Request
         public string? prenom { get; set; }
         public string? email { get; set; }
         public string? telephone { get; set; }
+        public  bool? allSites{ get; set; } = false;
 
-        public TYPE_UTILISATEUR roleId { get; set; } = TYPE_UTILISATEUR.Utilisateur;
+        public int?[] roles { get; set; }
+        public TYPE_SITE?[] siteTypes { get; set; }
+
         public int? siteId { get; set; }
     }
 

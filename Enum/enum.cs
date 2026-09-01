@@ -13,13 +13,15 @@ public enum STATUT_SMS
     ECHOUE = 3
 }
 
-public enum TYPE_UTILISATEUR
+public enum TYPE_SITE
 {
-    Administrateur = 1,
-    Responsable_Reseau = 2,
-    Responsable_site = 3,
-    Utilisateur = 4
+    SIEGE = 1  ,
+    BUREAU_DIRECT = 2,
+    AGENT_GENERAL = 3,
+    COURTTIER = 4,
+    AUTRES = 5
 }
+
 
 public enum TYPE_JOB
 {

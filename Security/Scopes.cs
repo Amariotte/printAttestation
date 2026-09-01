@@ -17,7 +17,6 @@
 
         public const string TachesRead = "taches.read";
         public const string TachesReadSite = "taches.read.site";
-        public const string TachesReadAll = "taches.read.all";
 
         public const string TachesCreate = "taches.create";
         public const string TachesUpdate = "taches.update";
@@ -31,12 +30,8 @@
 
         public const string DemandesAnnulationsRead =
             "demandes-annulations.read";
-
         public const string DemandesAnnulationsReadSite =
-            "demandes-annulations.read.site";
-
-        public const string DemandesAnnulationsReadAll =
-            "demandes-annulations.read.all";
+           "demandes-annulations.read.site";
 
         public const string DemandesAnnulationsCreate =
             "demandes-annulations.create";
@@ -54,7 +49,6 @@
 
         public const string UsersRead = "users.read";
         public const string UsersReadSite = "users.read.site";
-        public const string UsersReadAll = "users.read.all";
 
         public const string UsersCreate = "users.create";
         public const string UsersUpdate = "users.update";
@@ -102,10 +96,9 @@
             "audits.actions.read";
 
         public const string AuditsActionsReadSite =
-            "audits.actions.read.site";
+                "audits.actions.read.site";
 
-        public const string AuditsActionsReadAll =
-            "audits.actions.read.all";
+
 
 
         // =========================
@@ -114,11 +107,8 @@
 
         public const string AuditsAccesRead =
             "audits.acces.read";
-
         public const string AuditsAccesReadSite =
-            "audits.acces.read.site";
+           "audits.acces.read.site";
 
-        public const string AuditsAccesReadAll =
-            "audits.acces.read.all";
     }
     }

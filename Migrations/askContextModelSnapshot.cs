@@ -560,6 +560,10 @@ namespace print_attestation.Migrations
                     b.Property<int?>("r_ordre")
                         .HasColumnType("int");
 
+                    b.Property<string>("r_sites_types")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
 
@@ -656,12 +660,6 @@ namespace print_attestation.Migrations
                         },
                         new
                         {
-                            r_code = "demandes-annulations.read.all",
-                            r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
-                            r_nom = "Lecture des demandes d'annulation de tous les intermediaires"
-                        },
-                        new
-                        {
                             r_code = "taches.read",
                             r_description = "Permet de consulter les taches",
                             r_nom = "Lecture des taches"
@@ -671,12 +669,6 @@ namespace print_attestation.Migrations
                             r_code = "taches.read.site",
                             r_description = "Permet de consulter les taches de mon site",
                             r_nom = "Lecture des taches de mon site"
-                        },
-                        new
-                        {
-                            r_code = "taches.read.all",
-                            r_description = "Permet de consulter les taches de tous les utilisateurs",
-                            r_nom = "Lecture des taches de tous les utilisateurs"
                         },
                         new
                         {
@@ -710,12 +702,6 @@ namespace print_attestation.Migrations
                         },
                         new
                         {
-                            r_code = "audits.actions.read.all",
-                            r_description = "Permet de consulter les audits liés aux actions de tous les utilisateurs",
-                            r_nom = "Lecture des audits actions de tous les utilisateurs"
-                        },
-                        new
-                        {
                             r_code = "audits.acces.read",
                             r_description = "Permet de consulter les audits liés aux connexions",
                             r_nom = "Lecture des audits connexions"
@@ -725,12 +711,6 @@ namespace print_attestation.Migrations
                             r_code = "audits.acces.read.site",
                             r_description = "Permet de consulter les audits liés aux connexions de mon site",
                             r_nom = "Lecture des audits connexions de mon site"
-                        },
-                        new
-                        {
-                            r_code = "audits.acces.read.all",
-                            r_description = "Permet de consulter les audits liés aux connexions de tous les utilisateurs",
-                            r_nom = "Lecture des audits connexions de tous les utilisateurs"
                         },
                         new
                         {
@@ -928,6 +908,9 @@ namespace print_attestation.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
+
+                    b.Property<int>("r_type")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
@@ -1148,8 +1131,12 @@ namespace print_attestation.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<int?>("r_site_id_fk")
+                    b.Property<int>("r_site_id_fk")
                         .HasColumnType("int");
+
+                    b.Property<string>("r_sites_types")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<int>("r_statut")
                         .HasColumnType("int");
@@ -1157,9 +1144,6 @@ namespace print_attestation.Migrations
                     b.Property<string>("r_telephone")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
-
-                    b.Property<int>("r_type")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
@@ -1374,7 +1358,8 @@ namespace print_attestation.Migrations
                     b.HasOne("print_attestation.Model.t_site", "r_site")
                         .WithMany("r_users")
                         .HasForeignKey("r_site_id_fk")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("r_site");
                 });

@@ -6,10 +6,10 @@ namespace print_attestation.Dtos.Response.auth
     public class ScopeResponseDto
     {
 
-
         public string? code { get; set; }
         public string? nom { get; set; }
         public string? description { get; set; }
+
      
      
 }

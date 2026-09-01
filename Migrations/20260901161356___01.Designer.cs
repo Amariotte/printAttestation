@@ -12,8 +12,8 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    [Migration("20260831130545__init_")]
-    partial class _init_
+    [Migration("20260901161356___01")]
+    partial class __01
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,7 +25,7 @@ namespace print_attestation.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
-            modelBuilder.Entity("ask.Model.t_demande_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_demande_annulation", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -97,7 +97,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_demande_annulation");
                 });
 
-            modelBuilder.Entity("ask.Model.t_histo_email", b =>
+            modelBuilder.Entity("print_attestation.Model.t_histo_email", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -175,7 +175,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_histo_email");
                 });
 
-            modelBuilder.Entity("ask.Model.t_histo_sms", b =>
+            modelBuilder.Entity("print_attestation.Model.t_histo_sms", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -238,7 +238,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_histo_sms");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -318,7 +318,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_job");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job_details", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job_details", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -368,7 +368,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_job_details");
                 });
 
-            modelBuilder.Entity("ask.Model.t_modele", b =>
+            modelBuilder.Entity("print_attestation.Model.t_modele", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -414,7 +414,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_modele");
                 });
 
-            modelBuilder.Entity("ask.Model.t_motif_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_motif_annulation", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -452,7 +452,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_motif_annulation");
                 });
 
-            modelBuilder.Entity("ask.Model.t_refresh_token", b =>
+            modelBuilder.Entity("print_attestation.Model.t_refresh_token", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -531,7 +531,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_refresh_token");
                 });
 
-            modelBuilder.Entity("ask.Model.t_role", b =>
+            modelBuilder.Entity("print_attestation.Model.t_role", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -563,6 +563,10 @@ namespace print_attestation.Migrations
                     b.Property<int?>("r_ordre")
                         .HasColumnType("int");
 
+                    b.Property<string>("r_sites_types")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
 
@@ -574,7 +578,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_role");
                 });
 
-            modelBuilder.Entity("ask.Model.t_role_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_role_scope", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -617,7 +621,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_role_scope");
                 });
 
-            modelBuilder.Entity("ask.Model.t_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_scope", b =>
                 {
                     b.Property<string>("r_code")
                         .HasColumnType("varchar(255)");
@@ -659,12 +663,6 @@ namespace print_attestation.Migrations
                         },
                         new
                         {
-                            r_code = "demandes-annulations.read.all",
-                            r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
-                            r_nom = "Lecture des demandes d'annulation de tous les intermediaires"
-                        },
-                        new
-                        {
                             r_code = "taches.read",
                             r_description = "Permet de consulter les taches",
                             r_nom = "Lecture des taches"
@@ -674,12 +672,6 @@ namespace print_attestation.Migrations
                             r_code = "taches.read.site",
                             r_description = "Permet de consulter les taches de mon site",
                             r_nom = "Lecture des taches de mon site"
-                        },
-                        new
-                        {
-                            r_code = "taches.read.all",
-                            r_description = "Permet de consulter les taches de tous les utilisateurs",
-                            r_nom = "Lecture des taches de tous les utilisateurs"
                         },
                         new
                         {
@@ -713,12 +705,6 @@ namespace print_attestation.Migrations
                         },
                         new
                         {
-                            r_code = "audits.actions.read.all",
-                            r_description = "Permet de consulter les audits liés aux actions de tous les utilisateurs",
-                            r_nom = "Lecture des audits actions de tous les utilisateurs"
-                        },
-                        new
-                        {
                             r_code = "audits.acces.read",
                             r_description = "Permet de consulter les audits liés aux connexions",
                             r_nom = "Lecture des audits connexions"
@@ -728,12 +714,6 @@ namespace print_attestation.Migrations
                             r_code = "audits.acces.read.site",
                             r_description = "Permet de consulter les audits liés aux connexions de mon site",
                             r_nom = "Lecture des audits connexions de mon site"
-                        },
-                        new
-                        {
-                            r_code = "audits.acces.read.all",
-                            r_description = "Permet de consulter les audits liés aux connexions de tous les utilisateurs",
-                            r_nom = "Lecture des audits connexions de tous les utilisateurs"
                         },
                         new
                         {
@@ -788,10 +768,58 @@ namespace print_attestation.Migrations
                             r_code = "users.delete",
                             r_description = "Permet de supprimer les utilisateurs",
                             r_nom = "Suppression des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.read",
+                            r_description = "Permet de consulter les profils d'utilisateurs",
+                            r_nom = "Lecture des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.create",
+                            r_description = "Permet de créer les profils d'utilisateurs",
+                            r_nom = "Création des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.update",
+                            r_description = "Permet de modifier les profils d'utilisateurs",
+                            r_nom = "Modification des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.delete",
+                            r_description = "Permet de supprimer les profils d'utilisateurs",
+                            r_nom = "Suppression des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.read",
+                            r_description = "Permet de consulter les motifs d'annulation",
+                            r_nom = "Lecture des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.create",
+                            r_description = "Permet de créer les motifs d'annulation",
+                            r_nom = "Création des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.update",
+                            r_description = "Permet de modifier les motifs d'annulation",
+                            r_nom = "Modification des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.delete",
+                            r_description = "Permet de supprimer les motifs d'annulation",
+                            r_nom = "Suppression des motifs d'annulation"
                         });
                 });
 
-            modelBuilder.Entity("ask.Model.t_session", b =>
+            modelBuilder.Entity("print_attestation.Model.t_session", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -854,7 +882,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_session");
                 });
 
-            modelBuilder.Entity("ask.Model.t_site", b =>
+            modelBuilder.Entity("print_attestation.Model.t_site", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -884,6 +912,9 @@ namespace print_attestation.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<int>("r_type")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
 
@@ -900,7 +931,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_site");
                 });
 
-            modelBuilder.Entity("ask.Model.t_trace_action", b =>
+            modelBuilder.Entity("print_attestation.Model.t_trace_action", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -978,7 +1009,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_trace_action");
                 });
 
-            modelBuilder.Entity("ask.Model.t_trace_connexion", b =>
+            modelBuilder.Entity("print_attestation.Model.t_trace_connexion", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -1058,7 +1089,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_trace_connexion");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -1103,8 +1134,12 @@ namespace print_attestation.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<int?>("r_site_id_fk")
+                    b.Property<int>("r_site_id_fk")
                         .HasColumnType("int");
+
+                    b.Property<string>("r_sites_types")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<int>("r_statut")
                         .HasColumnType("int");
@@ -1112,9 +1147,6 @@ namespace print_attestation.Migrations
                     b.Property<string>("r_telephone")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
-
-                    b.Property<int>("r_type")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
@@ -1134,7 +1166,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_role", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_role", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -1175,7 +1207,7 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user_role");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_scope", b =>
                 {
                     b.Property<int>("r_id")
                         .ValueGeneratedOnAdd()
@@ -1217,20 +1249,20 @@ namespace print_attestation.Migrations
                     b.ToTable("t_user_scope");
                 });
 
-            modelBuilder.Entity("ask.Model.t_demande_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_demande_annulation", b =>
                 {
-                    b.HasOne("ask.Model.t_motif_annulation", "r_motif_annulation")
+                    b.HasOne("print_attestation.Model.t_motif_annulation", "r_motif_annulation")
                         .WithMany("r_users")
                         .HasForeignKey("r_motif_annulation_id_fk")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_site", "r_site")
+                    b.HasOne("print_attestation.Model.t_site", "r_site")
                         .WithMany()
                         .HasForeignKey("r_site_id_fk")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany()
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1243,9 +1275,9 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_jobs")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1254,9 +1286,9 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job_details", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job_details", b =>
                 {
-                    b.HasOne("ask.Model.t_job", "r_job")
+                    b.HasOne("print_attestation.Model.t_job", "r_job")
                         .WithMany("r_job_details")
                         .HasForeignKey("r_job_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1265,9 +1297,9 @@ namespace print_attestation.Migrations
                     b.Navigation("r_job");
                 });
 
-            modelBuilder.Entity("ask.Model.t_refresh_token", b =>
+            modelBuilder.Entity("print_attestation.Model.t_refresh_token", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_refresh_tokens")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1276,15 +1308,15 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_role_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_role_scope", b =>
                 {
-                    b.HasOne("ask.Model.t_role", "r_role")
+                    b.HasOne("print_attestation.Model.t_role", "r_role")
                         .WithMany("r_role_scopes")
                         .HasForeignKey("r_role_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_scope", "r_scope")
+                    b.HasOne("print_attestation.Model.t_scope", "r_scope")
                         .WithMany("r_role_scopes")
                         .HasForeignKey("r_scope_code_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1295,9 +1327,9 @@ namespace print_attestation.Migrations
                     b.Navigation("r_scope");
                 });
 
-            modelBuilder.Entity("ask.Model.t_session", b =>
+            modelBuilder.Entity("print_attestation.Model.t_session", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_sessions")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1306,43 +1338,44 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_trace_action", b =>
+            modelBuilder.Entity("print_attestation.Model.t_trace_action", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany()
                         .HasForeignKey("r_user_id");
 
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_trace_connexion", b =>
+            modelBuilder.Entity("print_attestation.Model.t_trace_connexion", b =>
                 {
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany()
                         .HasForeignKey("r_user_id");
 
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user", b =>
                 {
-                    b.HasOne("ask.Model.t_site", "r_site")
+                    b.HasOne("print_attestation.Model.t_site", "r_site")
                         .WithMany("r_users")
                         .HasForeignKey("r_site_id_fk")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("r_site");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_role", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_role", b =>
                 {
-                    b.HasOne("ask.Model.t_role", "r_role")
+                    b.HasOne("print_attestation.Model.t_role", "r_role")
                         .WithMany("r_user_roles")
                         .HasForeignKey("r_role_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_user_roles")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1353,15 +1386,15 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_scope", b =>
                 {
-                    b.HasOne("ask.Model.t_scope", "r_scope")
+                    b.HasOne("print_attestation.Model.t_scope", "r_scope")
                         .WithMany("r_user_scopes")
                         .HasForeignKey("r_scope_code_fk")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ask.Model.t_user", "r_user")
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
                         .WithMany("r_user_scopes")
                         .HasForeignKey("r_user_id_fk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1372,36 +1405,36 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("ask.Model.t_job", b =>
+            modelBuilder.Entity("print_attestation.Model.t_job", b =>
                 {
                     b.Navigation("r_job_details");
                 });
 
-            modelBuilder.Entity("ask.Model.t_motif_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_motif_annulation", b =>
                 {
                     b.Navigation("r_users");
                 });
 
-            modelBuilder.Entity("ask.Model.t_role", b =>
+            modelBuilder.Entity("print_attestation.Model.t_role", b =>
                 {
                     b.Navigation("r_role_scopes");
 
                     b.Navigation("r_user_roles");
                 });
 
-            modelBuilder.Entity("ask.Model.t_scope", b =>
+            modelBuilder.Entity("print_attestation.Model.t_scope", b =>
                 {
                     b.Navigation("r_role_scopes");
 
                     b.Navigation("r_user_scopes");
                 });
 
-            modelBuilder.Entity("ask.Model.t_site", b =>
+            modelBuilder.Entity("print_attestation.Model.t_site", b =>
                 {
                     b.Navigation("r_users");
                 });
 
-            modelBuilder.Entity("ask.Model.t_user", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user", b =>
                 {
                     b.Navigation("r_jobs");
 

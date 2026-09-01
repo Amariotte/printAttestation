@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace print_attestation.Migrations
 {
     /// <inheritdoc />
-    public partial class _init : Migration
+    public partial class __01 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -145,6 +145,8 @@ namespace print_attestation.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     r_description = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_sites_types = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     r_created_by = table.Column<int>(type: "int", nullable: true),
                     r_created_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     r_updated_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -183,6 +185,7 @@ namespace print_attestation.Migrations
                         .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
                     r_code = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_type = table.Column<int>(type: "int", nullable: false),
                     r_nom = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     r_created_by = table.Column<int>(type: "int", nullable: true),
@@ -249,10 +252,11 @@ namespace print_attestation.Migrations
                     r_password = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     r_password_change_required = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    r_sites_types = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    r_site_id_fk = table.Column<int>(type: "int", nullable: false),
                     r_statut = table.Column<int>(type: "int", nullable: false),
                     r_date_last_statut = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    r_type = table.Column<int>(type: "int", nullable: false),
-                    r_site_id_fk = table.Column<int>(type: "int", nullable: true),
                     r_created_by = table.Column<int>(type: "int", nullable: true),
                     r_created_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     r_updated_at = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -268,7 +272,7 @@ namespace print_attestation.Migrations
                         column: x => x.r_site_id_fk,
                         principalTable: "t_site",
                         principalColumn: "r_id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -626,16 +630,25 @@ namespace print_attestation.Migrations
                     { "attestations.read", "Permet de consulter les attestations", "Lecture des attestations" },
                     { "attestations.read.all", "Permet de consulter les attestations de tous les intermediaires", "Lecture des attestations de tous les intermediaires" },
                     { "audits.acces.read", "Permet de consulter les audits liés aux connexions", "Lecture des audits connexions" },
-                    { "audits.acces.read.all", "Permet de consulter les audits liés aux connexions de tous les utilisateurs", "Lecture des audits connexions de tous les utilisateurs" },
                     { "audits.acces.read.site", "Permet de consulter les audits liés aux connexions de mon site", "Lecture des audits connexions de mon site" },
                     { "audits.actions.read", "Permet de consulter les audits liés aux actions", "Lecture des audits actions" },
-                    { "audits.actions.read.all", "Permet de consulter les audits liés aux actions de tous les utilisateurs", "Lecture des audits actions de tous les utilisateurs" },
                     { "audits.actions.read.site", "Permet de consulter les audits liés aux actions de mon site", "Lecture des audits actions de mon site" },
                     { "demandes-annulations.read", "Permet de consulter les demandes d'annulation", "Lecture des demandes d'annulation" },
-                    { "demandes-annulations.read.all", "Permet de consulter les demandes d'annulation de tous les intermediaires", "Lecture des demandes d'annulation de tous les intermediaires" },
                     { "demandes-annulations.read.site", "Permet de consulter les demandes d'annulation de tous les intermediaires", "Lecture des demandes d'annulation de mon intérmediaire" },
+                    { "motifs-annulation.create", "Permet de créer les motifs d'annulation", "Création des motifs d'annulation" },
+                    { "motifs-annulation.delete", "Permet de supprimer les motifs d'annulation", "Suppression des motifs d'annulation" },
+                    { "motifs-annulation.read", "Permet de consulter les motifs d'annulation", "Lecture des motifs d'annulation" },
+                    { "motifs-annulation.update", "Permet de modifier les motifs d'annulation", "Modification des motifs d'annulation" },
+                    { "roles.create", "Permet de créer les profils d'utilisateurs", "Création des profils d'utilisateurs" },
+                    { "roles.delete", "Permet de supprimer les profils d'utilisateurs", "Suppression des profils d'utilisateurs" },
+                    { "roles.read", "Permet de consulter les profils d'utilisateurs", "Lecture des profils d'utilisateurs" },
+                    { "roles.update", "Permet de modifier les profils d'utilisateurs", "Modification des profils d'utilisateurs" },
+                    { "sites.create", "Permet de créer des intermédiaires", "Création des intermédiaires" },
+                    { "sites.delete", "Permet de supprimer les intermédiaires", "Suppression des intermédiaires" },
+                    { "sites.read", "Permet de consulter les intermédiaires", "Lecture des intermédiaires" },
+                    { "sites.update", "Permet de modifier les intermédiaires", "Modification des intermédiaires" },
+                    { "sites.upload", "Permet de téléverser les intermédiaires", "Téléversement des intermédiaires" },
                     { "taches.read", "Permet de consulter les taches", "Lecture des taches" },
-                    { "taches.read.all", "Permet de consulter les taches de tous les utilisateurs", "Lecture des taches de tous les utilisateurs" },
                     { "taches.read.site", "Permet de consulter les taches de mon site", "Lecture des taches de mon site" },
                     { "taches.update", "Permet d'annuler les taches", "Annulation des taches" },
                     { "taches.update.all", "Permet d'annuler les taches de tous les utilisateurs", "Annulation des taches de tous les utilisateurs" },

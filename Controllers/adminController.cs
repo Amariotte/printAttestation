@@ -64,20 +64,7 @@ namespace print_attestation.Controllers
 
             IQueryable<t_user> usersQuery = _dbContext.t_user.AsQueryable();
 
-            switch (userInfo.r_type)
-            {
-                case TYPE_UTILISATEUR.Administrateur:
-                    break;
-                case TYPE_UTILISATEUR.Responsable_Reseau:
-                    usersQuery = usersQuery.Where(u => u.r_type > TYPE_UTILISATEUR.Responsable_Reseau);
-                    break;
-                case TYPE_UTILISATEUR.Responsable_site:
-                    usersQuery = usersQuery.Where(u => u.r_site_id_fk == userInfo.r_site_id_fk);
-                    break;
-                default:
-                    usersQuery = usersQuery.Where(u => u.r_id == userInfo.r_id);
-                    break;
-            }
+          
 
             if (site > 0)
                 usersQuery = usersQuery.Where(u => u.r_site_id_fk == site);
@@ -184,21 +171,7 @@ namespace print_attestation.Controllers
             // Périmètre selon le type d'utilisateur connecté
             IQueryable<t_user> usersQuery = _dbContext.t_user.AsQueryable();
 
-            switch (userInfo.r_type)
-            {
-                case TYPE_UTILISATEUR.Administrateur:
-                    break;
-                case TYPE_UTILISATEUR.Responsable_Reseau:
-                    usersQuery = usersQuery.Where(u => u.r_type > TYPE_UTILISATEUR.Responsable_Reseau);
-                    break;
-                case TYPE_UTILISATEUR.Responsable_site:
-                    usersQuery = usersQuery.Where(u => u.r_site_id_fk == userInfo.r_site_id_fk);
-                    break;
-                default:
-                    usersQuery = usersQuery.Where(u => u.r_id == userInfo.r_id);
-                    break;
-            }
-
+         
             if (site > 0)
                 usersQuery = usersQuery.Where(u => u.r_site_id_fk == site);
 
@@ -296,7 +269,7 @@ namespace print_attestation.Controllers
 
 
         [Authorize]
-        [RequireAnyScope(Scopes.AuditsActionsRead, Scopes.AuditsActionsReadSite, Scopes.AuditsActionsReadAll)]
+        [RequireAnyScope(Scopes.AuditsActionsRead, Scopes.AuditsActionsReadSite)]
         [HttpGet("audits/actions")]
         public async Task<IActionResult> GeLog([FromQuery] int page = 1, [FromQuery] int limit = 10 , [FromQuery] string action = "", [FromQuery] string search = "")
         {
@@ -336,20 +309,20 @@ namespace print_attestation.Controllers
                 }
 
 
-                if (User.HasClaim("scope", "audits.actions.read.all"))
+
+                if (User.HasScope(Scopes.AuditsActionsReadSite))
                 {
-                    // Tous les sites
+
+                        // Tous les sites de l'utilisateur connecté
+                        var userSiteTypeIds = await Tools.Tools.returnUserSiteTypeIds(userConnecte);
+                        baseQuery = baseQuery.Where(u =>
+                            u.r_user.r_site != null &&
+                            userSiteTypeIds.Contains((int)u.r_user.r_site.r_type));
                 }
-                else if (User.HasClaim("scope", "audits.actions.read.site"))
-                {
-                    baseQuery = baseQuery.Where(u => u.r_user.r_site_id_fk == userConnecte.r_site_id_fk);
-                }
-                else 
+                else  // Si l'utilisateur n'a pas le scope "AuditsActionsReadSite", on ne lui montre que ses propres logs
                 {
                     baseQuery = baseQuery.Where(u => u.r_user.r_id == userConnecte.r_id);
                 }
-
-
 
 
                 // total avant pagination
@@ -392,7 +365,7 @@ namespace print_attestation.Controllers
         }
 
         [Authorize]
-        [RequireAnyScope(Scopes.AuditsAccesRead, Scopes.AuditsAccesReadSite, Scopes.AuditsAccesReadAll)]
+        [RequireAnyScope(Scopes.AuditsAccesRead)]
         [HttpGet("audits/acces")]
         public async Task<IActionResult> GeLogAcces([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "" , [FromQuery] string action = "")
         {
@@ -429,15 +402,16 @@ namespace print_attestation.Controllers
                     baseQuery = baseQuery.Where(x => x.r_type_evenement.ToUpper().Contains(action));
                 }
 
-                if (User.HasClaim("scope", "audits.acces.read.all"))
+                if (User.HasScope(Scopes.AuditsAccesReadSite))
                 {
-                    // Tous les sites
+
+                    // Tous les types de sites de l'utilisateur connecté
+                    var userSiteTypeIds = await Tools.Tools.returnUserSiteTypeIds(userConnecte);
+                    baseQuery = baseQuery.Where(u =>
+                        u.r_user.r_site != null &&
+                        userSiteTypeIds.Contains((int)u.r_user.r_site.r_type));
                 }
-                else if (User.HasClaim("scope", "audits.acces.read.site"))
-                {
-                    baseQuery = baseQuery.Where(u => u.r_user.r_site_id_fk == userConnecte.r_site_id_fk);
-                }
-                else
+                else  // Si l'utilisateur n'a pas le scope "AuditsAccesReadSite", on ne lui montre que ses propres logs
                 {
                     baseQuery = baseQuery.Where(u => u.r_user.r_id == userConnecte.r_id);
                 }
@@ -673,7 +647,12 @@ namespace print_attestation.Controllers
                 IQueryable<t_user> baseQuery = _dbContext.t_user
                     .Where(u => !u.r_is_delete);
 
-
+                // Tous les sites de l'utilisateur connecté
+                var userSiteTypeIds = await Tools.Tools.returnUserSiteTypeIds(userConnecte);
+                baseQuery = baseQuery.Where(u =>
+                    u.r_site != null &&
+                    userSiteTypeIds.Contains((int)u.r_site.r_type));
+               
                 if (!string.IsNullOrWhiteSpace(search))
                 {
                     search = search.ToUpper().Trim();
@@ -683,8 +662,7 @@ namespace print_attestation.Controllers
                         (x.r_nom+' ' + x.r_prenom).ToUpper().Contains(search) ||
                         x.r_email.ToUpper().Contains(search) ||
                         x.r_telephone.ToUpper().Contains(search) ||
-                        x.r_prenom.ToUpper().Contains(search) ||
-                        x.r_site.r_nom.ToUpper().Contains(search)
+                        x.r_prenom.ToUpper().Contains(search)
                     );
                 }
 
@@ -694,35 +672,12 @@ namespace print_attestation.Controllers
                 }
 
 
-                // Filtrage selon le type de l'utilisateur connecté
-                switch (userConnecte.r_type)
-                {
-                    case TYPE_UTILISATEUR.Administrateur:
-
-                        // Aucun filtre : voit tout
-                        break;
-
-                    case TYPE_UTILISATEUR.Responsable_Reseau:
-                        baseQuery = baseQuery.Where(u => u.r_type > TYPE_UTILISATEUR.Responsable_Reseau);
-                        break;
-                    case TYPE_UTILISATEUR.Responsable_site:
-                        baseQuery = baseQuery.Where(u => u.r_site_id_fk == userConnecte.r_site_id_fk);
-                        break;
-
-                    case TYPE_UTILISATEUR.Utilisateur:
-                        baseQuery = baseQuery.Where(u => u.r_id == userConnecte.r_id);
-                        break;
-
-                    default:
-                        return StatusCode(403, GeneraleRetour.BuildForbid(
-                        detail: "Utilisateur non authentifié",
-                        instance: HttpContext.Request.Path));
-                }
-
                 var total = await baseQuery.CountAsync();
 
                 var users = await baseQuery
                     .Include(u => u.r_site)
+                    .Include(u => u.r_user_roles)
+                        .ThenInclude(ur => ur.r_role)
                     .OrderBy(u => u.r_id)
                     .Skip(pagination.Skip)
                     .Take(pagination.Take)
@@ -807,12 +762,13 @@ namespace print_attestation.Controllers
                     r_prenom = _body.prenom,
                     r_email = _body.email,
                     r_telephone = _body.telephone,
-                    r_type = _body.roleId,
                     r_statut = STATUT_USER.ACTIVE,
                     r_password_change_required = true,
                     r_password = BCrypt.Net.BCrypt.HashPassword(myPass),
                     r_date_last_statut = DateTime.UtcNow,
-                    r_site_id_fk = _body.siteId
+                    r_site_id_fk = _body.siteId ?? 0,
+                    r_user_roles = _body.roles != null ? _body.roles.Select(roleId => new t_user_role { r_role_id_fk = (int)roleId }).ToList() : null,
+                    r_sites_types = _body.siteTypes != null ? _body.siteTypes.Select(siteType => (TYPE_SITE)siteType).ToArray() : Array.Empty<TYPE_SITE>()
                 };
 
 
@@ -875,6 +831,32 @@ namespace print_attestation.Controllers
                 }
 
 
+                //Verifiez si les roles sélectionnés existent dans la base de données
+                for (int i = 0; i < _body.roles.Length; i++)
+                {
+                    var roleExists = await _dbContext.t_role.AnyAsync(r => r.r_id == _body.roles[i]);
+                    if (!roleExists)
+                    {
+                        return BadRequest(GeneraleRetour.BuildBadRequest(
+                            detail: $"Le rôle avec l'ID {_body.roles[i]} n'existe pas.",
+                            instance: HttpContext.Request.Path));
+                    }
+                };
+
+
+                if (_body.siteId != null)
+                {
+                    var site = await _dbContext.t_site
+                        .FirstOrDefaultAsync(s => s.r_id == _body.siteId && s.r_is_delete != true);
+                    if (site == null)
+                    {
+                        return BadRequest(GeneraleRetour.BuildBadRequest(
+                            detail: "Le site spécifié est introuvable.",
+                            instance: HttpContext.Request.Path));
+                    }
+                }
+
+
                 var User = await _dbContext.t_user
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.r_id == id && u.r_is_delete != true);
@@ -888,10 +870,8 @@ namespace print_attestation.Controllers
                     ));
                 }
 
-
-
                 var existingUser = await _dbContext.t_user
-                    .Include(u => u.r_site)
+                    .Include(us => us.r_site)
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.r_email == _body.email && u.r_is_delete != true && u.r_id != User.r_id);
 
@@ -916,13 +896,12 @@ namespace print_attestation.Controllers
                     }
                 }
 
-
                 User.r_nom = _body.nom;
                 User.r_prenom = _body.prenom;
                 User.r_email = _body.email;
                 User.r_telephone = _body.telephone;
-                User.r_type = _body.roleId;
-                User.r_site_id_fk = _body.siteId;
+                User.r_site_id_fk = _body.siteId ?? 0;
+                User.r_sites_types = _body.siteTypes != null ? _body.siteTypes.Select(siteType => (TYPE_SITE)siteType).ToArray() : Array.Empty<TYPE_SITE>();
 
                 _dbContext.t_user.Update(User);
                 await _dbContext.SaveChangesAsync();
@@ -954,7 +933,6 @@ namespace print_attestation.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
                 var resQuery = await _dbContext.t_user
-                    .Include(u => u.r_site)
                     .Where(e => e.r_id == id && e.r_is_delete != true)
                     .FirstOrDefaultAsync();
 
@@ -1002,7 +980,6 @@ namespace print_attestation.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
                 var resQuery = await _dbContext.t_user
-                    .Include(u => u.r_site)
                     .Where(e => e.r_id == id && e.r_is_delete != true)
                     .FirstOrDefaultAsync();
 
@@ -1186,6 +1163,7 @@ namespace print_attestation.Controllers
                 {
                     r_nom = _body.nom,
                     r_code = _body.code,
+                    r_type = (TYPE_SITE)_body.type
                 };
 
 
@@ -1426,6 +1404,19 @@ namespace print_attestation.Controllers
                         },
                         instance: HttpContext.Request.Path));
 
+             
+                //Verifiez si les scopes sélectionnés existent dans la base de données
+                for (int i = 0; i < _body.scopes.Length; i++)
+                {
+                    var scopeExists = await _dbContext.t_scope.AnyAsync(s => s.r_code == _body.scopes[i]);
+                    if (!scopeExists)
+                    {
+                        return BadRequest(GeneraleRetour.BuildBadRequest(
+                            detail: $"Le scope avec le code {_body.scopes[i]} n'existe pas.",
+                            instance: HttpContext.Request.Path));
+                    }
+                }
+                ;
 
 
                 var role = new t_role
@@ -1433,6 +1424,8 @@ namespace print_attestation.Controllers
                     r_nom = _body.nom,
                     r_code = _body.code,
                     r_description = _body.description,
+                    r_sites_types = _body.siteTypeIds != null ? _body.siteTypeIds.Select(siteType => (TYPE_SITE)siteType).ToArray() : Array.Empty<TYPE_SITE>(),
+                    r_role_scopes = _body.scopes != null ? _body.scopes.Select(scopeCode => new t_role_scope { r_scope_code_fk = scopeCode }).ToList() : null
                 };
 
 
@@ -1507,13 +1500,24 @@ namespace print_attestation.Controllers
                         },
                         instance: HttpContext.Request.Path));
 
-
-                string myPass = Tools.Tools.GeneratePassword(includeSpecialChars: false);
-
+                //Verifiez si les scopes sélectionnés existent dans la base de données
+                for (int i = 0; i < _body.scopes.Length; i++)
+                {
+                    var scopeExists = await _dbContext.t_scope.AnyAsync(s => s.r_code == _body.scopes[i]);
+                    if (!scopeExists)
+                    {
+                        return BadRequest(GeneraleRetour.BuildBadRequest(
+                            detail: $"Le scope avec le code {_body.scopes[i]} n'existe pas.",
+                            instance: HttpContext.Request.Path));
+                    }
+                }
+                ;
 
                 role.r_nom = _body.nom;
                 role.r_code = _body.code;
                 role.r_description = _body.description;
+                role.r_sites_types = _body.siteTypeIds != null ? _body.siteTypeIds.Select(siteType => (TYPE_SITE)siteType).ToArray() : Array.Empty<TYPE_SITE>();
+                role.r_role_scopes = _body.scopes != null ? _body.scopes.Select(scopeCode => new t_role_scope { r_scope_code_fk = scopeCode }).ToList() : null;
 
                 _dbContext.t_role.Update(role);
                 await _dbContext.SaveChangesAsync();
@@ -1528,6 +1532,39 @@ namespace print_attestation.Controllers
                 return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
             }
         }
+
+
+        [Authorize]
+        [RequireScope(Scopes.RolesRead)]
+        [HttpGet("roles/{id}")]
+        public async Task<IActionResult> GetRole(int id)
+        {
+            const string _desc_route = "Détails d'un rôle";
+
+            try
+            {
+                if (id <= 0)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant du rôle est manquant", instance: HttpContext.Request.Path));
+
+                var resQuery = await _dbContext.t_role
+                    .Include(r => r.r_role_scopes)
+                    .ThenInclude(rc => rc.r_scope)
+                    .Where(e => e.r_id == id && e.r_is_delete != true)
+                    .FirstOrDefaultAsync();
+
+                if (resQuery == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Le rôle n'existe pas", instance: HttpContext.Request.Path));
+
+                return Ok(Tools.Tools.BuildRoleToRoleResponseDto(resQuery));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
 
 
         [Authorize]
@@ -1793,7 +1830,93 @@ namespace print_attestation.Controllers
 
 
 
+        [Authorize]
+        [HttpGet("scopes")]
+        public async Task<IActionResult> GetScopes([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "", [FromQuery] int status = 0)
+        {
+            const string _desc_route = "Liste des scopes";
 
+            try
+            {
+
+
+
+                var pagination = new PaginationParams(page, limit);
+
+                IQueryable<t_scope> baseQuery = _dbContext.t_scope;
+
+       
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.ToUpper().Trim();
+
+                    baseQuery = baseQuery.Where(x =>
+                        x.r_code.ToUpper().Contains(search) ||
+                        x.r_nom.ToUpper().Contains(search)
+                    );
+                }
+
+         
+
+
+                var total = await baseQuery.CountAsync();
+
+                var scopes = await baseQuery
+                    .Skip(pagination.Skip)
+                    .Take(pagination.Take)
+                    .ToListAsync();
+
+                var scopesDto = scopes.Select(m => Tools.Tools.BuildScopeToScopeResponseDto(m)).ToList();
+
+                return Ok(PaginatedResponse<ScopeResponseDto>.Create(scopesDto, total, page, limit));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+        [Authorize]
+        [HttpGet("sites/types")]
+        public async Task<IActionResult> GetSitesTypes([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
+        {
+            const string _desc_route = "Liste des sites types";
+
+            try
+            {
+                var pagination = new PaginationParams(page, limit);
+
+                var baseQuery = Enum.GetValues<TYPE_SITE>()
+                    .AsQueryable();
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.Trim();
+                    baseQuery = baseQuery.Where(x =>
+                        Tools.Tools.EquivalenceTypeSite(x).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                        x.ToString().Contains(search, StringComparison.OrdinalIgnoreCase));
+                }
+
+                var total = baseQuery.Count();
+
+                var siteTypes = baseQuery
+                    .Skip(pagination.Skip)
+                    .Take(pagination.Take)
+                    .Select(m => Tools.Tools.BuildSiteTypeToSiteTypeResponseDto(m))
+                    .ToList();
+
+                return Ok(PaginatedResponse<siteTypeResponseDto>.Create(siteTypes, total, page, limit));
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
 
 
     }

@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using print_attestation.Dtos.Response;
 using print_attestation.Dtos.Response.auth;
 using print_attestation.Model;
@@ -200,7 +201,7 @@ namespace print_attestation.Tools
         public static UserResponseDto BuildUserToUserResponseDto(t_user? u)
         {
             if (u == null) return null;
-            
+
             return new UserResponseDto
             {
                 id = u.r_id,
@@ -208,10 +209,9 @@ namespace print_attestation.Tools
                 prenom = u .r_prenom,
                 email = u.r_email,
                 telephone = u.r_telephone,
-                roleId = u.r_type,
-                role = EquivalenceTypeUser(u.r_type),
                 actif = (u.r_statut == STATUT_USER.ACTIVE),
-                site = u.r_site != null ? BuildSiteToSiteResponseDto(u.r_site) : null
+                sites = new int?[] { u.r_site_id_fk },
+                roles = u.r_user_roles != null ? u.r_user_roles.Where(ur => ur.r_role != null).Select(ur => ur.r_role!.r_code).ToArray() : null
             };
         }
 
@@ -273,25 +273,62 @@ namespace print_attestation.Tools
         }
 
 
-        public static string EquivalenceTypeUser(TYPE_UTILISATEUR typeUser)
+        public static Task<List<int>> returnUserSiteTypeIds(t_user user)
         {
-            switch (typeUser)
+            try
             {
-                case TYPE_UTILISATEUR.Administrateur:
-                    return "Administrateur";
-                case TYPE_UTILISATEUR.Responsable_Reseau:
-                    return "Responsable Réseau";
+                if (user == null)
+                    return Task.FromResult(new List<int>());
 
-                case TYPE_UTILISATEUR.Responsable_site:
-                    return "Responsable site";
+                var siteTypeIds = user.r_sites_types
+                    .Select(siteType => (int)siteType)
+                    .ToList();
 
-                case TYPE_UTILISATEUR.Utilisateur:
-                    return "Utilisateur";
+                if (user.r_user_roles != null)
+                {
+                    siteTypeIds.AddRange(
+                        user.r_user_roles
+                            .Where(ur =>
+                                ur.r_is_active == true &&
+                                ur.r_role != null &&
+                                ur.r_role.r_is_active == true)
+                            .SelectMany(ur => ur.r_role!.r_sites_types)
+                            .Select(siteType => (int)siteType)
+                    );
+                }
 
+                return Task.FromResult(siteTypeIds
+                    .Distinct()
+                    .ToList());
+            }
+            catch (Exception)
+            {
+                return Task.FromResult(new List<int>());
+            }
+        }
+
+
+        public static string EquivalenceTypeSite(TYPE_SITE? t)
+        {
+            switch (t)
+            {
+                case TYPE_SITE.SIEGE:
+                    return "Siège";
+                case TYPE_SITE.AGENT_GENERAL:
+                    return "Agent général";
+                case TYPE_SITE.BUREAU_DIRECT:
+                    return "Bureau direct";
+                case TYPE_SITE.COURTTIER:
+                    return "Courtier";
+                case TYPE_SITE.AUTRES:
+                    return "Autres";
                 default:
                     return "Inconnu";
             }
         }
+
+
+
 
         public static SiteResponseDto BuildSiteToSiteResponseDto(t_site? s)
         {
@@ -303,9 +340,14 @@ namespace print_attestation.Tools
             {
                 id = s.r_id,
                 nom = s.r_nom,
-                code = s.r_code
+                code = s.r_code,
+                type = s.r_type,
+                typeLibelle = s.r_type != null ? EquivalenceTypeSite(s.r_type) : null
+
             };
         }
+
+
 
 
         public static demandeAnnulationResponseDto BuildDemandeAnnulationResponseDto(t_demande_annulation d)
@@ -327,18 +369,53 @@ namespace print_attestation.Tools
         }
 
 
-        public static RoleResponseDto BuildRoleToRoleResponseDto(t_role r)
+        public static RoleResponseDto BuildRoleToRoleResponseDto(t_role? r)
         {
+
+            if (r == null)
+                return null;
+
             return new RoleResponseDto
             {
                 id = r.r_id,
                 nom = r.r_nom,
                 code = r.r_code,
-                description = r.r_description
+                description = r.r_description,
+                scopes = r.r_role_scopes != null ? r.r_role_scopes.Select(rs => BuildScopeToScopeResponseDto(rs.r_scope)).ToArray() : null,
+                siteTypes = r.r_sites_types != null ? r.r_sites_types.Select(st => BuildSiteTypeToSiteTypeResponseDto(st)).ToArray() : null,
             };
         }
 
-    
+        public static ScopeResponseDto BuildScopeToScopeResponseDto(t_scope? s)
+        {
+
+            if (s == null)
+                return null;
+
+            return new ScopeResponseDto
+            {
+                nom = s.r_nom,
+                code = s.r_code,
+                description = s.r_description,
+               
+            };
+        }
+
+
+        public static siteTypeResponseDto BuildSiteTypeToSiteTypeResponseDto(TYPE_SITE? t)
+        {
+
+            if (t == null)
+                return null;
+
+            return new siteTypeResponseDto
+            {
+                id = (int)t,
+                libelle = EquivalenceTypeSite(t)
+            };
+        }
+
+
 
     }
 
