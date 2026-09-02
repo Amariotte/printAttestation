@@ -51,6 +51,8 @@ namespace print_attestation.Model
         /// </summary>
         public t_motif_annulation? r_motif_annulation { get; set; }
 
+        public ICollection<t_demande_annulation_fichier>? r_fichiers { get; set; } = new List<t_demande_annulation_fichier>();
+
     }
 
 }

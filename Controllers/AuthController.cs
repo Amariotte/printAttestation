@@ -201,10 +201,7 @@ namespace print_attestation.Controllers
                 // ============================================================
 
                 var user = await _dbContext.t_user
-                     .Include(u => u.r_user_roles)
-                        .ThenInclude(ur => ur.r_role)
-                            .ThenInclude(r => r.r_role_scopes)
-                                .ThenInclude(rs => rs.r_scope)
+                     .Include(u => u.r_site)
                     .FirstOrDefaultAsync(u => u.r_email == _body.email && u.r_is_delete != true);
 
 
@@ -275,76 +272,7 @@ namespace print_attestation.Controllers
                     );
                 }
 
-
-                // ============================================================
-                // 6. RÉCUPÉRATION DES RÔLES
-                // ============================================================
-
-                string[] roles = user.r_user_roles?
-                    .Where(x =>
-                        x.r_role != null &&
-                        x.r_role.r_is_active != false &&
-                        x.r_role.r_is_delete != true
-                    )
-                    .Select(x => x.r_role!.r_code)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct()
-                    .ToArray()
-                    ?? Array.Empty<string>();
-
-
-                // ============================================================
-                // 7. SCOPES DIRECTS DE L'UTILISATEUR
-                // ============================================================
-
-                string[] scopesUser = user.r_user_scopes?
-                    .Where(x =>
-                        x.r_scope != null &&
-                        x.r_is_active != false
-                    )
-                    .Select(x => x.r_scope!.r_code)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct()
-                    .ToArray()
-                    ?? Array.Empty<string>();
-
-
-                // ============================================================
-                // 8. SCOPES DES RÔLES
-                // ============================================================
-
-                string[] scopeRoles = user.r_user_roles?
-                    .Where(x =>
-                        x.r_role != null &&
-                        x.r_role.r_is_active != false &&
-                        x.r_role.r_is_delete != true
-                    )
-                    .SelectMany(x =>
-                        x.r_role!.r_role_scopes
-                        ?? Enumerable.Empty<t_role_scope>()
-                    )
-                    .Where(x =>
-                        x.r_scope != null &&
-                        x.r_is_active != false
-                    )
-                    .Select(x => x.r_scope!.r_code)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct()
-                    .ToArray()
-                    ?? Array.Empty<string>();
-
-
-                // ============================================================
-                // 9. FUSION DES SCOPES
-                // ============================================================
-
-                string[] scopes = scopesUser
-                    .Concat(scopeRoles)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-
-
+      
                 // ============================================================
                 // 11. GÉNÉRATION DU JWT
                 // ============================================================
@@ -353,8 +281,9 @@ namespace print_attestation.Controllers
                 {
                     UserId = user.r_id,
                     UserEmail = user.r_email,
-                    Roles = roles,
-                    Scopes = scopes
+                    Roles = user.r_type != null ? new[] { Tools.Tools.EquivalenceTypeUtilisateur(user.r_type) } : Array.Empty<string>(),
+                    Scopes = user.r_type != null ? new[] { ((int)user.r_type).ToString() } : Array.Empty<string>()
+
                 };
 
                 string accessToken = _jwtService.GenerateJwtToken(_dataJwt);
@@ -534,27 +463,15 @@ namespace print_attestation.Controllers
                 existingRefresh.r_updated_at = DateTime.UtcNow;
 
 
-                string[] roles = dataUser.r_user_roles
-                   .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
-                   .Select(x => x.r_role.r_code)
-                   .Distinct()
-                   .ToArray();
-
-                string[] scopes = dataUser.r_user_roles
-                    .Where(x => x.r_role != null && x.r_role.r_is_active != false && x.r_role.r_is_delete != true)
-                    .SelectMany(x => x.r_role.r_role_scopes)
-                    .Where(x => x.r_scope != null )
-                    .Select(x => x.r_scope.r_code)
-                    .Distinct()
-                    .ToArray();
+           
 
                 // Générer un nouveau JWT et refresh token
                 var newAccessToken = _jwtService.GenerateJwtToken(new JwtIssueOptions
                 {
                     UserId = dataUser.r_id,
                     UserEmail = dataUser.r_email,
-                    Roles = roles ?? Array.Empty<string>(),
-                    Scopes = scopes ?? Array.Empty<string>()
+                    Roles = dataUser.r_type != null ? new[] { Tools.Tools.EquivalenceTypeUtilisateur(dataUser.r_type) } : Array.Empty<string>(),
+                    Scopes = dataUser.r_type != null ? new[] { ((int)dataUser.r_type).ToString() } : Array.Empty<string>()
                 });
 
                 var newRefreshToken = await _jwtService.GenerateRefreshToken(dataUser.r_id);
@@ -797,6 +714,7 @@ namespace print_attestation.Controllers
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(
                         detail: "Utilisateur non authentifié",
                         instance: HttpContext.Request.Path));
+
                 return Ok(Tools.Tools.BuildUserToUserResponseDto(dataUser));
             }
             catch (Exception ex)

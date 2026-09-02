@@ -210,8 +210,9 @@ namespace print_attestation.Tools
                 email = u.r_email,
                 telephone = u.r_telephone,
                 actif = (u.r_statut == STATUT_USER.ACTIVE),
-                sites = new int?[] { u.r_site_id_fk },
-                roles = u.r_user_roles != null ? u.r_user_roles.Where(ur => ur.r_role != null).Select(ur => ur.r_role!.r_code).ToArray() : null
+                site = u.r_site != null ? BuildSiteToSiteResponseDto(u.r_site) : null,
+                roleId = (int?)u.r_type,
+                role = u.r_type != null ? EquivalenceTypeUtilisateur(u.r_type) : null
             };
         }
 
@@ -273,40 +274,7 @@ namespace print_attestation.Tools
         }
 
 
-        public static Task<List<int>> returnUserSiteTypeIds(t_user user)
-        {
-            try
-            {
-                if (user == null)
-                    return Task.FromResult(new List<int>());
-
-                var siteTypeIds = user.r_sites_types
-                    .Select(siteType => (int)siteType)
-                    .ToList();
-
-                if (user.r_user_roles != null)
-                {
-                    siteTypeIds.AddRange(
-                        user.r_user_roles
-                            .Where(ur =>
-                                ur.r_is_active == true &&
-                                ur.r_role != null &&
-                                ur.r_role.r_is_active == true)
-                            .SelectMany(ur => ur.r_role!.r_sites_types)
-                            .Select(siteType => (int)siteType)
-                    );
-                }
-
-                return Task.FromResult(siteTypeIds
-                    .Distinct()
-                    .ToList());
-            }
-            catch (Exception)
-            {
-                return Task.FromResult(new List<int>());
-            }
-        }
-
+        
 
         public static string EquivalenceTypeSite(TYPE_SITE? t)
         {
@@ -314,16 +282,55 @@ namespace print_attestation.Tools
             {
                 case TYPE_SITE.SIEGE:
                     return "Siège";
-                case TYPE_SITE.AGENT_GENERAL:
-                    return "Agent général";
                 case TYPE_SITE.BUREAU_DIRECT:
                     return "Bureau direct";
+                case TYPE_SITE.BANCASSURANCE:
+                    return "Bancassurance";
+                case TYPE_SITE.AGENT_GENERAL:
+                    return "Agent général";
                 case TYPE_SITE.COURTTIER:
                     return "Courtier";
                 case TYPE_SITE.AUTRES:
                     return "Autres";
                 default:
                     return "Inconnu";
+             
+            }
+        }
+
+
+
+
+        public static siteTypeResponseDto BuildSiteTypeToSiteTypeResponseDto(TYPE_SITE? t)
+        {
+            return new siteTypeResponseDto
+            {
+                id = (int)t,
+                libelle = t != null ? EquivalenceTypeSite(t) : null
+            };
+        }
+
+            
+        
+
+        public static string EquivalenceTypeUtilisateur(TYPE_UTILISATEUR? t)
+        {
+            switch (t)
+            {
+                case TYPE_UTILISATEUR.UTILISATEUR:
+                    return "Utilisateur";
+                case TYPE_UTILISATEUR.BUREAU_DIRECT:
+                    return "Bureau direct";
+                case TYPE_UTILISATEUR.RESPONSABLE_RESEAU:
+                    return "Responsable réseau";
+                case TYPE_UTILISATEUR.RESPONSABLE_INTERMEDIAIRE:
+                    return "Responsable intermédiaire";
+                case TYPE_UTILISATEUR.ADMINISTRATEUR:
+                    return "Administrateur";
+               
+                default:
+                    return "Utilisateur";
+
             }
         }
 
@@ -348,8 +355,6 @@ namespace print_attestation.Tools
         }
 
 
-
-
         public static demandeAnnulationResponseDto BuildDemandeAnnulationResponseDto(t_demande_annulation d)
         {
             return new demandeAnnulationResponseDto
@@ -364,57 +369,22 @@ namespace print_attestation.Tools
                 motifId = d.r_motif_annulation.r_id,
                 numPolice = d.r_num_police,
                 motifRejet = d.r_motif_rejet,
+                fichiers = d.r_fichiers != null ? d.r_fichiers.Select(BuildDemandeAnnulationFichierResponseDto).ToList() : null,
                 user = d.r_user != null ? BuildUserToUserResponseDto(d.r_user) : null
             };
         }
 
 
-        public static RoleResponseDto BuildRoleToRoleResponseDto(t_role? r)
+
+        public static demandeAnnulationFichierResponseDto BuildDemandeAnnulationFichierResponseDto(t_demande_annulation_fichier f)
         {
-
-            if (r == null)
-                return null;
-
-            return new RoleResponseDto
+            return new demandeAnnulationFichierResponseDto
             {
-                id = r.r_id,
-                nom = r.r_nom,
-                code = r.r_code,
-                description = r.r_description,
-                scopes = r.r_role_scopes != null ? r.r_role_scopes.Select(rs => BuildScopeToScopeResponseDto(rs.r_scope)).ToArray() : null,
-                siteTypes = r.r_sites_types != null ? r.r_sites_types.Select(st => BuildSiteTypeToSiteTypeResponseDto(st)).ToArray() : null,
+                id = f.r_id,
+                nomFichier = f.r_nom_fichier,
+                cheminFichier = f.r_chemin_fichier,
             };
         }
-
-        public static ScopeResponseDto BuildScopeToScopeResponseDto(t_scope? s)
-        {
-
-            if (s == null)
-                return null;
-
-            return new ScopeResponseDto
-            {
-                nom = s.r_nom,
-                code = s.r_code,
-                description = s.r_description,
-               
-            };
-        }
-
-
-        public static siteTypeResponseDto BuildSiteTypeToSiteTypeResponseDto(TYPE_SITE? t)
-        {
-
-            if (t == null)
-                return null;
-
-            return new siteTypeResponseDto
-            {
-                id = (int)t,
-                libelle = EquivalenceTypeSite(t)
-            };
-        }
-
 
 
     }

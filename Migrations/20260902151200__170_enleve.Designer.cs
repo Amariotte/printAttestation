@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using print_attestation.ContextDb;
 
@@ -11,9 +12,11 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260902151200__170_enleve")]
+    partial class _170_enleve
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using print_attestation.ContextDb;
 
@@ -11,9 +12,11 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260902084759___0")]
+    partial class __0
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -92,54 +95,6 @@ namespace print_attestation.Migrations
                     b.HasIndex("r_user_id_fk");
 
                     b.ToTable("t_demande_annulation");
-                });
-
-            modelBuilder.Entity("print_attestation.Model.t_demande_annulation_fichier", b =>
-                {
-                    b.Property<int>("r_id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
-
-                    b.Property<string>("r_chemin_fichier")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
-
-                    b.Property<DateTime?>("r_created_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_created_by")
-                        .HasColumnType("int");
-
-                    b.Property<int>("r_demande_annulation_id_fk")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("r_is_active")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_is_delete")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("r_nom_fichier")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime?>("r_updated_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_updated_by")
-                        .HasColumnType("int");
-
-                    b.HasKey("r_id");
-
-                    b.HasIndex("r_created_at");
-
-                    b.HasIndex("r_demande_annulation_id_fk");
-
-                    b.HasIndex(new[] { "r_demande_annulation_id_fk" }, "IX_DemandeAnnulationFichier_DemandeId");
-
-                    b.ToTable("t_demande_annulation_fichier");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_histo_email", b =>
@@ -576,6 +531,294 @@ namespace print_attestation.Migrations
                     b.ToTable("t_refresh_token");
                 });
 
+            modelBuilder.Entity("print_attestation.Model.t_role", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<string>("r_code")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_description")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("r_nom")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("r_ordre")
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_sites_types")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.ToTable("t_role");
+                });
+
+            modelBuilder.Entity("print_attestation.Model.t_role_scope", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("r_role_id_fk")
+                        .IsRequired()
+                        .HasColumnType("int");
+
+                    b.Property<string>("r_scope_code_fk")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_role_id_fk");
+
+                    b.HasIndex("r_scope_code_fk");
+
+                    b.ToTable("t_role_scope");
+                });
+
+            modelBuilder.Entity("print_attestation.Model.t_scope", b =>
+                {
+                    b.Property<string>("r_code")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("r_description")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("r_nom")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("r_code");
+
+                    b.ToTable("t_scope");
+
+                    b.HasData(
+                        new
+                        {
+                            r_code = "attestations.read",
+                            r_description = "Permet de consulter les attestations",
+                            r_nom = "Lecture des attestations"
+                        },
+                        new
+                        {
+                            r_code = "attestations.read.all",
+                            r_description = "Permet de consulter les attestations de tous les intermediaires",
+                            r_nom = "Lecture des attestations de tous les intermediaires"
+                        },
+                        new
+                        {
+                            r_code = "demandes-annulations.read",
+                            r_description = "Permet de consulter les demandes d'annulation",
+                            r_nom = "Lecture des demandes d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "demandes-annulations.read.site",
+                            r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
+                            r_nom = "Lecture des demandes d'annulation de mon intérmediaire"
+                        },
+                        new
+                        {
+                            r_code = "taches.read",
+                            r_description = "Permet de consulter les taches",
+                            r_nom = "Lecture des taches"
+                        },
+                        new
+                        {
+                            r_code = "taches.read.site",
+                            r_description = "Permet de consulter les taches de mon site",
+                            r_nom = "Lecture des taches de mon site"
+                        },
+                        new
+                        {
+                            r_code = "taches.update",
+                            r_description = "Permet d'annuler les taches",
+                            r_nom = "Annulation des taches"
+                        },
+                        new
+                        {
+                            r_code = "taches.update.site",
+                            r_description = "Permet d'annuler les taches de mon site",
+                            r_nom = "Annulation des taches de mon site"
+                        },
+                        new
+                        {
+                            r_code = "taches.update.all",
+                            r_description = "Permet d'annuler les taches de tous les utilisateurs",
+                            r_nom = "Annulation des taches de tous les utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "audits.actions.read",
+                            r_description = "Permet de consulter les audits liés aux actions",
+                            r_nom = "Lecture des audits actions"
+                        },
+                        new
+                        {
+                            r_code = "audits.actions.read.site",
+                            r_description = "Permet de consulter les audits liés aux actions de mon site",
+                            r_nom = "Lecture des audits actions de mon site"
+                        },
+                        new
+                        {
+                            r_code = "audits.acces.read",
+                            r_description = "Permet de consulter les audits liés aux connexions",
+                            r_nom = "Lecture des audits connexions"
+                        },
+                        new
+                        {
+                            r_code = "audits.acces.read.site",
+                            r_description = "Permet de consulter les audits liés aux connexions de mon site",
+                            r_nom = "Lecture des audits connexions de mon site"
+                        },
+                        new
+                        {
+                            r_code = "users.read",
+                            r_description = "Permet de consulter les utilisateurs",
+                            r_nom = "Lecture des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "sites.create",
+                            r_description = "Permet de créer des intermédiaires",
+                            r_nom = "Création des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "sites.update",
+                            r_description = "Permet de modifier les intermédiaires",
+                            r_nom = "Modification des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "sites.delete",
+                            r_description = "Permet de supprimer les intermédiaires",
+                            r_nom = "Suppression des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "sites.read",
+                            r_description = "Permet de consulter les intermédiaires",
+                            r_nom = "Lecture des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "sites.upload",
+                            r_description = "Permet de téléverser les intermédiaires",
+                            r_nom = "Téléversement des intermédiaires"
+                        },
+                        new
+                        {
+                            r_code = "users.create",
+                            r_description = "Permet de créer des utilisateurs",
+                            r_nom = "Création des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.update",
+                            r_description = "Permet de modifier les utilisateurs",
+                            r_nom = "Modification des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "users.delete",
+                            r_description = "Permet de supprimer les utilisateurs",
+                            r_nom = "Suppression des utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.read",
+                            r_description = "Permet de consulter les profils d'utilisateurs",
+                            r_nom = "Lecture des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.create",
+                            r_description = "Permet de créer les profils d'utilisateurs",
+                            r_nom = "Création des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.update",
+                            r_description = "Permet de modifier les profils d'utilisateurs",
+                            r_nom = "Modification des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "roles.delete",
+                            r_description = "Permet de supprimer les profils d'utilisateurs",
+                            r_nom = "Suppression des profils d'utilisateurs"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.read",
+                            r_description = "Permet de consulter les motifs d'annulation",
+                            r_nom = "Lecture des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.create",
+                            r_description = "Permet de créer les motifs d'annulation",
+                            r_nom = "Création des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.update",
+                            r_description = "Permet de modifier les motifs d'annulation",
+                            r_nom = "Modification des motifs d'annulation"
+                        },
+                        new
+                        {
+                            r_code = "motifs-annulation.delete",
+                            r_description = "Permet de supprimer les motifs d'annulation",
+                            r_nom = "Suppression des motifs d'annulation"
+                        });
+                });
+
             modelBuilder.Entity("print_attestation.Model.t_session", b =>
                 {
                     b.Property<int>("r_id")
@@ -901,9 +1144,6 @@ namespace print_attestation.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
-                    b.Property<int>("r_type")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
 
@@ -920,6 +1160,47 @@ namespace print_attestation.Migrations
                     b.HasIndex(new[] { "r_telephone" }, "IX_User_Telephone");
 
                     b.ToTable("t_user");
+                });
+
+            modelBuilder.Entity("print_attestation.Model.t_user_role", b =>
+                {
+                    b.Property<int>("r_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
+
+                    b.Property<DateTime?>("r_created_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_created_by")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("r_is_active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("r_is_delete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("r_role_id_fk")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("r_updated_at")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("r_updated_by")
+                        .HasColumnType("int");
+
+                    b.Property<int>("r_user_id_fk")
+                        .HasColumnType("int");
+
+                    b.HasKey("r_id");
+
+                    b.HasIndex("r_role_id_fk");
+
+                    b.HasIndex("r_user_id_fk");
+
+                    b.ToTable("t_user_role");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_demande_annulation", b =>
@@ -946,17 +1227,6 @@ namespace print_attestation.Migrations
                     b.Navigation("r_site");
 
                     b.Navigation("r_user");
-                });
-
-            modelBuilder.Entity("print_attestation.Model.t_demande_annulation_fichier", b =>
-                {
-                    b.HasOne("print_attestation.Model.t_demande_annulation", "r_demande_annulation")
-                        .WithMany("r_fichiers")
-                        .HasForeignKey("r_demande_annulation_id_fk")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("r_demande_annulation");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_job", b =>
@@ -990,6 +1260,25 @@ namespace print_attestation.Migrations
                         .IsRequired();
 
                     b.Navigation("r_user");
+                });
+
+            modelBuilder.Entity("print_attestation.Model.t_role_scope", b =>
+                {
+                    b.HasOne("print_attestation.Model.t_role", "r_role")
+                        .WithMany("r_role_scopes")
+                        .HasForeignKey("r_role_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("print_attestation.Model.t_scope", "r_scope")
+                        .WithMany("r_role_scopes")
+                        .HasForeignKey("r_scope_code_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("r_role");
+
+                    b.Navigation("r_scope");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_session", b =>
@@ -1032,9 +1321,23 @@ namespace print_attestation.Migrations
                     b.Navigation("r_site");
                 });
 
-            modelBuilder.Entity("print_attestation.Model.t_demande_annulation", b =>
+            modelBuilder.Entity("print_attestation.Model.t_user_role", b =>
                 {
-                    b.Navigation("r_fichiers");
+                    b.HasOne("print_attestation.Model.t_role", "r_role")
+                        .WithMany("r_user_roles")
+                        .HasForeignKey("r_role_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("print_attestation.Model.t_user", "r_user")
+                        .WithMany("r_user_roles")
+                        .HasForeignKey("r_user_id_fk")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("r_role");
+
+                    b.Navigation("r_user");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_job", b =>
@@ -1045,6 +1348,18 @@ namespace print_attestation.Migrations
             modelBuilder.Entity("print_attestation.Model.t_motif_annulation", b =>
                 {
                     b.Navigation("r_users");
+                });
+
+            modelBuilder.Entity("print_attestation.Model.t_role", b =>
+                {
+                    b.Navigation("r_role_scopes");
+
+                    b.Navigation("r_user_roles");
+                });
+
+            modelBuilder.Entity("print_attestation.Model.t_scope", b =>
+                {
+                    b.Navigation("r_role_scopes");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_site", b =>
@@ -1059,6 +1374,8 @@ namespace print_attestation.Migrations
                     b.Navigation("r_refresh_tokens");
 
                     b.Navigation("r_sessions");
+
+                    b.Navigation("r_user_roles");
                 });
 #pragma warning restore 612, 618
         }

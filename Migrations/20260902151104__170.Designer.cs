@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using print_attestation.ContextDb;
 
@@ -11,9 +12,11 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260902151104__170")]
+    partial class _170
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -663,6 +666,10 @@ namespace print_attestation.Migrations
 
                     b.Property<bool>("r_is_delete")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("r_joseph")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<string>("r_nom")
                         .IsRequired()

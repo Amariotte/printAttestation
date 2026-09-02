@@ -12,7 +12,6 @@ using Newtonsoft.Json;
 using OracleApi.Services;
 using print_attestation.ContextDb;
 using print_attestation.Dtos.General;
-using print_attestation.Implementation;
 using print_attestation.Interface;
 using print_attestation.ScopeAttribute;
 using print_attestation.Services;
@@ -213,6 +212,8 @@ namespace ask
             // Middleware pour gérer les erreurs 404
             app.Use(async (context, next) =>
             {
+
+                
                 await next();
 
                 if (context.Response.StatusCode == 404 && !context.Response.HasStarted)

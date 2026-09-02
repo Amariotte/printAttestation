@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using print_attestation.ContextDb;
 
@@ -11,9 +12,11 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260902102729___10")]
+    partial class __10
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -92,54 +95,6 @@ namespace print_attestation.Migrations
                     b.HasIndex("r_user_id_fk");
 
                     b.ToTable("t_demande_annulation");
-                });
-
-            modelBuilder.Entity("print_attestation.Model.t_demande_annulation_fichier", b =>
-                {
-                    b.Property<int>("r_id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
-
-                    b.Property<string>("r_chemin_fichier")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
-
-                    b.Property<DateTime?>("r_created_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_created_by")
-                        .HasColumnType("int");
-
-                    b.Property<int>("r_demande_annulation_id_fk")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("r_is_active")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_is_delete")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("r_nom_fichier")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime?>("r_updated_at")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("r_updated_by")
-                        .HasColumnType("int");
-
-                    b.HasKey("r_id");
-
-                    b.HasIndex("r_created_at");
-
-                    b.HasIndex("r_demande_annulation_id_fk");
-
-                    b.HasIndex(new[] { "r_demande_annulation_id_fk" }, "IX_DemandeAnnulationFichier_DemandeId");
-
-                    b.ToTable("t_demande_annulation_fichier");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_histo_email", b =>
@@ -948,17 +903,6 @@ namespace print_attestation.Migrations
                     b.Navigation("r_user");
                 });
 
-            modelBuilder.Entity("print_attestation.Model.t_demande_annulation_fichier", b =>
-                {
-                    b.HasOne("print_attestation.Model.t_demande_annulation", "r_demande_annulation")
-                        .WithMany("r_fichiers")
-                        .HasForeignKey("r_demande_annulation_id_fk")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("r_demande_annulation");
-                });
-
             modelBuilder.Entity("print_attestation.Model.t_job", b =>
                 {
                     b.HasOne("print_attestation.Model.t_user", "r_user")
@@ -1030,11 +974,6 @@ namespace print_attestation.Migrations
                         .IsRequired();
 
                     b.Navigation("r_site");
-                });
-
-            modelBuilder.Entity("print_attestation.Model.t_demande_annulation", b =>
-                {
-                    b.Navigation("r_fichiers");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_job", b =>

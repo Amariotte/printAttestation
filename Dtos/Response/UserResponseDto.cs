@@ -13,8 +13,10 @@ namespace print_attestation.Dtos.Response.auth
         public string? telephone { get; set; }
         public bool? actif { get; set; }
 
-        public int?[] sites { get; set; }
-        public string?[] roles { get; set; }
+        public string? role { get; set; }
+        public int? roleId { get; set; }
+
+        public SiteResponseDto? site { get; set; }
 
 
     }

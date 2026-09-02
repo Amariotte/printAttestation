@@ -25,6 +25,7 @@ namespace print_attestation.Dtos.Response
         public string? motifLibelle { get; set; }
         public int? motifId { get; set; }
         public UserResponseDto? user { get; set; }
+        public List<demandeAnnulationFichierResponseDto>? fichiers { get; set; } = new List<demandeAnnulationFichierResponseDto>();
 
 
     }

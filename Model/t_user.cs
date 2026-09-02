@@ -49,12 +49,10 @@ namespace print_attestation.Model
         [MaxLength(255)]
         public string? r_password { get; set; } = string.Empty;
 
-    
+
+        public TYPE_UTILISATEUR r_type { get; set; } = TYPE_UTILISATEUR.UTILISATEUR;
 
         public bool r_password_change_required { get; set; } = true;
-
-        public TYPE_SITE[] r_sites_types { get; set; } = Array.Empty<TYPE_SITE>();
-
 
 
         [Required]
@@ -62,7 +60,6 @@ namespace print_attestation.Model
         public int r_site_id_fk { get; set; }
 
         public t_site? r_site{ get; set; }
-
 
         /// <summary>
         /// Statut du compte utilisateur
@@ -76,9 +73,6 @@ namespace print_attestation.Model
 
         public ICollection<t_session>? r_sessions { get; set; } = new List<t_session>();
         public ICollection<t_job>? r_jobs { get; set; } = new List<t_job>();
-        public ICollection<t_user_role>? r_user_roles { get; set; } = new List<t_user_role>();
-        public ICollection<t_user_scope>? r_user_scopes { get; set; } = new List<t_user_scope>();
-
 
 
 

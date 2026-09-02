@@ -14,7 +14,7 @@ using OracleApi.Services;
 using print_attestation.ScopeAttribute;
 using print_attestation.Security;
 using print_attestation.Dtos.General;
-using print_attestation.Tools;
+using print_attestation.Dtos.Request;
 
 
 namespace print_attestation.Controllers
@@ -77,7 +77,6 @@ namespace print_attestation.Controllers
 
         #region Attestation
         [Authorize]
-        [RequireScope(Scopes.TachesCreate)]
         [HttpPost("attestations/{type}/jobs")]
         public async Task<IActionResult> CreateJobsByType(string type, [FromBody] List<string> numAttestations)
         {
@@ -207,7 +206,6 @@ namespace print_attestation.Controllers
 
         [Authorize]
 
-        [RequireAnyScope(Scopes.TachesRead, Scopes.TachesReadSite)]
         [HttpGet("attestations/jobs")]
         public async Task<IActionResult> ListJobs([FromQuery] int page = 1, [FromQuery] int limit = 20, [FromQuery] string? type = null, [FromQuery] int? status = null)
         {
@@ -221,11 +219,29 @@ namespace print_attestation.Controllers
 
             var baseQuery = _dbContext.t_job.AsQueryable();
 
-           // Tous les types de sites de l'utilisateur connecté
-           var userSiteTypeIds = await Tools.Tools.returnUserSiteTypeIds(userConnecte);
-           baseQuery = baseQuery.Where(u =>
-               (u.r_user.r_site != null && userSiteTypeIds.Contains((int)u.r_user.r_site.r_type)) ||
-               u.r_user.r_site_id_fk == userConnecte.r_site_id_fk);
+
+            if (!User.HasScope(Scopes.administrateur))
+            {
+
+                if (User.HasScope(Scopes.responsable_reseau)) // Voir pour tout les utilisateurs sauf les administrateurs
+                {
+                    baseQuery = baseQuery.Where(u => ((u.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR  ) || (u.r_user_id_fk != null && u.r_user_id_fk == userConnecte.r_id)));
+                }
+                else if (User.HasScope(Scopes.bureau_direct)) // Voir pour tout les utilisateurs de son bureau et pour lui meme
+                {
+                    baseQuery = baseQuery.Where(u => ((u.r_user.r_site.r_id == userConnecte.r_site_id_fk) || (u.r_user_id_fk != null && u.r_user_id_fk == userConnecte.r_id)));
+                }
+                else if (User.HasScope(Scopes.responsable_intermediaire)) // Voir pour tout les utilisateurs de son bureau et pour lui meme
+                {
+                    baseQuery = baseQuery.Where(u => ((u.r_user.r_site.r_id == userConnecte.r_site_id_fk) || (u.r_user_id_fk != null && u.r_user_id_fk == userConnecte.r_id)));
+                }
+                else // Voir uniquement pour lui meme
+                {
+                    baseQuery = baseQuery.Where(u => ((u.r_user_id_fk != null && u.r_user_id_fk == userConnecte.r_id)));
+                }
+
+            }
+
 
             // Filtre par statut si fourni (valeurs : RUNNING, COMPLETED, CANCELLED)
             if (status > 0)
@@ -261,7 +277,6 @@ namespace print_attestation.Controllers
 
 
         [Authorize]
-        [RequireAnyScope(Scopes.TachesRead, Scopes.TachesReadSite)]
         [HttpGet("attestations/jobs/{jobId}")]
         public async Task<IActionResult> GetJobDetail(string jobId)
         {
@@ -283,7 +298,6 @@ namespace print_attestation.Controllers
 
 
         [Authorize]
-        [RequireAnyScope(Scopes.TachesUpdate)]
         [HttpPost("attestations/jobs/{jobId}/cancel")]
         public async Task<IActionResult> StopJob(string jobId)
         {
@@ -363,7 +377,6 @@ namespace print_attestation.Controllers
         }
 
         [Authorize]
-        [RequireAnyScope(Scopes.AttestationsRead, Scopes.AttestationsReadAll)]
         [HttpGet("attestations/{cleRechercheEncode}")]
         public async Task<IActionResult> GetAttestation(string cleRechercheEncode, [FromQuery] int page = 1, [FromQuery] int limit = 10,[FromQuery] string status = "")
         {
@@ -413,16 +426,12 @@ namespace print_attestation.Controllers
                     statutSql = " AND TRUNC(a.DATECHAT) < TRUNC(SYSDATE)";
                 }
 
-                if (User.HasScope(Scopes.AttestationsReadAll))
+               
+                if (User.HasScope(Scopes.utilisateur) || User.HasScope(Scopes.responsable_intermediaire)) // Uniquement le site de l'utilisateur connecté
                 {
-                    // Tous les sites
-                }
-                else if (User.HasScope(Scopes.AttestationsRead)) // Uniquement le site de l'utilisateur connecté
-                {
-                    codeInteSql = " AND a.CODEINTE IN :codeInte";
+                    codeInteSql = " AND a.CODEINTE =:codeInte";
                 }
                
-
 
                 // Requête SQL pour compter le nombre total d'attestations correspondant à la recherche
                 string _sqlCount = @"SELECT count(*) AS nb
@@ -481,7 +490,6 @@ namespace print_attestation.Controllers
 
                 if (!string.IsNullOrWhiteSpace(codeInteSql))
                 {
-                    // Concatener la liste des codes des sites de l'utilisateur connecté pour la clause IN
                     string codeInte = dataUser.r_site != null ? dataUser.r_site.r_code : string.Empty;
                     parameters.Add(":codeInte", codeInte);
                     countParameters.Add(":codeInte", codeInte);
@@ -678,7 +686,7 @@ namespace print_attestation.Controllers
 
         #endregion
         [Authorize]
-        [RequireScope(Scopes.SitesUpload)]
+        [RequireScope(Scopes.administrateur)]
         [HttpGet("sites")]
         public async Task<IActionResult> ChargerLesSites()
         {
@@ -737,7 +745,6 @@ namespace print_attestation.Controllers
 
 
         [Authorize]
-        [RequireScope(Scopes.DemandesAnnulationsRead)]
         [HttpGet("demandes/annulations")]
         public async Task<IActionResult> ListDemandeAnnulation([FromQuery] int page = 1, [FromQuery] int limit = 20, [FromQuery] string? type = null, [FromQuery] int? status = null)
         {
@@ -781,18 +788,136 @@ namespace print_attestation.Controllers
         }
 
 
+
+        [Authorize]
+        [HttpPost("demandes/annulations")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreerUneDemandeAnnulation([FromForm] demandeAnnulationCreateFormDto body)
+        {
+            const string _desc_route = "Créer une demande d'annulation";
+
+            try
+            {
+                var user = GetInfoUser();
+                if (user == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+                if (body == null)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Les données sont requises", instance: HttpContext.Request.Path));
+
+                if (body.motifAnnulationId <= 0)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le motif d'annulation est requis", instance: HttpContext.Request.Path));
+
+                var hasReference = !string.IsNullOrWhiteSpace(body.numPolice)
+                                   || !string.IsNullOrWhiteSpace(body.numAttestation)
+                                   || !string.IsNullOrWhiteSpace(body.numImmatriculation);
+
+                if (!hasReference)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins une référence est requise (numPolice, numAttestation ou numImmatriculation)", instance: HttpContext.Request.Path));
+
+                if (body.files == null || !body.files.Any())
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un fichier est requis (clé form-data: files)", instance: HttpContext.Request.Path));
+
+                var motif = await _dbContext.t_motif_annulation
+                    .FirstOrDefaultAsync(m => m.r_id == body.motifAnnulationId && m.r_is_delete != true);
+
+                if (motif == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Motif d'annulation introuvable", instance: HttpContext.Request.Path));
+
+                var demande = new t_demande_annulation
+                {
+                    r_status = STATUT_DEMANDE_ANNULATION.EN_ATTENTE,
+                    r_user_id_fk = user.r_id,
+                    r_site_id_fk = user.r_site_id_fk,
+                    r_motif_annulation_id_fk = body.motifAnnulationId,
+                    r_num_police = body.numPolice?.Trim(),
+                    r_num_attestation = body.numAttestation?.Trim(),
+                    r_num_immatriculation = body.numImmatriculation?.Trim(),
+                    r_created_by = user.r_id,
+                    r_created_at = DateTime.UtcNow
+                };
+
+                await _dbContext.t_demande_annulation.AddAsync(demande);
+                await _dbContext.SaveChangesAsync();
+
+                var webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
+                    ? Path.Combine(_env.ContentRootPath, "wwwroot")
+                    : _env.WebRootPath;
+
+                var uploadFolder = Path.Combine(webRoot, "uploads", "demandes-annulations", demande.r_id.ToString());
+                Directory.CreateDirectory(uploadFolder);
+
+                var fichiers = new List<t_demande_annulation_fichier>();
+
+                foreach (var file in body.files.Where(f => f != null && f.Length > 0))
+                {
+                    var extension = Path.GetExtension(file.FileName);
+                    var safeName = $"{Guid.NewGuid():N}{extension}";
+                    var filePath = Path.Combine(uploadFolder, safeName);
+
+                    await using var stream = new FileStream(filePath, FileMode.Create);
+                    await file.CopyToAsync(stream);
+
+                    fichiers.Add(new t_demande_annulation_fichier
+                    {
+                        r_demande_annulation_id_fk = demande.r_id,
+                        r_nom_fichier = file.FileName,
+                        r_chemin_fichier = filePath,
+                        r_created_by = user.r_id,
+                        r_created_at = DateTime.UtcNow
+                    });
+                }
+
+                if (fichiers.Count > 0)
+                {
+                    await _dbContext.t_demande_annulation_fichier.AddRangeAsync(fichiers);
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                var created = await _dbContext.t_demande_annulation
+                    .Include(d => d.r_user)
+                    .Include(d => d.r_fichiers)
+                    .Include(d => d.r_site)
+                    .Include(d => d.r_motif_annulation)
+                    .FirstOrDefaultAsync(d => d.r_id == demande.r_id);
+
+                return Ok(Tools.Tools.BuildDemandeAnnulationResponseDto(created!));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
         [NonAction]
         private async Task<bool> HasAccessToJob(t_job jobRec, t_user user)
         {
 
-            var userSiteTypeIds = await Tools.Tools.returnUserSiteTypeIds(user);
 
-          
-            if (userSiteTypeIds == null || userSiteTypeIds.Count == 0)
-                return jobRec.r_user_id_fk == user.r_id;
+            if (!User.HasScope(Scopes.administrateur))
+            {
 
-            if ((jobRec.r_user.r_site != null && userSiteTypeIds.Contains((int)jobRec.r_user.r_site.r_type)) || jobRec.r_user_id_fk == user.r_id)
-                return true;
+                if (User.HasScope(Scopes.responsable_reseau)) // Voir pour tout les utilisateurs sauf les administrateurs
+                {
+                   return (jobRec.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || (jobRec.r_user_id_fk != null && jobRec.r_user_id_fk == user.r_id);
+                }
+                else if (User.HasScope(Scopes.bureau_direct)) // Voir pour tout les utilisateurs de son bureau et pour lui meme
+                {
+                    return (jobRec.r_user.r_site.r_id == user.r_site_id_fk) || (jobRec.r_user_id_fk != null && jobRec.r_user_id_fk == user.r_id);
+                }
+                else if (User.HasScope(Scopes.responsable_intermediaire)) // Voir pour tout les utilisateurs de son bureau et pour lui meme
+                {
+                    return ((jobRec.r_user.r_site.r_id == user.r_site_id_fk) || (jobRec.r_user_id_fk != null && jobRec.r_user_id_fk == user.r_id));
+                }
+                else // Voir uniquement pour lui meme
+                {
+                   return ((jobRec.r_user_id_fk != null && jobRec.r_user_id_fk == user.r_id));
+                }
+
+            }
+
 
             return false;
         }

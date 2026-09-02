@@ -13,13 +13,24 @@ public enum STATUT_SMS
     ECHOUE = 3
 }
 
+
+public enum TYPE_UTILISATEUR
+{
+    ADMINISTRATEUR = 1,
+    RESPONSABLE_RESEAU = 2,
+    BUREAU_DIRECT = 3,
+    RESPONSABLE_INTERMEDIAIRE = 4,
+    UTILISATEUR = 5,
+}
+
 public enum TYPE_SITE
 {
-    SIEGE = 1  ,
+    SIEGE = 1,
     BUREAU_DIRECT = 2,
-    AGENT_GENERAL = 3,
-    COURTTIER = 4,
-    AUTRES = 5
+    BANCASSURANCE = 3,
+    AGENT_GENERAL = 4,
+    COURTTIER = 5,
+    AUTRES = 6
 }
 
 

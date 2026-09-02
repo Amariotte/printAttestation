@@ -10,10 +10,8 @@ namespace print_attestation.Dtos.Request
         public string? telephone { get; set; }
         public  bool? allSites{ get; set; } = false;
 
-        public int?[] roles { get; set; }
-        public TYPE_SITE?[] siteTypes { get; set; }
-
         public int? siteId { get; set; }
+        public int? typeId { get; set; }
     }
 
     public class UserDtoValidator : AbstractValidator<UserDto>

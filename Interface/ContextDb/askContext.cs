@@ -27,13 +27,9 @@ namespace print_attestation.ContextDb
         public DbSet<t_job_details> t_job_details { get; set; } = null!;
         public DbSet<t_demande_annulation> t_demande_annulation { get; set; } = null!;
         public DbSet<t_motif_annulation> t_motif_annulation { get; set; } = null!;
-        public DbSet<t_role> t_role { get; set; } = null!;
-        public DbSet<t_scope> t_scope { get; set; } = null!;
-
-        public DbSet<t_user_role> t_user_role { get; set; } = null!;
-        public DbSet<t_user_scope> t_user_scope { get; set; } = null!;
-        public DbSet<t_role_scope> t_role_scope { get; set; } = null!;
-   
+        public DbSet<t_demande_annulation_fichier> t_demande_annulation_fichier { get; set; } = null!;
+    
+  
       
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -93,6 +89,7 @@ namespace print_attestation.ContextDb
             modelBuilder.Entity<t_job_details>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_demande_annulation>().HasQueryFilter(e => !e.r_is_delete);
             modelBuilder.Entity<t_motif_annulation>().HasQueryFilter(e => !e.r_is_delete);
+            modelBuilder.Entity<t_demande_annulation_fichier>().HasQueryFilter(e => !e.r_is_delete);
 
             // Configuration des tables de traçabilité
             modelBuilder.Entity<t_trace_action>(entity =>
@@ -178,238 +175,18 @@ namespace print_attestation.ContextDb
                     .WithMany(m => m.r_users)
                     .HasForeignKey(e => e.r_motif_annulation_id_fk)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasMany(e => e.r_fichiers)
+                    .WithOne(f => f.r_demande_annulation)
+                    .HasForeignKey(f => f.r_demande_annulation_id_fk)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
-
-
-
-            modelBuilder.Entity<t_scope>().HasData(
-                
-
-                // Attestations
-                new t_scope
-                {
-                    r_code = Scopes.AttestationsRead,
-                    r_nom = "Lecture des attestations",
-                    r_description = "Permet de consulter les attestations",
-               
-                },
-
-                 new t_scope
-                 {
-                     r_code = Scopes.AttestationsReadAll,
-                     r_nom = "Lecture des attestations de tous les intermediaires",
-                     r_description = "Permet de consulter les attestations de tous les intermediaires",
-              
-                 },
-
-
-                // demandes d'annulation
-                new t_scope
-                {
-                    r_code = Scopes.DemandesAnnulationsRead,
-                    r_nom = "Lecture des demandes d'annulation",
-                    r_description = "Permet de consulter les demandes d'annulation",
-               
-                },
-
-                 new t_scope
-                 {
-                     r_code = Scopes.DemandesAnnulationsReadSite,
-                     r_nom = "Lecture des demandes d'annulation de mon intérmediaire",
-                     r_description = "Permet de consulter les demandes d'annulation de tous les intermediaires",
-                    
-                 },
-
-                  // Taches
-                  new t_scope
-                 {
-                      r_code = Scopes.TachesRead,
-                      r_nom = "Lecture des taches",
-                      r_description = "Permet de consulter les taches",
-                 
-                 },
-                   new t_scope
-                   {
-                       r_code = Scopes.TachesReadSite,
-                       r_nom = "Lecture des taches de mon site",
-                       r_description = "Permet de consulter les taches de mon site",
-                  
-                   },
-                new t_scope
-                {
-                    r_code = Scopes.TachesUpdate,
-                    r_nom = "Annulation des taches",
-                    r_description = "Permet d'annuler les taches",
-                 
-                },
-                new t_scope
-                {
-                    r_code = Scopes.TachesUpdateSite,
-                    r_nom = "Annulation des taches de mon site",
-                    r_description = "Permet d'annuler les taches de mon site",
-               
-                },
-                new t_scope
-                {
-                    r_code = Scopes.TachesUpdateAll,
-                    r_nom = "Annulation des taches de tous les utilisateurs",
-                    r_description = "Permet d'annuler les taches de tous les utilisateurs",
-               
-                },
-                
-                // Audits
-                new t_scope
-                {
-                    r_code = Scopes.AuditsActionsRead,
-                    r_nom = "Lecture des audits actions",
-                    r_description = "Permet de consulter les audits liés aux actions",
-             
-                },
-                 new t_scope
-                 {
-                     r_code = Scopes.AuditsActionsReadSite,
-                     r_nom = "Lecture des audits actions de mon site",
-                     r_description = "Permet de consulter les audits liés aux actions de mon site",
-                  
-                 },
-                    
-                new t_scope
-                {
-                    r_code = Scopes.AuditsAccesRead,
-                    r_nom = "Lecture des audits connexions",
-                    r_description = "Permet de consulter les audits liés aux connexions",
-                 
-                },
-                 new t_scope
-                 {
-                     r_code = Scopes.AuditsAccesReadSite,
-                     r_nom = "Lecture des audits connexions de mon site",
-                     r_description = "Permet de consulter les audits liés aux connexions de mon site",
-                  
-                 },
-               
-                new t_scope
-                {
-                    r_code = Scopes.UsersRead,
-                    r_nom = "Lecture des utilisateurs",
-                    r_description = "Permet de consulter les utilisateurs",
-                
-                },
-                new t_scope
-                {
-                    r_code = Scopes.SitesCreate,
-                    r_nom = "Création des intermédiaires",
-                    r_description = "Permet de créer des intermédiaires",
-                
-
-                },
-                new t_scope
-                {
-                    r_code = Scopes.SitesUpdate,
-                    r_nom = "Modification des intermédiaires",
-                    r_description = "Permet de modifier les intermédiaires",
-               
-                },
-                new t_scope
-                {
-                    r_code = Scopes.SitesDelete,
-                    r_nom = "Suppression des intermédiaires",
-                    r_description = "Permet de supprimer les intermédiaires",
-              
-                },
-                new t_scope
-                {
-                    r_code = Scopes.SitesRead,
-                    r_nom = "Lecture des intermédiaires",
-                    r_description = "Permet de consulter les intermédiaires",
-
-                },
-                 new t_scope
-                 {
-                     r_code = Scopes.SitesUpload,
-                     r_nom = "Téléversement des intermédiaires",
-                     r_description = "Permet de téléverser les intermédiaires",
-
-                 },
-                new t_scope
-                {
-                    r_code = Scopes.UsersCreate,
-                    r_nom = "Création des utilisateurs",
-                    r_description = "Permet de créer des utilisateurs",
-
-
-                },
-                new t_scope
-                {
-                    r_code = Scopes.UsersUpdate,
-                    r_nom = "Modification des utilisateurs",
-                    r_description = "Permet de modifier les utilisateurs",
-
-                },
-                new t_scope
-                {
-                    r_code = Scopes.UsersDelete,
-                    r_nom = "Suppression des utilisateurs",
-                    r_description = "Permet de supprimer les utilisateurs",
-
-                }
-                ,
-
-                new t_scope
-                {
-                    r_code = Scopes.RolesRead,
-                    r_nom = "Lecture des profils d'utilisateurs",
-                    r_description = "Permet de consulter les profils d'utilisateurs",
-
-                },
-                new t_scope
-                {
-                    r_code = Scopes.RolesCreate,
-                    r_nom = "Création des profils d'utilisateurs",
-                    r_description = "Permet de créer les profils d'utilisateurs",
-                },
-                new t_scope
-                {
-                    r_code = Scopes.RolesUpdate,
-                    r_nom = "Modification des profils d'utilisateurs",
-                    r_description = "Permet de modifier les profils d'utilisateurs",
-                },
-                new t_scope
-                {
-                    r_code = Scopes.RolesDelete,
-                    r_nom = "Suppression des profils d'utilisateurs",
-                    r_description = "Permet de supprimer les profils d'utilisateurs",
-                },
-
-                new t_scope
-                {
-                    r_code = Scopes.MotifAnnulationRead,
-                    r_nom = "Lecture des motifs d'annulation",
-                    r_description = "Permet de consulter les motifs d'annulation",
-
-                },
-                new t_scope
-                {
-                    r_code = Scopes.MotifAnnulationCreate,
-                    r_nom = "Création des motifs d'annulation",
-                    r_description = "Permet de créer les motifs d'annulation",
-                },
-                new t_scope
-                {
-                    r_code = Scopes.MotifAnnulationUpdate,
-                    r_nom = "Modification des motifs d'annulation",
-                    r_description = "Permet de modifier les motifs d'annulation",
-                },
-                new t_scope
-                {
-                    r_code = Scopes.MotifAnnulationDelete,
-                    r_nom = "Suppression des motifs d'annulation",
-                    r_description = "Permet de supprimer les motifs d'annulation",
-                }
-
-            );
-
+            modelBuilder.Entity<t_demande_annulation_fichier>(entity =>
+            {
+                entity.HasIndex(e => e.r_demande_annulation_id_fk);
+                entity.HasIndex(e => e.r_created_at);
+            });
 
         }
 
