@@ -11,7 +11,7 @@ namespace print_attestation.Dtos.Request
         public  bool? allSites{ get; set; } = false;
 
         public int? siteId { get; set; }
-        public int? typeId { get; set; }
+        public TYPE_UTILISATEUR? roleId        { get; set; }
     }
 
     public class UserDtoValidator : AbstractValidator<UserDto>
@@ -30,6 +30,10 @@ namespace print_attestation.Dtos.Request
             RuleFor(x => x.email)
                 .EmailAddress().WithMessage("L'adresse e-mail n'est pas valide.")
                 .When(x => !string.IsNullOrWhiteSpace(x.email));
+
+            RuleFor(x => x.roleId)
+                .NotNull().WithMessage("Le type d'utilisateur est obligatoire.")
+                .IsInEnum().WithMessage("Le type d'utilisateur est invalide.");
 
         }
     }

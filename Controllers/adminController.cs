@@ -54,6 +54,20 @@ namespace print_attestation.Controllers
             return (int)Math.Round(((currentValue - previousValue) / (double)previousValue) * 100);
         }
 
+        [NonAction]
+        private static bool CanAssignUserType(TYPE_UTILISATEUR actorType, TYPE_UTILISATEUR targetType)
+        {
+            return actorType switch
+            {
+                TYPE_UTILISATEUR.ADMINISTRATEUR => true,
+                TYPE_UTILISATEUR.RESPONSABLE_RESEAU => targetType != TYPE_UTILISATEUR.ADMINISTRATEUR && targetType != TYPE_UTILISATEUR.RESPONSABLE_RESEAU,
+                TYPE_UTILISATEUR.BUREAU_DIRECT => targetType == TYPE_UTILISATEUR.UTILISATEUR,
+                TYPE_UTILISATEUR.RESPONSABLE_INTERMEDIAIRE => targetType == TYPE_UTILISATEUR.UTILISATEUR,
+                TYPE_UTILISATEUR.UTILISATEUR => false,
+                _ => false
+            };
+        }
+
         [Authorize]
         [HttpGet("dashboard")]
         public async Task<IActionResult> GetDashboard([FromQuery] int user = 0, [FromQuery] int site = 0)
@@ -154,6 +168,193 @@ namespace print_attestation.Controllers
 
 
 
+        [Authorize]
+        [HttpGet("dashboard/evolutions/week")]
+        public async Task<IActionResult> GetEvolutionsWeek(
+            [FromQuery] string periode = "semaine",
+            [FromQuery] int? annee = null,
+            [FromQuery] int user = 0,
+            [FromQuery] int site = 0)
+        {
+            var userConnecte = GetInfoUser();
+            if (userConnecte == null)
+                return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+            var mode = (periode ?? "semaine").Trim().ToLowerInvariant();
+            var now = DateTime.UtcNow.Date;
+
+            DateTime debutPeriode;
+            DateTime finPeriode;
+
+            switch (mode)
+            {
+                case "7jours":
+                    debutPeriode = now.AddDays(-6);
+                    finPeriode = now.AddDays(1);
+                    break;
+                case "semaine":
+                    var delta = ((int)now.DayOfWeek + 6) % 7;
+                    debutPeriode = now.AddDays(-delta);
+                    finPeriode = debutPeriode.AddDays(7);
+                    break;
+                case "annee":
+                    var year = annee.GetValueOrDefault(now.Year);
+                    debutPeriode = new DateTime(year, 1, 1);
+                    finPeriode = debutPeriode.AddYears(1);
+                    break;
+                default:
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Paramètre periode invalide (7jours|semaine|annee)", instance: HttpContext.Request.Path));
+            }
+
+            var rechercheAction = TYPE_ACTION.RECHERCHE_ATTESTATION.ToString();
+
+            var jobsQuery = _dbContext.t_job.Where(j => j.r_created_at >= debutPeriode && j.r_created_at < finPeriode);
+            var recherchesQuery = _dbContext.t_trace_action.Where(a => a.r_created_at >= debutPeriode && a.r_created_at < finPeriode && a.r_type_action == rechercheAction);
+            var demandesQuery = _dbContext.t_demande_annulation.Where(d => d.r_created_at >= debutPeriode && d.r_created_at < finPeriode);
+
+            if (!User.HasScope(Scopes.administrateur))
+            {
+                if (User.HasScope(Scopes.responsable_reseau))
+                {
+                    jobsQuery = jobsQuery.Where(j => (j.r_user != null && j.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || j.r_user_id_fk == userConnecte.r_id);
+                    recherchesQuery = recherchesQuery.Where(a => (a.r_user != null && a.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || a.r_created_by == userConnecte.r_id);
+                    demandesQuery = demandesQuery.Where(d => (d.r_user != null && d.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || d.r_user_id_fk == userConnecte.r_id);
+                }
+                else if (User.HasScope(Scopes.bureau_direct) || User.HasScope(Scopes.responsable_intermediaire))
+                {
+                    jobsQuery = jobsQuery.Where(j => (j.r_user != null && j.r_user.r_site_id_fk == userConnecte.r_site_id_fk) || j.r_user_id_fk == userConnecte.r_id);
+                    recherchesQuery = recherchesQuery.Where(a => (a.r_user != null && a.r_user.r_site_id_fk == userConnecte.r_site_id_fk) || a.r_created_by == userConnecte.r_id);
+                    demandesQuery = demandesQuery.Where(d => (d.r_user != null && d.r_user.r_site_id_fk == userConnecte.r_site_id_fk) || d.r_user_id_fk == userConnecte.r_id);
+                }
+                else
+                {
+                    jobsQuery = jobsQuery.Where(j => j.r_user_id_fk == userConnecte.r_id);
+                    recherchesQuery = recherchesQuery.Where(a => a.r_created_by == userConnecte.r_id);
+                    demandesQuery = demandesQuery.Where(d => d.r_user_id_fk == userConnecte.r_id);
+                }
+            }
+
+            if (site > 0)
+            {
+                jobsQuery = jobsQuery.Where(j => j.r_user != null && j.r_user.r_site_id_fk == site);
+                recherchesQuery = recherchesQuery.Where(a => a.r_user != null && a.r_user.r_site_id_fk == site);
+                demandesQuery = demandesQuery.Where(d => d.r_user != null && d.r_user.r_site_id_fk == site);
+            }
+
+            if (user > 0)
+            {
+                jobsQuery = jobsQuery.Where(j => j.r_user_id_fk == user);
+                recherchesQuery = recherchesQuery.Where(a => a.r_created_by == user);
+                demandesQuery = demandesQuery.Where(d => d.r_user_id_fk == user);
+            }
+
+            var jobsData = await jobsQuery
+                .Where(j => j.r_created_at.HasValue)
+                .Select(j => new { Date = j.r_created_at!.Value.Date, Status = j.r_status })
+                .ToListAsync();
+
+            var recherchesData = await recherchesQuery
+                .Where(a => a.r_created_at.HasValue)
+                .Select(a => a.r_created_at!.Value.Date)
+                .ToListAsync();
+
+            var demandesData = await demandesQuery
+                .Where(d => d.r_created_at.HasValue)
+                .Select(d => new { Date = d.r_created_at!.Value.Date, Status = d.r_status })
+                .ToListAsync();
+
+            var jours = new[] { "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche" };
+            var semaines = new List<evolutionPeriodeDto>();
+
+            if (mode == "annee")
+            {
+                for (var start = debutPeriode; start < finPeriode; start = start.AddDays(7))
+                {
+                    var end = start.AddDays(7);
+                    var numeroSemaine = System.Globalization.ISOWeek.GetWeekOfYear(start);
+
+                    var tachesEnCours = jobsData.Count(x => x.Date >= start && x.Date < end && x.Status == STATUT_JOB.RUNNING);
+                    var tachesAnnulees = jobsData.Count(x => x.Date >= start && x.Date < end && x.Status == STATUT_JOB.CANCELLED);
+                    var tachesTerminees = jobsData.Count(x => x.Date >= start && x.Date < end && x.Status == STATUT_JOB.COMPLETED);
+
+                    var demandesAttentes = demandesData.Count(x => x.Date >= start && x.Date < end && x.Status == STATUT_DEMANDE_ANNULATION.EN_ATTENTE);
+                    var demandesTraitees = demandesData.Count(x => x.Date >= start && x.Date < end && x.Status == STATUT_DEMANDE_ANNULATION.TRAITE);
+                    var demandesRejetees = demandesData.Count(x => x.Date >= start && x.Date < end && x.Status == STATUT_DEMANDE_ANNULATION.REJETE);
+
+                    semaines.Add(new evolutionPeriodeDto
+                    {
+                        numero = numeroSemaine,
+                        nom = $"Semaine {numeroSemaine}",
+                        recherches = recherchesData.Count(d => d >= start && d < end),
+                        taches = new tachesMoisDto
+                        {
+                            enCours = tachesEnCours,
+                            annulees = tachesAnnulees,
+                            terminees = tachesTerminees,
+                            total = tachesEnCours + tachesAnnulees + tachesTerminees
+                        },
+                        demandes = new demandesMoisDto
+                        {
+                            attentes = demandesAttentes,
+                            traitees = demandesTraitees,
+                            rejetees = demandesRejetees,
+                            total = demandesAttentes + demandesTraitees + demandesRejetees
+                        }
+                    });
+                }
+            }
+            else
+            {
+                var nbJours = (finPeriode - debutPeriode).Days;
+                for (var i = 0; i < nbJours; i++)
+                {
+                    var date = debutPeriode.AddDays(i);
+                    var numeroJour = ((int)date.DayOfWeek + 6) % 7;
+
+                    var tachesEnCours = jobsData.Count(x => x.Date == date && x.Status == STATUT_JOB.RUNNING);
+                    var tachesAnnulees = jobsData.Count(x => x.Date == date && x.Status == STATUT_JOB.CANCELLED);
+                    var tachesTerminees = jobsData.Count(x => x.Date == date && x.Status == STATUT_JOB.COMPLETED);
+
+                    var demandesAttentes = demandesData.Count(x => x.Date == date && x.Status == STATUT_DEMANDE_ANNULATION.EN_ATTENTE);
+                    var demandesTraitees = demandesData.Count(x => x.Date == date && x.Status == STATUT_DEMANDE_ANNULATION.TRAITE);
+                    var demandesRejetees = demandesData.Count(x => x.Date == date && x.Status == STATUT_DEMANDE_ANNULATION.REJETE);
+
+                    semaines.Add(new evolutionPeriodeDto
+                    {
+                        numero = i + 1,
+                        nom = $"{jours[numeroJour]} {date:dd/MM}",
+                        recherches = recherchesData.Count(d => d == date),
+                        taches = new tachesMoisDto
+                        {
+                            enCours = tachesEnCours,
+                            annulees = tachesAnnulees,
+                            terminees = tachesTerminees,
+                            total = tachesEnCours + tachesAnnulees + tachesTerminees
+                        },
+                        demandes = new demandesMoisDto
+                        {
+                            attentes = demandesAttentes,
+                            traitees = demandesTraitees,
+                            rejetees = demandesRejetees,
+                            total = demandesAttentes + demandesTraitees + demandesRejetees
+                        }
+                    });
+                }
+            }
+
+            var resultat = new evolutionDto
+            {
+                periode = mode,
+                annee = mode == "annee" ? annee.GetValueOrDefault(now.Year) : null,
+                recherches = semaines.Sum(x => x.recherches),
+                taches = semaines.Sum(x => x.taches?.total ?? 0),
+                demandes = semaines.Sum(x => x.demandes?.total ?? 0),
+                periodes = semaines
+            };
+
+            return Ok(resultat);
+        }
+
 
 
 
@@ -164,104 +365,125 @@ namespace print_attestation.Controllers
             [FromQuery] int user = 0,
             [FromQuery] int site = 0)
         {
-            var userInfo = GetInfoUser();
-            if (userInfo == null)
+            var userConnecte = GetInfoUser();
+            if (userConnecte == null)
                 return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
 
-            // Périmètre selon le type d'utilisateur connecté
-            IQueryable<t_user> usersQuery = _dbContext.t_user.AsQueryable();
+            var now = DateTime.UtcNow;
+            var debutPeriode = annee.HasValue && annee.Value > 0
+                ? new DateTime(annee.Value, 1, 1)
+                : new DateTime(now.Year, now.Month, 1).AddMonths(-11);
+            var finPeriode = debutPeriode.AddMonths(12);
 
-         
+            var rechercheAction = TYPE_ACTION.RECHERCHE_ATTESTATION.ToString();
+
+            var jobsQuery = _dbContext.t_job.Where(j => j.r_created_at >= debutPeriode && j.r_created_at < finPeriode);
+            var recherchesQuery = _dbContext.t_trace_action.Where(a => a.r_created_at >= debutPeriode && a.r_created_at < finPeriode && a.r_type_action == rechercheAction);
+            var demandesQuery = _dbContext.t_demande_annulation.Where(d => d.r_created_at >= debutPeriode && d.r_created_at < finPeriode);
+
+            if (!User.HasScope(Scopes.administrateur))
+            {
+                if (User.HasScope(Scopes.responsable_reseau))
+                {
+                    jobsQuery = jobsQuery.Where(j => (j.r_user != null && j.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || j.r_user_id_fk == userConnecte.r_id);
+                    recherchesQuery = recherchesQuery.Where(a => (a.r_user != null && a.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || a.r_created_by == userConnecte.r_id);
+                    demandesQuery = demandesQuery.Where(d => (d.r_user != null && d.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || d.r_user_id_fk == userConnecte.r_id);
+                }
+                else if (User.HasScope(Scopes.bureau_direct) || User.HasScope(Scopes.responsable_intermediaire))
+                {
+                    jobsQuery = jobsQuery.Where(j => (j.r_user != null && j.r_user.r_site_id_fk == userConnecte.r_site_id_fk) || j.r_user_id_fk == userConnecte.r_id);
+                    recherchesQuery = recherchesQuery.Where(a => (a.r_user != null && a.r_user.r_site_id_fk == userConnecte.r_site_id_fk) || a.r_created_by == userConnecte.r_id);
+                    demandesQuery = demandesQuery.Where(d => (d.r_user != null && d.r_user.r_site_id_fk == userConnecte.r_site_id_fk) || d.r_user_id_fk == userConnecte.r_id);
+                }
+                else
+                {
+                    jobsQuery = jobsQuery.Where(j => j.r_user_id_fk == userConnecte.r_id);
+                    recherchesQuery = recherchesQuery.Where(a => a.r_created_by == userConnecte.r_id);
+                    demandesQuery = demandesQuery.Where(d => d.r_user_id_fk == userConnecte.r_id);
+                }
+            }
+
             if (site > 0)
-                usersQuery = usersQuery.Where(u => u.r_site_id_fk == site);
+            {
+                jobsQuery = jobsQuery.Where(j => j.r_user != null && j.r_user.r_site_id_fk == site);
+                recherchesQuery = recherchesQuery.Where(a => a.r_user != null && a.r_user.r_site_id_fk == site);
+                demandesQuery = demandesQuery.Where(d => d.r_user != null && d.r_user.r_site_id_fk == site);
+            }
 
             if (user > 0)
-                usersQuery = usersQuery.Where(u => u.r_id == user);
-
-            var scopedUserIds = usersQuery.Select(u => u.r_id);
-
-            // Détermination de la plage temporelle
-            var now = DateTime.UtcNow;
-            int targetYear;
-            DateTime periodeDebut;
-            DateTime periodeFin;
-
-            if (annee.HasValue && annee.Value > 0)
             {
-                // Année spécifique : 12 mois de janvier à décembre
-                targetYear = annee.Value;
-                periodeDebut = new DateTime(targetYear, 1, 1);
-                periodeFin = periodeDebut.AddYears(1);
-            }
-            else
-            {
-                // 12 derniers mois glissants
-                periodeDebut = new DateTime(now.Year, now.Month, 1).AddMonths(-11);
-                periodeFin = new DateTime(now.Year, now.Month, 1).AddMonths(1);
-                targetYear = 0; // mode glissant
+                jobsQuery = jobsQuery.Where(j => j.r_user_id_fk == user);
+                recherchesQuery = recherchesQuery.Where(a => a.r_created_by == user);
+                demandesQuery = demandesQuery.Where(d => d.r_user_id_fk == user);
             }
 
-            // Chargement groupé des données en mémoire pour éviter N+1
-            var searchActionStr = TYPE_ACTION.RECHERCHE_ATTESTATION.ToString();
+            var jobsParMois = await jobsQuery
+                .GroupBy(j => new { Year = j.r_created_at!.Value.Year, Month = j.r_created_at!.Value.Month, Statut = j.r_status })
+                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Statut, Count = g.Count() })
+                .ToListAsync();
 
-            var jobsParMois = await _dbContext.t_job
-                .Where(j => scopedUserIds.Contains(j.r_user_id_fk)
-                         && j.r_created_at >= periodeDebut
-                         && j.r_created_at < periodeFin)
-                .GroupBy(j => new { j.r_created_at!.Value.Year, j.r_created_at!.Value.Month })
+            var recherchesParMois = await recherchesQuery
+                .GroupBy(a => new { Year = a.r_created_at!.Value.Year, Month = a.r_created_at!.Value.Month })
                 .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
                 .ToListAsync();
 
-            var recherchesParMois = await _dbContext.t_trace_action
-                .Where(a => a.r_user_id.HasValue
-                         && scopedUserIds.Contains(a.r_user_id.Value)
-                         && a.r_type_action == searchActionStr
-                         && a.r_created_at >= periodeDebut
-                         && a.r_created_at < periodeFin)
-                .GroupBy(a => new { a.r_created_at!.Value.Year, a.r_created_at!.Value.Month })
-                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+            var demandesParMois = await demandesQuery
+                .GroupBy(d => new { Year = d.r_created_at!.Value.Year, Month = d.r_created_at!.Value.Month, Statut = d.r_status })
+                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Statut, Count = g.Count() })
                 .ToListAsync();
 
-            var annulationsParMois = await _dbContext.t_demande_annulation
-                .Where(d => scopedUserIds.Contains(d.r_user_id_fk)
-                         && d.r_created_at >= periodeDebut
-                         && d.r_created_at < periodeFin)
-                .GroupBy(d => new { d.r_created_at!.Value.Year, d.r_created_at!.Value.Month })
-                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
-                .ToListAsync();
-
-            // Noms des mois en français
             var nomsMois = new[]
             {
                 "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
                 "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
             };
 
-            // Construction de la liste des 12 mois
-            var moisList = new List<evolutionMoisDto>();
+            var mois = new List<evolutionPeriodeDto>();
 
             for (int i = 0; i < 12; i++)
             {
-                DateTime moisCourant = periodeDebut.AddMonths(i);
-                int m = moisCourant.Month;
-                int y = moisCourant.Year;
+                var dateMois = debutPeriode.AddMonths(i);
+                var m = dateMois.Month;
+                var y = dateMois.Year;
 
-                moisList.Add(new evolutionMoisDto
+                var recherchesCount = recherchesParMois.FirstOrDefault(x => x.Year == y && x.Month == m)?.Count ?? 0;
+
+                var tachesEnCours = jobsParMois.Where(x => x.Year == y && x.Month == m && x.Statut == STATUT_JOB.RUNNING).Sum(x => x.Count);
+                var tachesAnnulees = jobsParMois.Where(x => x.Year == y && x.Month == m && x.Statut == STATUT_JOB.CANCELLED).Sum(x => x.Count);
+                var tachesTerminees = jobsParMois.Where(x => x.Year == y && x.Month == m && x.Statut == STATUT_JOB.COMPLETED).Sum(x => x.Count);
+
+                var demandesAttentes = demandesParMois.Where(x => x.Year == y && x.Month == m && x.Statut == STATUT_DEMANDE_ANNULATION.EN_ATTENTE).Sum(x => x.Count);
+                var demandesTraitees = demandesParMois.Where(x => x.Year == y && x.Month == m && x.Statut == STATUT_DEMANDE_ANNULATION.TRAITE).Sum(x => x.Count);
+                var demandesRejetees = demandesParMois.Where(x => x.Year == y && x.Month == m && x.Statut == STATUT_DEMANDE_ANNULATION.REJETE).Sum(x => x.Count);
+
+                mois.Add(new evolutionPeriodeDto
                 {
-                    numero = i,
+                    numero = m,
                     nom = $"{nomsMois[m - 1]} {y}",
-                    taches = jobsParMois.FirstOrDefault(x => x.Year == y && x.Month == m)?.Count ?? 0,
-                    recherches = recherchesParMois.FirstOrDefault(x => x.Year == y && x.Month == m)?.Count ?? 0,
-                    demandesAnnulation = annulationsParMois.FirstOrDefault(x => x.Year == y && x.Month == m)?.Count ?? 0
+                    recherches = recherchesCount,
+                    taches = new tachesMoisDto
+                    {
+                        enCours = tachesEnCours,
+                        annulees = tachesAnnulees,
+                        terminees = tachesTerminees,
+                        total = tachesEnCours + tachesAnnulees + tachesTerminees
+                    },
+                    demandes = new demandesMoisDto
+                    {
+                        attentes = demandesAttentes,
+                        traitees = demandesTraitees,
+                        rejetees = demandesRejetees,
+                        total = demandesAttentes + demandesTraitees + demandesRejetees
+                    }
                 });
             }
 
-            var resultat = new evolutionMensuelleDto
+            var resultat = new evolutionDto
             {
-                recherches = moisList.Sum(x => x.recherches),
-                taches = moisList.Sum(x => x.taches),
-                demandes = moisList.Sum(x => x.demandesAnnulation),
-                mois = moisList
+                recherches = mois.Sum(x => x.recherches),
+                taches = mois.Sum(x => (x.taches?.enCours ?? 0) + (x.taches?.annulees ?? 0) + (x.taches?.terminees ?? 0)),
+                demandes = mois.Sum(x => (x.demandes?.attentes ?? 0) + (x.demandes?.traitees ?? 0) + (x.demandes?.rejetees ?? 0)),
+                periodes = mois
             };
 
             return Ok(resultat);
@@ -728,6 +950,18 @@ namespace print_attestation.Controllers
                         invalidParams: invalidParams));
                 }
 
+                var userConnecte = GetInfoUser();
+                if (userConnecte == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+                var requestedType = _body.roleId ?? TYPE_UTILISATEUR.UTILISATEUR;
+                if (!CanAssignUserType(userConnecte.r_type, requestedType))
+                {
+                    return StatusCode(403, GeneraleRetour.BuildForbid(
+                        detail: "Vous n'êtes pas autorisé à attribuer ce type d'utilisateur.",
+                        instance: HttpContext.Request.Path));
+                }
+
                 var existingUser = await _dbContext.t_user
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.r_email == _body.email && u.r_is_delete != true);
@@ -773,7 +1007,7 @@ namespace print_attestation.Controllers
                     r_password = BCrypt.Net.BCrypt.HashPassword(myPass),
                     r_date_last_statut = DateTime.UtcNow,
                     r_site_id_fk = _body.siteId ?? 0,
-                    r_type = (TYPE_UTILISATEUR)(_body.typeId ?? (int)TYPE_UTILISATEUR.UTILISATEUR),
+                    r_type = requestedType,
                 };
 
 
@@ -836,6 +1070,18 @@ namespace print_attestation.Controllers
 
 
             
+                var userConnecte = GetInfoUser();
+                if (userConnecte == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+                var requestedType = _body.roleId ?? TYPE_UTILISATEUR.UTILISATEUR;
+                if (!CanAssignUserType(userConnecte.r_type, requestedType))
+                {
+                    return StatusCode(403, GeneraleRetour.BuildForbid(
+                        detail: "Vous n'êtes pas autorisé à attribuer ce type d'utilisateur.",
+                        instance: HttpContext.Request.Path));
+                }
+
                 if (_body.siteId != null)
                 {
                     var site = await _dbContext.t_site
@@ -893,7 +1139,7 @@ namespace print_attestation.Controllers
                 User.r_email = _body.email;
                 User.r_telephone = _body.telephone;
                 User.r_site_id_fk = _body.siteId ?? 0;
-                User.r_type = (TYPE_UTILISATEUR)(_body.typeId ?? 0);
+                User.r_type = requestedType;
 
                 _dbContext.t_user.Update(User);
                 await _dbContext.SaveChangesAsync();

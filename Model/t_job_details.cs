@@ -11,6 +11,7 @@ namespace print_attestation.Model
        
 
         public string? r_attestation { get; set; }
+        public string? r_type { get; set; }
 
         public string? r_desc_error { get; set; }
         public bool? r_success { get; set; }

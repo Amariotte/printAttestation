@@ -88,6 +88,12 @@
             return BuildProblemResponse(new GeneraleRetour { status = 404,detail = detail }, instance);
         }
 
+        public static ProblemsDetails BuildConflict(string detail, string instance, List<InvalidParam> invalidParams = null)
+        {
+            return BuildProblemResponse(new GeneraleRetour { status = 409, detail = detail, invalidParams = invalidParams }, instance);
+        }
+
+
         public static ProblemsDetails BuildBadRequest(string detail, string instance , List<InvalidParam> invalidParams = null)
         {
             return BuildProblemResponse(new GeneraleRetour { status = 400, detail = detail , invalidParams = invalidParams }, instance);

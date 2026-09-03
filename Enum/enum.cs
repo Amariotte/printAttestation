@@ -37,7 +37,8 @@ public enum TYPE_SITE
 public enum TYPE_JOB
 {
     cedeao,
-    atd
+    atd,
+    atd_cedeao
 }
 
 public enum STATUT_JOB
@@ -152,7 +153,10 @@ public enum TYPE_ACTION
     // Autres
     ERREUR_SYSTEME,
     ACCES_REFUSE,
-    REQUETE_INVALIDE
+    REQUETE_INVALIDE,
+
+
+   TELECHARGEMENT_FICHIER
 }
 
 /// <summary>

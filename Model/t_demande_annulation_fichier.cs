@@ -14,8 +14,9 @@ namespace print_attestation.Model
         [MaxLength(255)]
         public string? r_nom_fichier { get; set; }
 
-        [MaxLength(2000)]
-        public string? r_chemin_fichier { get; set; }
+
+        public string? r_nom_fichier_save { get; set; }
+
 
         public t_demande_annulation? r_demande_annulation { get; set; }
     }

@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using print_attestation.Dtos.Response;
 using print_attestation.Dtos.Response.auth;
@@ -209,6 +210,7 @@ namespace print_attestation.Tools
                 prenom = u .r_prenom,
                 email = u.r_email,
                 telephone = u.r_telephone,
+                siteId = u.r_site_id_fk,
                 actif = (u.r_statut == STATUT_USER.ACTIVE),
                 site = u.r_site != null ? BuildSiteToSiteResponseDto(u.r_site) : null,
                 roleId = (int?)u.r_type,
@@ -370,7 +372,8 @@ namespace print_attestation.Tools
                 numPolice = d.r_num_police,
                 motifRejet = d.r_motif_rejet,
                 fichiers = d.r_fichiers != null ? d.r_fichiers.Select(BuildDemandeAnnulationFichierResponseDto).ToList() : null,
-                user = d.r_user != null ? BuildUserToUserResponseDto(d.r_user) : null
+                user = d.r_user != null ? BuildUserToUserResponseDto(d.r_user) : null,
+                site = d.r_site != null ? BuildSiteToSiteResponseDto(d.r_site) : null
             };
         }
 
@@ -382,10 +385,28 @@ namespace print_attestation.Tools
             {
                 id = f.r_id,
                 nomFichier = f.r_nom_fichier,
-                cheminFichier = f.r_chemin_fichier,
+                nomFichierSave = f.r_nom_fichier_save,
             };
         }
 
+
+        [NonAction]
+        public static string GetFolderPath(IWebHostEnvironment _env, params string[] segments)
+        {
+            var webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
+                ? Path.Combine(_env.ContentRootPath, "wwwroot")
+                : _env.WebRootPath;
+
+            var allSegments = new List<string> { webRoot };
+            if (segments != null && segments.Length > 0)
+                allSegments.AddRange(segments.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+            var folderPath = Path.Combine(allSegments.ToArray());
+            if (!Directory.Exists(folderPath))
+                Directory.CreateDirectory(folderPath);
+
+            return folderPath;
+        }
 
     }
 

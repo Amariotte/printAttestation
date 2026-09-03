@@ -11,6 +11,7 @@ namespace print_attestation.Dtos.Response
         public string? typeVehicule { get; set; }
         public string? nomIntermediaire { get; set; }
         public string? numImmatriculation { get; set; }
+        public string? codeIntermediaire { get; set; }
         public string? numChassis { get; set; }
         public string? nomAssure { get; set; }
         public string? numAttestation { get; set; }

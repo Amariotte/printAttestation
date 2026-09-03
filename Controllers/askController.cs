@@ -1,20 +1,21 @@
 ﻿using System.Data;
 using System.Net;
-using print_attestation.ContextDb;
-using print_attestation.Dtos.Response;
-using print_attestation.Model;
-using print_attestation.Services;
-using print_attestation.Dtos;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using OracleApi.Services;
-using print_attestation.ScopeAttribute;
-using print_attestation.Security;
+using print_attestation.ContextDb;
+using print_attestation.Dtos;
 using print_attestation.Dtos.General;
 using print_attestation.Dtos.Request;
+using print_attestation.Dtos.Response;
+using print_attestation.Model;
+using print_attestation.ScopeAttribute;
+using print_attestation.Security;
+using print_attestation.Services;
 
 
 namespace print_attestation.Controllers
@@ -75,6 +76,19 @@ namespace print_attestation.Controllers
             }
         }
 
+
+        [NonAction]
+        public string GetWebRoot()
+        {
+            var webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
+         ? Path.Combine(_env.ContentRootPath, "wwwroot")
+         : _env.WebRootPath;
+
+            return webRoot;
+        }
+ 
+
+
         #region Attestation
         [Authorize]
         [HttpPost("attestations/{type}/jobs")]
@@ -128,7 +142,12 @@ namespace print_attestation.Controllers
             job.r_status = STATUT_JOB.RUNNING;
             job.r_total = nums.Count;
             job.r_type = jobType.ToUpperInvariant();
-            
+
+            if (job.r_type == TYPE_JOB.atd_cedeao.ToString().ToUpperInvariant())
+            {
+                job.r_total = nums.Count * 2;
+            }
+
             _dbContext.t_job.Add(job);
             await _dbContext.SaveChangesAsync();
 
@@ -346,35 +365,7 @@ namespace print_attestation.Controllers
         /// <summary>
         /// Sauvegarde une image Base64 sur le disque et retourne le chemin
         /// </summary>
-        [NonAction]
-        public async Task<string> SaveBase64ImageToFile(string base64String, string fileName, string subfolder = "attestations")
-        {
-            if (string.IsNullOrWhiteSpace(base64String))
-                throw new ArgumentException("La chaîne Base64 ne peut pas être vide", nameof(base64String));
-
-            // Nettoyer le préfixe data:image si présent
-            if (base64String.Contains(","))
-            {
-                base64String = base64String.Split(',')[1];
-            }
-
-            byte[] imageBytes = Convert.FromBase64String(base64String);
-
-            // Créer le dossier s'il n'existe pas
-            string folderPath = Path.Combine(_env.WebRootPath, subfolder);
-            if (!Directory.Exists(folderPath))
-            {
-                Directory.CreateDirectory(folderPath);
-            }
-
-            // Générer le chemin complet
-            string filePath = Path.Combine(folderPath, fileName);
-
-            // Sauvegarder le fichier
-            await System.IO.File.WriteAllBytesAsync(filePath, imageBytes);
-
-            return filePath;
-        }
+       
 
         [Authorize]
         [HttpGet("attestations/{cleRechercheEncode}")]
@@ -531,6 +522,7 @@ namespace print_attestation.Controllers
                     urlQr = row.ContainsKey("LIEN__QR") ? row["LIEN__QR"]?.ToString() : null,
                     urlImage = row.ContainsKey("LIEN_IMG") ? row["LIEN_IMG"]?.ToString() : null,
                     nomIntermediaire = row.ContainsKey("RAISOCIN") ? row["RAISOCIN"].ToString() : null,
+                    codeIntermediaire = row.ContainsKey("CODEINTE") ? row["CODEINTE"].ToString() : null,
                     statut = row.ContainsKey("STATUT") ? row["STATUT"].ToString() : null,
 
                 }).ToList();
@@ -630,6 +622,8 @@ namespace print_attestation.Controllers
             return File(stream, "application/zip", fileName);
         }
 
+
+       
 
         [HttpGet("attestations/zip/sse/{id}")]
         public async Task GetZipSse(string id)
@@ -805,8 +799,10 @@ namespace print_attestation.Controllers
                 if (body == null)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Les données sont requises", instance: HttpContext.Request.Path));
 
-                if (body.motifAnnulationId <= 0)
+                if (body.motifId <= 0)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le motif d'annulation est requis", instance: HttpContext.Request.Path));
+
+
 
                 var hasReference = !string.IsNullOrWhiteSpace(body.numPolice)
                                    || !string.IsNullOrWhiteSpace(body.numAttestation)
@@ -815,21 +811,39 @@ namespace print_attestation.Controllers
                 if (!hasReference)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins une référence est requise (numPolice, numAttestation ou numImmatriculation)", instance: HttpContext.Request.Path));
 
-                if (body.files == null || !body.files.Any())
-                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un fichier est requis (clé form-data: files)", instance: HttpContext.Request.Path));
+                int siteId = (int)body.siteId;
+
+                if (string.IsNullOrEmpty(body.siteCode) && (body.siteId == null && siteId == 0))
+                    return NotFound(GeneraleRetour.BuildBadRequest(detail: "L'intérmediaire est requis ", instance: HttpContext.Request.Path));
+
+                if (siteId == 0)
+                {
+                    var site = await _dbContext.t_site
+                                       .FirstOrDefaultAsync(m => m.r_code == body.siteCode && m.r_is_delete != true);
+
+                    if (site == null)
+                        return NotFound(GeneraleRetour.BuildNotFound(detail: "Intermédiaire / Site introuvable", instance: HttpContext.Request.Path));
+
+                    siteId = site.r_id;
+                }
+
+
+                //  if (body.files == null || !body.files.Any())
+                //      return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Au moins un fichier est requis (clé form-data: files)", instance: HttpContext.Request.Path));
 
                 var motif = await _dbContext.t_motif_annulation
-                    .FirstOrDefaultAsync(m => m.r_id == body.motifAnnulationId && m.r_is_delete != true);
+                    .FirstOrDefaultAsync(m => m.r_id == body.motifId && m.r_is_delete != true);
 
                 if (motif == null)
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Motif d'annulation introuvable", instance: HttpContext.Request.Path));
+
 
                 var demande = new t_demande_annulation
                 {
                     r_status = STATUT_DEMANDE_ANNULATION.EN_ATTENTE,
                     r_user_id_fk = user.r_id,
-                    r_site_id_fk = user.r_site_id_fk,
-                    r_motif_annulation_id_fk = body.motifAnnulationId,
+                    r_site_id_fk = siteId,
+                    r_motif_annulation_id_fk = body.motifId,
                     r_num_police = body.numPolice?.Trim(),
                     r_num_attestation = body.numAttestation?.Trim(),
                     r_num_immatriculation = body.numImmatriculation?.Trim(),
@@ -840,11 +854,9 @@ namespace print_attestation.Controllers
                 await _dbContext.t_demande_annulation.AddAsync(demande);
                 await _dbContext.SaveChangesAsync();
 
-                var webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
-                    ? Path.Combine(_env.ContentRootPath, "wwwroot")
-                    : _env.WebRootPath;
+                var webRoot = GetWebRoot();
 
-                var uploadFolder = Path.Combine(webRoot, "uploads", "demandes-annulations", demande.r_id.ToString());
+                var uploadFolder = Path.Combine(webRoot, "uploads", "demandes-annulations");
                 Directory.CreateDirectory(uploadFolder);
 
                 var fichiers = new List<t_demande_annulation_fichier>();
@@ -862,7 +874,7 @@ namespace print_attestation.Controllers
                     {
                         r_demande_annulation_id_fk = demande.r_id,
                         r_nom_fichier = file.FileName,
-                        r_chemin_fichier = filePath,
+                        r_nom_fichier_save = safeName,  
                         r_created_by = user.r_id,
                         r_created_at = DateTime.UtcNow
                     });
@@ -888,6 +900,177 @@ namespace print_attestation.Controllers
                 _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
                 return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
             }
+        }
+
+
+        [Authorize]
+        [RequireAnyScope(Scopes.administrateur, Scopes.responsable_reseau, Scopes.responsable_intermediaire)]
+
+        [HttpPut("demandes/annulations/{id}/rejets")]
+        public async Task<IActionResult> RejeterUneDemandeAnnulation(int id, [FromBody] demandeAnnulationRejetDto body)
+        {
+            const string _desc_route = "Réjeter une demande d'annulation";
+
+            try
+            {
+                var user = GetInfoUser();
+                if (user == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+                if (body == null)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Les données sont requises", instance: HttpContext.Request.Path));
+
+                if (string.IsNullOrWhiteSpace(body.motifRejet))
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le motif de rejet est requis", instance: HttpContext.Request.Path));
+
+
+                var demande = await _dbContext.t_demande_annulation
+                    .FirstOrDefaultAsync(m => m.r_id == id && m.r_is_delete != true);
+
+                if (demande.r_status == STATUT_DEMANDE_ANNULATION.REJETE)
+                    return BadRequest(GeneraleRetour.BuildConflict(detail: "La demande d'annulation a déjà été rejetée", instance: HttpContext.Request.Path));
+
+                if (demande.r_status == STATUT_DEMANDE_ANNULATION.TRAITE)
+                    return BadRequest(GeneraleRetour.BuildConflict(detail: "La demande d'annulation a déjà été traitée", instance: HttpContext.Request.Path));
+
+                if (demande == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "La demande d'annulation est introuvable", instance: HttpContext.Request.Path));
+
+                demande.r_motif_rejet = body.motifRejet;
+                demande.r_date_traitement = DateTime.UtcNow;
+                demande.r_status = STATUT_DEMANDE_ANNULATION.TRAITE;
+
+                _dbContext.t_demande_annulation.Update(demande);
+                await _dbContext.SaveChangesAsync();
+
+                var updated = await _dbContext.t_demande_annulation
+                    .Include(d => d.r_user)
+                    .Include(d => d.r_fichiers)
+                    .Include(d => d.r_site)
+                    .Include(d => d.r_motif_annulation)
+                    .FirstOrDefaultAsync(d => d.r_id == demande.r_id);
+
+                return Ok(Tools.Tools.BuildDemandeAnnulationResponseDto(updated!));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+
+        [Authorize]
+        [RequireAnyScope(Scopes.administrateur, Scopes.responsable_reseau, Scopes.responsable_intermediaire)]
+        [HttpPut("demandes/annulations/{id}/validations")]
+        public async Task<IActionResult> ValiderUneDemandeAnnulation(int id)
+        {
+            const string _desc_route = "Valider une demande d'annulation";
+
+            try
+            {
+                var user = GetInfoUser();
+                if (user == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+             
+
+                var demande = await _dbContext.t_demande_annulation
+                    .FirstOrDefaultAsync(m => m.r_id == id && m.r_is_delete != true);
+
+                if (demande.r_status == STATUT_DEMANDE_ANNULATION.REJETE)
+                    return BadRequest(GeneraleRetour.BuildConflict(detail: "La demande d'annulation a déjà été rejetée", instance: HttpContext.Request.Path));
+
+                if (demande.r_status == STATUT_DEMANDE_ANNULATION.TRAITE)
+                    return BadRequest(GeneraleRetour.BuildConflict(detail: "La demande d'annulation a déjà été traitée", instance: HttpContext.Request.Path));
+
+                if (demande == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "La demande d'annulation est introuvable", instance: HttpContext.Request.Path));
+
+                demande.r_status = STATUT_DEMANDE_ANNULATION.TRAITE;
+                demande.r_date_traitement = DateTime.UtcNow;
+
+                _dbContext.t_demande_annulation.Update(demande);
+                await _dbContext.SaveChangesAsync();
+
+                var updated = await _dbContext.t_demande_annulation
+                    .Include(d => d.r_user)
+                    .Include(d => d.r_fichiers)
+                    .Include(d => d.r_site)
+                    .Include(d => d.r_motif_annulation)
+                    .FirstOrDefaultAsync(d => d.r_id == demande.r_id);
+
+                return Ok(Tools.Tools.BuildDemandeAnnulationResponseDto(updated!));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+        [Authorize]
+        [HttpGet("demandes/annulations/{id}")]
+        public async Task<IActionResult> GetDemandeAnnulation(int id)
+        {
+            const string _desc_route = "Détails d'une demande d'annulation";
+
+            try
+            {
+                var user = GetInfoUser();
+                if (user == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+
+                var demande = await _dbContext.t_demande_annulation
+                       .Include(d => d.r_user)
+                    .Include(d => d.r_fichiers)
+                    .Include(d => d.r_site)
+                    .Include(d => d.r_motif_annulation)
+                    .FirstOrDefaultAsync(m => m.r_id == id && m.r_is_delete != true);
+
+              
+
+
+                return Ok(Tools.Tools.BuildDemandeAnnulationResponseDto(demande!));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+        [Authorize]
+        [HttpGet("demandes/annulations/fichiers/{*fileName}")]
+        public async Task<IActionResult> DownloadFichier(string fileName)
+        {
+            string _desc_route = "Télécharger un fichier";
+
+            if (string.IsNullOrWhiteSpace(fileName))
+                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Nom du fichier manquant", instance: HttpContext.Request.Path));
+
+            var cleaned = fileName.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+            var baseFolder = Path.Combine(GetWebRoot(), "uploads", "demandes-annulations");
+            var fullBase = Path.GetFullPath(baseFolder);
+            var path = Path.GetFullPath(Path.Combine(fullBase, cleaned));
+
+            if (!path.StartsWith(fullBase, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Chemin de fichier invalide", instance: HttpContext.Request.Path));
+
+            if (!System.IO.File.Exists(path))
+                return NotFound(GeneraleRetour.BuildNotFound(detail: "Fichier introuvable", instance: HttpContext.Request.Path));
+
+            await _traceService.TraceActionAsync(TYPE_ACTION.TELECHARGEMENT_FICHIER, description: $"Téléchargement du fichier {fileName}");
+
+            var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+            if (!provider.TryGetContentType(path, out var contentType))
+                contentType = "application/octet-stream";
+
+            var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return File(stream, contentType, Path.GetFileName(path));
         }
 
 
@@ -919,10 +1102,8 @@ namespace print_attestation.Controllers
             }
 
 
-            return false;
+            return true;
         }
-
-
 
 
 

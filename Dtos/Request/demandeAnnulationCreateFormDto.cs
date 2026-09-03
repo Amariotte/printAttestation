@@ -4,7 +4,9 @@ namespace print_attestation.Dtos.Request
 {
     public class demandeAnnulationCreateFormDto
     {
-        public int motifAnnulationId { get; set; }
+        public int motifId { get; set; }
+        public string? siteCode { get; set; } = null;
+        public int? siteId { get; set; }
         public string? numPolice { get; set; }
         public string? numAttestation { get; set; }
         public string? numImmatriculation { get; set; }

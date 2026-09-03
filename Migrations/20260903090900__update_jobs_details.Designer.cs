@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using print_attestation.ContextDb;
 
@@ -11,9 +12,11 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260903090900__update_jobs_details")]
+    partial class _update_jobs_details
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -102,6 +105,10 @@ namespace print_attestation.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("r_id"));
 
+                    b.Property<string>("r_chemin_fichier")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
                     b.Property<DateTime?>("r_created_at")
                         .HasColumnType("datetime(6)");
 
@@ -120,9 +127,6 @@ namespace print_attestation.Migrations
                     b.Property<string>("r_nom_fichier")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
-
-                    b.Property<string>("r_nom_fichier_save")
-                        .HasColumnType("longtext");
 
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");

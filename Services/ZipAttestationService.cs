@@ -184,7 +184,7 @@ public class ZipAttestationService
                     successes.Add((_nameFile, bytes));
 
                     // mettre à jour en base
-                    await updateLigne(job.r_job_id, num, true, null);
+                    await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.atd, true, null);
                     await Send(job, "success",
                 new
                 {
@@ -196,7 +196,7 @@ public class ZipAttestationService
                 {
                     errors.Add($"{num}:{ex.Message}");
                     // mise à jour en base : errors++
-                    await updateLigne(job.r_job_id, num, false, ex.Message);
+                    await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.atd, false, ex.Message);
                     await Send(job, "error", new { numero = num, message = ex.Message });
                 }
             }
@@ -324,7 +324,7 @@ public class ZipAttestationService
                     errors.Add($"{num}: numéro vide");
 
                     await Send(job, "error", new { numero = num, message = "Numéro vide" });
-                    await updateLigne(job.r_job_id, num, false, "Numéro vide");
+                    await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.cedeao, false, "Numéro vide");
                     continue;
                 }
 
@@ -337,7 +337,7 @@ public class ZipAttestationService
                         errors.Add($"{num}: erreur service Cedeao");
 
                         await Send(job, "error", new { numero = num, message = "Erreur service Cedeao" });
-                        await updateLigne(job.r_job_id, num, false, "Erreur service Cedeao");
+                        await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.cedeao, false, "Erreur service Cedeao");
 
                         continue;
                     }
@@ -346,7 +346,7 @@ public class ZipAttestationService
                     {
                         errors.Add($"{num}: {result.detail}");
                         await Send(job, "error", new{numero = num,message = result.detail});
-                        await updateLigne(job.r_job_id, num, false, result.detail);
+                        await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.cedeao, false, result.detail);
                         continue;
                     }
 
@@ -358,7 +358,7 @@ public class ZipAttestationService
                     if (string.IsNullOrWhiteSpace(base64Image))
                     {
                         errors.Add($"{num}: Base64 manquant");
-                        await updateLigne(job.r_job_id, num, false, "Image Base64 manquante");
+                        await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.cedeao, false, "Image Base64 manquante");
 
                         await Send(job, "error", new
                         {
@@ -375,7 +375,7 @@ public class ZipAttestationService
                     string fileNom = "CEDEAO_" + num + ".png";
                     successes.Add((fileNom, imageBytes));
 
-                    await updateLigne(job.r_job_id, num, true, null);
+                    await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.cedeao, true, null);
                     await Send(job, "success", new
                     {
                         numero = num,
@@ -388,7 +388,7 @@ public class ZipAttestationService
                 {
                     errors.Add($"{num}: {ex.Message}");
 
-                    await updateLigne(job.r_job_id, num, false, ex.Message);
+                    await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.cedeao, false, ex.Message);
 
                     await Send(job, "error", new
                     {
@@ -547,7 +547,7 @@ public class ZipAttestationService
                     {
                         errors.Add($"{num}: attestation introuvable");
                         await Send(job, "error", new{numero = num, message = "Attestation introuvable"});
-                        await updateLigne(job.r_job_id,num,false,"Attestation introuvable");
+                        await updateLigneDetailsJob(job.r_job_id,num, TYPE_JOB.atd, false,"Attestation introuvable");
                         continue;
                     }
 
@@ -560,7 +560,7 @@ public class ZipAttestationService
                         errors.Add($"{num}: fichier attestation absent");
 
                         await Send(job, "error", new{numero = num, message = "Fichier attestation absent"});
-                        await updateLigne(job.r_job_id, num,false,"Fichier attestation absent" );
+                        await updateLigneDetailsJob(job.r_job_id, num, TYPE_JOB.atd, false, "Fichier attestation absent");
                         continue;
                     }
 
@@ -598,6 +598,16 @@ public class ZipAttestationService
                     string attestationFileName = num + "_" + immatriculation + ".png";
 
                     successes.Add((attestationFileName, attestationBytes));
+
+                    await updateLigneDetailsJob(
+                       job.r_job_id,
+                       num,
+                       TYPE_JOB.atd,
+                       true,
+                       null
+                   );
+
+
 
                     // ====================================================
                     // CEDEAO
@@ -644,9 +654,10 @@ public class ZipAttestationService
                     // SUCCÈS
                     // ====================================================
 
-                    await updateLigne(
+                    await updateLigneDetailsJob(
                         job.r_job_id,
                         num,
+                        TYPE_JOB.cedeao,
                         true,
                         null
                     );
@@ -663,9 +674,10 @@ public class ZipAttestationService
                         $"{num}: {ex.Message}"
                     );
 
-                    await updateLigne(
+                    await updateLigneDetailsJob(
                         job.r_job_id,
                         num,
+                        TYPE_JOB.cedeao,
                         false,
                         ex.Message
                     );
@@ -811,7 +823,7 @@ public class ZipAttestationService
     }
 
 
-    private async Task updateLigne(string JobId, string num,bool bSuccess, string? descError)
+    private async Task updateLigneDetailsJob(string JobId, string num, TYPE_JOB type, bool bSuccess, string? descError)
     {
 
         try
@@ -824,6 +836,7 @@ public class ZipAttestationService
                 {
                     r_attestation = num,
                     r_job_id_fk = rec.r_id,
+                    r_type = type.ToString(), // Remplacez TYPE_JOB.ATD par la valeur appropriée
                     r_desc_error = descError,
                     r_success = bSuccess
                 };
