@@ -1212,6 +1212,7 @@ namespace print_attestation.Controllers
             try
             {
 
+
                 if (id <= 0)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
@@ -1351,6 +1352,9 @@ namespace print_attestation.Controllers
         }
 
 
+
+
+
         [Authorize]
         [RequireScope(Scopes.administrateur)]
         [HttpPost("sites")]
@@ -1416,6 +1420,8 @@ namespace print_attestation.Controllers
         }
 
 
+
+     
 
         [Authorize]
         [RequireScope(Scopes.administrateur)]
