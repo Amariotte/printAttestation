@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using print_attestation.ContextDb;
 
@@ -11,9 +12,11 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20260908084912__codess")]
+    partial class _codess
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -83,12 +86,6 @@ namespace print_attestation.Migrations
                     b.Property<int>("r_user_id_fk")
                         .HasColumnType("int");
 
-                    b.Property<int?>("r_user_traite_id_fk")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("r_user_traiter_id")
-                        .HasColumnType("int");
-
                     b.HasKey("r_id");
 
                     b.HasIndex("r_created_at");
@@ -100,8 +97,6 @@ namespace print_attestation.Migrations
                     b.HasIndex("r_status");
 
                     b.HasIndex("r_user_id_fk");
-
-                    b.HasIndex("r_user_traiter_id");
 
                     b.ToTable("t_demande_annulation");
                 });
@@ -955,17 +950,11 @@ namespace print_attestation.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("print_attestation.Model.t_user", "r_user_traite")
-                        .WithMany()
-                        .HasForeignKey("r_user_traiter_id");
-
                     b.Navigation("r_motif_annulation");
 
                     b.Navigation("r_site");
 
                     b.Navigation("r_user");
-
-                    b.Navigation("r_user_traite");
                 });
 
             modelBuilder.Entity("print_attestation.Model.t_demande_annulation_fichier", b =>

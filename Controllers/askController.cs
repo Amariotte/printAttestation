@@ -16,6 +16,10 @@ using print_attestation.Model;
 using print_attestation.ScopeAttribute;
 using print_attestation.Security;
 using print_attestation.Services;
+using QuestPDF;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 
 namespace print_attestation.Controllers
@@ -854,6 +858,10 @@ namespace print_attestation.Controllers
                 await _dbContext.t_demande_annulation.AddAsync(demande);
                 await _dbContext.SaveChangesAsync();
 
+                demande.r_reference = $"DA-{demande.r_id:D6}";
+                _dbContext.t_demande_annulation.Update(demande);
+                await _dbContext.SaveChangesAsync();
+
                 var webRoot = GetWebRoot();
 
                 var uploadFolder = Path.Combine(webRoot, "uploads", "demandes-annulations");
@@ -938,7 +946,8 @@ namespace print_attestation.Controllers
 
                 demande.r_motif_rejet = body.motifRejet;
                 demande.r_date_traitement = DateTime.UtcNow;
-                demande.r_status = STATUT_DEMANDE_ANNULATION.TRAITE;
+                demande.r_user_traite_id_fk = user.r_id;
+                demande.r_status = STATUT_DEMANDE_ANNULATION.REJETE;
 
                 _dbContext.t_demande_annulation.Update(demande);
                 await _dbContext.SaveChangesAsync();
@@ -990,6 +999,7 @@ namespace print_attestation.Controllers
 
                 demande.r_status = STATUT_DEMANDE_ANNULATION.TRAITE;
                 demande.r_date_traitement = DateTime.UtcNow;
+                demande.r_user_traite_id_fk = user.r_id;
 
                 _dbContext.t_demande_annulation.Update(demande);
                 await _dbContext.SaveChangesAsync();
@@ -1042,6 +1052,319 @@ namespace print_attestation.Controllers
             }
         }
 
+        [Authorize]
+        [HttpGet("demandes/annulations/{id}/pdf")]
+        public async Task<IActionResult> GenererEtatDemandeAnnulation(int id)
+        {
+            const string _desc_route = "Générer la fiche PDF d'une demande d'annulation";
+
+            try
+            {
+                var user = GetInfoUser();
+                if (user == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+                var demande = await _dbContext.t_demande_annulation
+                    .Include(d => d.r_user)
+                    .Include(d => d.r_user_traite)
+                    .Include(d => d.r_site)
+                    .Include(d => d.r_motif_annulation)
+                    .FirstOrDefaultAsync(m => m.r_id == id && m.r_is_delete != true);
+
+                if (demande == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "La demande d'annulation est introuvable", instance: HttpContext.Request.Path));
+
+                Settings.License = LicenseType.Community;
+
+                var nomComplet = $"{demande.r_user?.r_nom} {demande.r_user?.r_prenom}".Trim();
+                if (string.IsNullOrWhiteSpace(nomComplet))
+                    nomComplet = "-";
+
+                var reference = string.IsNullOrWhiteSpace(demande.r_reference)
+                    ? $"-"
+                    : demande.r_reference;
+
+                var statusLibelle = demande.r_status switch
+                {
+                    STATUT_DEMANDE_ANNULATION.EN_ATTENTE => "EN ATTENTE",
+                    STATUT_DEMANDE_ANNULATION.TRAITE => "TRAITÉE",
+                    STATUT_DEMANDE_ANNULATION.REJETE => "REJETÉE",
+                    _ => "-"
+                };
+
+                var statusColor = demande.r_status switch
+                {
+                    STATUT_DEMANDE_ANNULATION.EN_ATTENTE => Colors.Orange.Darken1,
+                    STATUT_DEMANDE_ANNULATION.TRAITE => Colors.Green.Darken2,
+                    STATUT_DEMANDE_ANNULATION.REJETE => Colors.Red.Darken2,
+                    _ => Colors.Grey.Darken1
+                };
+
+                var statusBackground = demande.r_status switch
+                {
+                    STATUT_DEMANDE_ANNULATION.EN_ATTENTE => Colors.Orange.Lighten5,
+                    STATUT_DEMANDE_ANNULATION.TRAITE => Colors.Green.Lighten5,
+                    STATUT_DEMANDE_ANNULATION.REJETE => Colors.Red.Lighten5,
+                    _ => Colors.Grey.Lighten4
+                };
+
+                var dateEdition = DateTime.Now;
+                var dateCreation = demande.r_created_at?.ToLocalTime().ToString("dd/MM/yyyy");
+                var dateTraitement = demande.r_date_traitement?.ToLocalTime().ToString("dd/MM/yyyy");
+                var nomEditeur = $"{user.r_nom} {user.r_prenom}".Trim();
+                if (string.IsNullOrWhiteSpace(nomEditeur))
+                    nomEditeur = "Utilisateur inconnu";
+
+                var personneTraitement = $"{demande.r_user_traite?.r_nom} {demande.r_user_traite?.r_prenom}".Trim();
+
+
+
+
+                byte[]? logoBytes = null;
+                var logoPaths = new[]
+                {
+                    Path.Combine(_env.ContentRootPath, "assets", "logo.png"),
+                    Path.Combine(_env.ContentRootPath, "assets", "images", "logo.png"),
+                    Path.Combine(GetWebRoot(), "assets", "logo.png"),
+                    Path.Combine(GetWebRoot(), "assets", "images", "logo.png")
+                };
+
+                var logoPath = logoPaths.FirstOrDefault(System.IO.File.Exists);
+                if (!string.IsNullOrWhiteSpace(logoPath))
+                    logoBytes = await System.IO.File.ReadAllBytesAsync(logoPath);
+
+                var pdfBytes = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(30);
+                        page.DefaultTextStyle(x => x.FontSize(11).FontColor(Colors.Grey.Darken3));
+
+                        page.Footer().PaddingTop(6).Column(footer =>
+                        {
+                            footer.Item().LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+                            footer.Item().PaddingTop(4).Row(row =>
+                            {
+                                row.RelativeItem().AlignRight().Text($"Édité par {nomEditeur} le {dateEdition:dd/MM/yyyy HH:mm}").FontSize(9).SemiBold().FontColor(Colors.Grey.Darken1);
+                            });
+                        });
+
+                        page.Content().Column(column =>
+                        {
+                            column.Spacing(16);
+
+                            column.Item().Row(row =>
+                            {
+                                row.ConstantItem(90).Height(60).AlignLeft().AlignMiddle().Element(c =>
+                                {
+                                    if (logoBytes != null)
+                                        c.Image(logoBytes).FitArea();
+                                    else
+                                        c.Text("ATLANTIQUE\nASSURANCES").FontSize(8).SemiBold().FontColor(Colors.Black);
+                                    return c;
+                                });
+
+                                row.RelativeItem().Column(left =>
+                                {
+                                    left.Spacing(4);
+                                    left.Item().Text("DEMANDE D'ANNULATION D'ATTESTATION").Bold().FontSize(19).FontColor(Colors.Black);
+                                    left.Item().Text($"Demande n° : #{reference}").SemiBold().FontSize(10).FontColor(Colors.Grey.Darken2);
+                                });
+
+                                if (demande.r_status != STATUT_DEMANDE_ANNULATION.EN_ATTENTE)
+                                {
+                                    row.ConstantItem(120).AlignRight().AlignMiddle().Background(statusBackground)
+                                                                   .BorderLeft(3).BorderColor(statusColor)
+                                                                   .PaddingVertical(8).PaddingHorizontal(10)
+                                                                   .AlignCenter()
+                                                                   .Text(statusLibelle).Bold().FontSize(12).FontColor(statusColor);
+                                }
+                           
+                            });
+
+                            column.Item().LineHorizontal(2).LineColor(Colors.Black);
+
+                            column.Item().Background(Colors.White).Border(1).BorderColor(Colors.Black).Padding(10).Column(block =>
+                            {
+                                block.Spacing(2);
+                                block.Item().Row(header =>
+                                {
+                                    header.ConstantItem(4).Background(Colors.Black);
+                                    header.RelativeItem().PaddingLeft(8).Text("DÉTAILS DE LA DEMANDE").Bold().FontSize(12).FontColor(Colors.Black);
+                                });
+                            });
+
+                            column.Item().Border(1).BorderColor(Colors.Black).Padding(8).Column(block =>
+                            {
+                                block.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn();
+                                        columns.RelativeColumn();
+                                    });
+
+                                    void AddInfoCell(string label, string? value)
+                                    {
+                                        table.Cell().PaddingBottom(10).PaddingRight(10).Column(info =>
+                                        {
+                                            info.Item().Text(label).SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                            info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(value) ? "-" : value).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                            info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                        });
+                                    }
+
+                                    table.Cell().ColumnSpan(2).PaddingBottom(10).Element(container =>
+                                    {
+                                        container.Table(innerTable =>
+                                        {
+                                            innerTable.ColumnsDefinition(columns =>
+                                            {
+                                                columns.RelativeColumn();
+                                                columns.RelativeColumn();
+                                                columns.RelativeColumn();
+                                            });
+
+                                            void AddTopCell(string label, string? value)
+                                            {
+                                                innerTable.Cell().PaddingRight(8).Column(info =>
+                                                {
+                                                    info.Item().Text(label).SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                                    info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(value) ? "-" : value).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                                    info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                                });
+                                            }
+
+                                            AddTopCell("NUMÉRO D'ATTESTATION", demande.r_num_attestation);
+                                            AddTopCell("NUMÉRO DE POLICE", demande.r_num_police);
+                                            AddTopCell("NUMÉRO D'IMMATRICULATION", demande.r_num_immatriculation);
+                                        });
+
+                                        return container;
+                                    });
+
+
+                                    table.Cell().ColumnSpan(2).PaddingBottom(10).Column(info =>
+                                    {
+                                        info.Item().Text("AGENCE/INTERMEDIAIRE").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                        info.Item().PaddingTop(2).Text((demande.r_site?.r_code + " - "+ demande.r_site?.r_nom)).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                        info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                    });
+
+                                    table.Cell().ColumnSpan(2).PaddingBottom(10).Column(info =>
+                                    {
+                                        info.Item().Text("MOTIF D'ANNULATION").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                        info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(demande.r_motif_annulation?.r_libelle) ? "-" : demande.r_motif_annulation?.r_libelle).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                        info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                    });
+
+                                    AddInfoCell("IDENTITÉ DU DEMANDEUR", nomComplet);
+                                    AddInfoCell("DATE DE LA DEMANDE", dateCreation);
+
+                                   
+                                });
+                            });
+
+
+
+                            if (demande.r_status != STATUT_DEMANDE_ANNULATION.EN_ATTENTE)
+                            {
+
+                           
+
+                            column.Item().Background(Colors.White).Border(1).BorderColor(Colors.Black).Padding(10).Column(block =>
+                            {
+                                block.Spacing(2);
+                                block.Item().Row(header =>
+                                {
+                                    header.ConstantItem(4).Background(Colors.Black);
+                                    header.RelativeItem().PaddingLeft(8).Text("TRAITEMENT DE LA DEMANDE").Bold().FontSize(12).FontColor(Colors.Black);
+                                });
+                            });
+
+                            column.Item().Border(1).BorderColor(Colors.Black).Padding(14).Column(block =>
+                            {
+                                block.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn();
+                                        columns.RelativeColumn();
+                                    });
+
+                                    void AddTraitementCell(string label, string? value, string? colorHex = null)
+                                    {
+                                        table.Cell().PaddingBottom(10).PaddingRight(10).Column(info =>
+                                        {
+                                            info.Item().Text(label).SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                            var textEl = info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(value) ? "-" : value).Bold().FontSize(12);
+                                            textEl.FontColor(colorHex ?? Colors.Grey.Darken4);
+                                            info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                        });
+                                    }
+
+                                    AddTraitementCell("DATE DE TRAITEMENT", dateTraitement);
+                                    AddTraitementCell("STATUT FINAL", statusLibelle, statusColor);
+
+                                    table.Cell().ColumnSpan(2).PaddingBottom(10).Column(info =>
+                                    {
+                                        info.Item().Text("PERSONNE QUI A TRAITÉ").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                        info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(personneTraitement) ? "-" : personneTraitement).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                        info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                    });
+
+                                    if (demande.r_status == STATUT_DEMANDE_ANNULATION.REJETE)
+                                    {
+                                        table.Cell().ColumnSpan(2).PaddingBottom(10).Column(info =>
+                                        {
+                                            info.Item().Text("MOTIF DE REJET").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                            info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(demande.r_motif_rejet) ? "-" : demande.r_motif_rejet).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                            info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                        });
+                                    }
+                                  
+
+
+                                 
+                                });
+                            });
+                            }
+
+                            column.Item().PaddingTop(20).Row(row =>
+                            {
+                                void AddSignatureBox(string label)
+                                {
+                                    row.RelativeItem().Border(1).BorderColor(Colors.Grey.Lighten2).Height(120).Column(c =>
+                                    {
+                                        c.Item().Background(Colors.Grey.Lighten5).Padding(6).AlignCenter().Text(label).SemiBold().FontSize(9).FontColor(Colors.Black);
+                                        c.Item().Background(Colors.Grey.Lighten5).Padding(1).AlignCenter().Text("Nom & Prénom(s) & Date & Signature").SemiBold().FontSize(5).FontColor(Colors.Grey.Medium);
+                                        c.Item().Extend();
+                                    });
+                                }
+
+                                AddSignatureBox("Direction de Développement Commercial");
+                                row.ConstantItem(12);
+                                AddSignatureBox("Direction Technique");
+                                row.ConstantItem(12);
+                                AddSignatureBox("Direction Risques, Conformité & Contrôle Permanent");
+                            });
+                        });
+                    });
+                }).GeneratePdf();
+
+                var fileName = $"fiche-annulation-{reference}.pdf";
+
+                await _traceService.TraceActionAsync(TYPE_ACTION.TELECHARGEMENT_FICHIER, description: $"Génération fiche PDF demande annulation #{demande.r_id}");
+
+                return File(pdfBytes, "application/pdf", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
 
         [Authorize]
         [HttpGet("demandes/annulations/fichiers/{*fileName}")]

@@ -15,6 +15,10 @@ namespace print_attestation.Model
 
         public STATUT_DEMANDE_ANNULATION? r_status { get; set; }
 
+
+        [MaxLength(200)]
+        public string? r_reference { get; set; }
+
         [MaxLength(200)]
         public string? r_num_police { get; set; }
 
@@ -31,6 +35,16 @@ namespace print_attestation.Model
         public int? r_site_id_fk { get; set; }
 
         public t_site? r_site { get; set; }
+
+
+        [ForeignKey(nameof(r_user_traite))]
+
+        public int? r_user_traite_id_fk { get; set; }
+
+        public t_user? r_user_traite { get; set; }
+
+
+
 
         [Required]
         [ForeignKey(nameof(r_user))]

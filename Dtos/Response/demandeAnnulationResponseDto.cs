@@ -16,6 +16,7 @@ namespace print_attestation.Dtos.Response
         public int? userId { get; set; }
         public DateTime? dateTraitement { get; set; }
         public DateTime? createdAt { get; set; }
+        public string? reference { get; set; } = null;
         public string? numPolice { get; set; } = null;
         public string? motifRejet { get; set; } = null;
         public string? numAttestation { get; set; } = null;

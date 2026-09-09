@@ -363,6 +363,7 @@ namespace print_attestation.Tools
             {
                 id = d.r_id,
                 motifLibelle = d.r_motif_annulation.r_libelle,
+                reference = d.r_reference,
                 status = d.r_status,
                 numAttestation = d.r_num_attestation,
                 numImmatriculation = d.r_num_immatriculation,
