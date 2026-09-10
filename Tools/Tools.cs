@@ -386,6 +386,7 @@ namespace print_attestation.Tools
             {
                 id = f.r_id,
                 nomFichier = f.r_nom_fichier,
+                type = f.r_type.ToString(),
                 nomFichierSave = f.r_nom_fichier_save,
             };
         }

@@ -2,6 +2,17 @@ using Oracle.ManagedDataAccess.Client;
 using System.Text.RegularExpressions;
 namespace OracleApi.Services
 {
+    public class OracleNetworkException : Exception
+    {
+        public int OracleErrorNumber { get; }
+
+        public OracleNetworkException(string message, int oracleErrorNumber, Exception? innerException = null)
+            : base(message, innerException)
+        {
+            OracleErrorNumber = oracleErrorNumber;
+        }
+    }
+
     public interface IOracleService
     {
         Task<bool> TestConnectionAsync();
@@ -163,6 +174,12 @@ namespace OracleApi.Services
                         attempt, MaxRetryAttempts, oex.Number);
                     await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt)));
                 }
+                catch (OracleException oex) when (IsNetworkError(oex))
+                {
+                    _logger.LogError(oex, "Echec après {MaxAttempts} tentatives - indisponibilité réseau Oracle (Code: {ErrorCode}) pour la requête : {Query}",
+                        MaxRetryAttempts, oex.Number, query);
+                    throw new OracleNetworkException("Le service Oracle est temporairement indisponible.", oex.Number, oex);
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Erreur lors de l'exécution de la requête : {Query}", query);
@@ -185,6 +202,7 @@ namespace OracleApi.Services
                 12535 => true, // TNS: operation timed out
                 12537 => true, // TNS: connection closed
                 12541 => true, // TNS: no listener
+                12570 => true, // TNS: unexpected packet read error
                 12571 => true, // TNS: packet writer failure
                 _ => false
             };

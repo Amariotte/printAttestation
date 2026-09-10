@@ -209,19 +209,21 @@ namespace ask
 
             });
 
-            // Middleware pour gérer les erreurs 404
+            // Middleware pour gérer les URLs introuvables (route inexistante)
             app.Use(async (context, next) =>
             {
-
-                
                 await next();
+
+                // Si l'endpoint existe (ex: NoContent/404 métier), on laisse la réponse métier telle quelle
+                if (context.GetEndpoint() != null || context.Response.StatusCode == StatusCodes.Status204NoContent)
+                    return;
 
                 if (context.Response.StatusCode == 404 && !context.Response.HasStarted)
                 {
                     context.Response.ContentType = "application/json";
 
                     var problem = GeneraleRetour.BuildNotFound(
-                                     detail: "L'url n'a pas pu être contacté",
+                                     detail: "L'URL demandée est introuvable.",
                                      instance: context.Request.Path
                                  );
 
@@ -229,6 +231,7 @@ namespace ask
                     await context.Response.WriteAsync(json);
                 }
             });
+
             // Middleware pour gérer les erreurs 404
 
             //******************************************Modifier le server qui apparait dans la reponse pour la securité************************************

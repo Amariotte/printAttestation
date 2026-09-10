@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Drawing;
 using System.Net;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
@@ -373,7 +374,7 @@ namespace print_attestation.Controllers
 
         [Authorize]
         [HttpGet("attestations/{cleRechercheEncode}")]
-        public async Task<IActionResult> GetAttestation(string cleRechercheEncode, [FromQuery] int page = 1, [FromQuery] int limit = 10,[FromQuery] string status = "")
+        public async Task<IActionResult> GetAttestation(string cleRechercheEncode, [FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string status = "", [FromQuery] string dateDebut = "", [FromQuery] string dateFin = "")
         {
             string _desc_route = "Obtenir une attestation";
 
@@ -384,6 +385,230 @@ namespace print_attestation.Controllers
 
 
                 string cleRecherche =  WebUtility.UrlDecode(cleRechercheEncode);
+
+
+                await _traceService.TraceActionAsync(
+                  TYPE_ACTION.RECHERCHE_ATTESTATION,
+                  userId: dataUser.r_id,
+                  userEmail: dataUser.r_email,
+                  description: $"Recherche d'attestation : recherche = {cleRecherche}");
+
+                if (string.IsNullOrWhiteSpace(cleRecherche))
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Le numéro de l'attestation est requis", instance: HttpContext.Request.Path));
+
+                // Validation de sécurité pour éviter les injections SQL
+                if (!Tools.Tools.IsValidSearchKey(cleRecherche))
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format de recherche invalide", instance: HttpContext.Request.Path));
+
+
+                var pagination = new PaginationParams(page, limit);
+
+
+                string statutSql = "";
+                string codeInteSql = "";
+                string dateSql = "";
+
+                DateTime? parsedDateDebut = null;
+                DateTime? parsedDateFin = null;
+
+                if (!string.IsNullOrWhiteSpace(dateDebut))
+                {
+                    if (!DateTime.TryParse(dateDebut, out var dDebut))
+                        return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format dateDebut invalide", instance: HttpContext.Request.Path));
+
+                    parsedDateDebut = dDebut.Date;
+                }
+
+                if (!string.IsNullOrWhiteSpace(dateFin))
+                {
+                    if (!DateTime.TryParse(dateFin, out var dFin))
+                        return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Format dateFin invalide", instance: HttpContext.Request.Path));
+
+                    parsedDateFin = dFin.Date;
+                }
+
+                if (parsedDateDebut.HasValue && parsedDateFin.HasValue && parsedDateDebut.Value > parsedDateFin.Value)
+                    return BadRequest(GeneraleRetour.BuildBadRequest(detail: "dateDebut ne peut pas être supérieure à dateFin", instance: HttpContext.Request.Path));
+
+                if (parsedDateDebut.HasValue && !parsedDateFin.HasValue)
+                    dateSql = " AND TRUNC(a.CREE__LE) >= TRUNC(:dateDebut)";
+                else if (!parsedDateDebut.HasValue && parsedDateFin.HasValue)
+                    dateSql = " AND TRUNC(a.CREE__LE) <= TRUNC(:dateFin)";
+                else if (parsedDateDebut.HasValue && parsedDateFin.HasValue)
+                    dateSql = " AND TRUNC(a.CREE__LE) BETWEEN TRUNC(:dateDebut) AND TRUNC(:dateFin)";
+
+                var caracteres = _param_app_settings.immatriculation.charactersToReplace ?? [];
+
+                var numeImmaSql = SqlReplace("a.NUMEIMMA", caracteres);
+                var cleRechercheSql = SqlReplace(":cleRecherche", caracteres);
+
+                if (status == "ACTIVE")
+                {
+                    statutSql = " AND TRUNC(a.DATECHAT) >= TRUNC(SYSDATE)";
+                }
+                else if (status == "EXPIREE")
+                {
+                    statutSql = " AND TRUNC(a.DATECHAT) < TRUNC(SYSDATE)";
+                }
+
+
+                if (User.HasScope(Scopes.utilisateur) || User.HasScope(Scopes.responsable_intermediaire)) // Uniquement le site de l'utilisateur connecté
+                {
+                    codeInteSql = " AND a.CODEINTE =:codeInte";
+                }
+
+
+                // Requête SQL pour compter le nombre total d'attestations correspondant à la recherche
+                string _sqlCount = @"SELECT count(*) AS nb
+                                        FROM attestation_risque a LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
+                                        WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
+                                          AND ( UPPER(TRIM(a.NUMEIMMA)) = UPPER(:cleRecherche) OR UPPER({numeImmaSql}) = UPPER({cleRechercheSql}) OR UPPER(TRIM(a.NUMECHAS)) = UPPER(:cleRecherche) OR TRIM(a.NUMATTDI) = UPPER(:cleRecherche) OR UPPER(TO_CHAR(a.NUMEPOLI)) = UPPER(:cleRecherche) OR UPPER(TO_CHAR(a.CODEINTE)) || '/' || UPPER(TRIM(TO_CHAR(a.NUMEPOLI))) = UPPER(:cleRecherche))
+                                           {statutSql}{codeInteSql}{dateSql}";
+                _sqlCount = _sqlCount.Replace("{statutSql}", statutSql);
+                _sqlCount = _sqlCount.Replace("{codeInteSql}", codeInteSql);
+                _sqlCount = _sqlCount.Replace("{dateSql}", dateSql);
+                _sqlCount = _sqlCount.Replace("{numeImmaSql}", numeImmaSql);
+                _sqlCount = _sqlCount.Replace("{cleRechercheSql}", cleRechercheSql);
+
+                // Requête SQL sécurisée avec pagination Oracle (ROWNUM)
+                int offset = (page - 1) * limit;
+                string _sql = @"SELECT * FROM (
+                                    SELECT t.*, ROWNUM rn
+                                    FROM (
+                                        SELECT TO_CHAR(a.CODEINTE) || '/' || TO_CHAR(a.NUMEPOLI) AS NUMEPOLI,
+                                               a.DATEFFAT,a.DATECHAT,a.MARQVEHI,a.TYPEVEHI,a.NUMEIMMA,a.NUMECHAS,
+                                               a.PROPATTE,a.NUMATTDI,a.LIEN_PDF,a.LIEN__QR,a.LIEN_IMG,a.CODEINTE,
+                                               i.RAISOCIN,a.CREE__LE,
+                                         CASE WHEN TRUNC(a.DATECHAT) >= TRUNC(SYSDATE) THEN 'ACTIVE' ELSE 'EXPIREE' END AS STATUT
+                                        FROM attestation_risque a 
+                                        LEFT JOIN intermediaire i ON a.CODEINTE = i.CODEINTE
+                                        WHERE (a.LIEN_PDF IS NOT NULL OR a.LIEN_IMG IS NOT NULL OR a.LIEN__QR IS NOT NULL)
+                                          AND (UPPER(TRIM(a.NUMEIMMA)) = UPPER(:cleRecherche) OR UPPER(TRIM(a.NUMECHAS)) = UPPER(:cleRecherche) OR 
+                                               UPPER(TRIM(a.NUMATTDI)) = UPPER(:cleRecherche) OR UPPER(TO_CHAR(a.NUMEPOLI)) = :cleRecherche OR
+                                               UPPER({numeImmaSql}) = UPPER({cleRechercheSql}) OR
+                                               UPPER(TO_CHAR(a.CODEINTE)) || '/' || UPPER(TRIM(TO_CHAR(a.NUMEPOLI))) = UPPER(:cleRecherche))
+                                            {statutSql}{codeInteSql}{dateSql}
+                                        ORDER BY a.CREE__LE DESC, a.DATECHAT DESC, a.DATEFFAT DESC
+                                    ) t
+                                    WHERE ROWNUM <= :maxRow
+                                )
+                                WHERE rn > :offset";
+
+                _sql = _sql.Replace("{statutSql}", statutSql);
+                _sql = _sql.Replace("{codeInteSql}", codeInteSql);
+                _sql = _sql.Replace("{dateSql}", dateSql);
+                _sql = _sql.Replace("{numeImmaSql}", numeImmaSql);
+                _sql = _sql.Replace("{cleRechercheSql}", cleRechercheSql);
+
+                // Paramètres pour la requête COUNT
+                var countParameters = new Dictionary<string, object>
+                {
+                    { ":cleRecherche", cleRecherche }
+                };
+
+
+                // Paramètres pour la requête paginée
+                var parameters = new Dictionary<string, object>
+                {
+                    { ":cleRecherche", cleRecherche },
+                    { ":offset", offset },
+                    { ":maxRow", offset + limit }
+                };
+
+                if (!string.IsNullOrWhiteSpace(codeInteSql))
+                {
+                    string codeInte = dataUser.r_site != null ? dataUser.r_site.r_code : string.Empty;
+                    parameters.Add(":codeInte", codeInte);
+                    countParameters.Add(":codeInte", codeInte);
+                }
+
+                if (parsedDateDebut.HasValue)
+                {
+                    parameters.Add(":dateDebut", parsedDateDebut.Value);
+                    countParameters.Add(":dateDebut", parsedDateDebut.Value);
+                }
+
+                if (parsedDateFin.HasValue)
+                {
+                    parameters.Add(":dateFin", parsedDateFin.Value);
+                    countParameters.Add(":dateFin", parsedDateFin.Value);
+                }
+
+                var rowsCount = await _oracleService.ExecuteQueryAsync(_sqlCount, countParameters);
+                if (!rowsCount.Any())
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
+
+                // Total avant pagination - gérer différents types numériques retournés par Oracle
+                var totalValue = rowsCount.FirstOrDefault()?["NB"];
+                int total = 0;
+                if (totalValue != null)
+                {
+                    total = Convert.ToInt32(totalValue);
+                }
+
+                if (total == 0)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
+
+
+                var rows = await _oracleService.ExecuteQueryAsync(_sql, parameters);
+
+                // Mapper les résultats (pagination déjà effectuée dans la requête SQL)
+                var results = rows.Select(row => new AttestationResponseDto
+                {
+                    numPolice = row.ContainsKey("NUMEPOLI") ? row["NUMEPOLI"]?.ToString() : null,
+                    dateEffet = row.ContainsKey("DATEFFAT") ? (row["DATEFFAT"] as DateTime?) : null,
+                    dateEcheance = row.ContainsKey("DATECHAT") ? (row["DATECHAT"] as DateTime?) : null,
+                    dateCreation = row.ContainsKey("CREE__LE") ? (row["CREE__LE"] as DateTime?) : null,
+                    marqueVehicule = row.ContainsKey("MARQVEHI") ? row["MARQVEHI"]?.ToString() : null,
+                    typeVehicule = row.ContainsKey("TYPEVEHI") ? row["TYPEVEHI"]?.ToString() : null,
+                    numImmatriculation = row.ContainsKey("NUMEIMMA") ? row["NUMEIMMA"]?.ToString() : null,
+                    numChassis = row.ContainsKey("NUMECHAS") ? row["NUMECHAS"]?.ToString() : null,
+                    nomAssure = row.ContainsKey("PROPATTE") ? row["PROPATTE"]?.ToString() : null,
+                    numAttestation = row.ContainsKey("NUMATTDI") ? row["NUMATTDI"]?.ToString() : null,
+                    urlPdf = row.ContainsKey("LIEN_PDF") ? row["LIEN_PDF"]?.ToString() : null,
+                    urlQr = row.ContainsKey("LIEN__QR") ? row["LIEN__QR"]?.ToString() : null,
+                    urlImage = row.ContainsKey("LIEN_IMG") ? row["LIEN_IMG"]?.ToString() : null,
+                    nomIntermediaire = row.ContainsKey("RAISOCIN") ? row["RAISOCIN"].ToString() : null,
+                    codeIntermediaire = row.ContainsKey("CODEINTE") ? row["CODEINTE"].ToString() : null,
+                    statut = row.ContainsKey("STATUT") ? row["STATUT"].ToString() : null,
+
+                }).ToList();
+
+
+
+                return Ok(PaginatedResponse<AttestationResponseDto>.Create(results, total, page, limit));
+            }
+            catch (OracleNetworkException ex)
+            {
+                _logger.LogError(ex, "[EndPoint {Route}] Oracle indisponible", _desc_route);
+                return StatusCode(503, GeneraleRetour.BuildProblemResponse(
+                    new GeneraleRetour
+                    {
+                        status = 503,
+                        detail = "Le service Oracle est temporairement indisponible. Veuillez réessayer dans quelques instants."
+                    },
+                    instance: HttpContext.Request.Path));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+        [Authorize]
+        [HttpGet("attestationsOld/{cleRechercheEncode}")]
+        public async Task<IActionResult> GetAttestationOld(string cleRechercheEncode, [FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string status = "", string dateDebut = "", string dateFin = "")
+        {
+            string _desc_route = "Obtenir une attestation";
+
+            try
+            {
+
+                t_user dataUser = GetInfoUser();
+
+
+                string cleRecherche = WebUtility.UrlDecode(cleRechercheEncode);
 
 
                 await _traceService.TraceActionAsync(
@@ -421,12 +646,12 @@ namespace print_attestation.Controllers
                     statutSql = " AND TRUNC(a.DATECHAT) < TRUNC(SYSDATE)";
                 }
 
-               
+
                 if (User.HasScope(Scopes.utilisateur) || User.HasScope(Scopes.responsable_intermediaire)) // Uniquement le site de l'utilisateur connecté
                 {
                     codeInteSql = " AND a.CODEINTE =:codeInte";
                 }
-               
+
 
                 // Requête SQL pour compter le nombre total d'attestations correspondant à la recherche
                 string _sqlCount = @"SELECT count(*) AS nb
@@ -474,7 +699,7 @@ namespace print_attestation.Controllers
                     { ":cleRecherche", cleRecherche }
                 };
 
-               
+
                 // Paramètres pour la requête paginée
                 var parameters = new Dictionary<string, object>
                 {
@@ -532,13 +757,24 @@ namespace print_attestation.Controllers
                 }).ToList();
 
 
-           
+
                 return Ok(PaginatedResponse<AttestationResponseDto>.Create(results, total, page, limit));
+            }
+            catch (OracleNetworkException ex)
+            {
+                _logger.LogError(ex, "[EndPoint {Route}] Oracle indisponible", _desc_route);
+                return StatusCode(503, GeneraleRetour.BuildProblemResponse(
+                    new GeneraleRetour
+                    {
+                        status = 503,
+                        detail = "Le service Oracle est temporairement indisponible. Veuillez réessayer dans quelques instants."
+                    },
+                    instance: HttpContext.Request.Path));
             }
             catch (Exception ex)
             {
                 _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
-                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: ex.Message));
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
             }
         }
 
@@ -883,6 +1119,7 @@ namespace print_attestation.Controllers
                         r_demande_annulation_id_fk = demande.r_id,
                         r_nom_fichier = file.FileName,
                         r_nom_fichier_save = safeName,  
+                        r_type = TYPE_FICHIER.PREUVE_DEMANDE,  
                         r_created_by = user.r_id,
                         r_created_at = DateTime.UtcNow
                     });
@@ -973,7 +1210,8 @@ namespace print_attestation.Controllers
         [Authorize]
         [RequireAnyScope(Scopes.administrateur, Scopes.responsable_reseau, Scopes.responsable_intermediaire)]
         [HttpPut("demandes/annulations/{id}/validations")]
-        public async Task<IActionResult> ValiderUneDemandeAnnulation(int id)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> ValiderUneDemandeAnnulation(int id, [FromForm] List<IFormFile>? files)
         {
             const string _desc_route = "Valider une demande d'annulation";
 
@@ -983,10 +1221,11 @@ namespace print_attestation.Controllers
                 if (user == null)
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
 
-             
-
                 var demande = await _dbContext.t_demande_annulation
                     .FirstOrDefaultAsync(m => m.r_id == id && m.r_is_delete != true);
+
+                if (demande == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "La demande d'annulation est introuvable", instance: HttpContext.Request.Path));
 
                 if (demande.r_status == STATUT_DEMANDE_ANNULATION.REJETE)
                     return BadRequest(GeneraleRetour.BuildConflict(detail: "La demande d'annulation a déjà été rejetée", instance: HttpContext.Request.Path));
@@ -994,15 +1233,46 @@ namespace print_attestation.Controllers
                 if (demande.r_status == STATUT_DEMANDE_ANNULATION.TRAITE)
                     return BadRequest(GeneraleRetour.BuildConflict(detail: "La demande d'annulation a déjà été traitée", instance: HttpContext.Request.Path));
 
-                if (demande == null)
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "La demande d'annulation est introuvable", instance: HttpContext.Request.Path));
-
                 demande.r_status = STATUT_DEMANDE_ANNULATION.TRAITE;
                 demande.r_date_traitement = DateTime.UtcNow;
                 demande.r_user_traite_id_fk = user.r_id;
 
                 _dbContext.t_demande_annulation.Update(demande);
                 await _dbContext.SaveChangesAsync();
+
+                var preuves = new List<t_demande_annulation_fichier>();
+                if (files != null && files.Any(f => f != null && f.Length > 0))
+                {
+                    var webRoot = GetWebRoot();
+                    var uploadFolder = Path.Combine(webRoot, "uploads", "demandes-annulations");
+                    Directory.CreateDirectory(uploadFolder);
+
+                    foreach (var file in files.Where(f => f != null && f.Length > 0))
+                    {
+                        var extension = Path.GetExtension(file.FileName);
+                        var safeName = $"{Guid.NewGuid():N}{extension}";
+                        var filePath = Path.Combine(uploadFolder, safeName);
+
+                        await using var stream = new FileStream(filePath, FileMode.Create);
+                        await file.CopyToAsync(stream);
+
+                        preuves.Add(new t_demande_annulation_fichier
+                        {
+                            r_demande_annulation_id_fk = demande.r_id,
+                            r_nom_fichier = file.FileName,
+                            r_nom_fichier_save = safeName,
+                            r_type = TYPE_FICHIER.PREUVE_TRAITEMENT,
+                            r_created_by = user.r_id,
+                            r_created_at = DateTime.UtcNow
+                        });
+                    }
+                }
+
+                if (preuves.Count > 0)
+                {
+                    await _dbContext.t_demande_annulation_fichier.AddRangeAsync(preuves);
+                    await _dbContext.SaveChangesAsync();
+                }
 
                 var updated = await _dbContext.t_demande_annulation
                     .Include(d => d.r_user)

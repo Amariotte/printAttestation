@@ -6,7 +6,7 @@ namespace print_attestation.Dtos.Request
     {
         public string? nom { get; set; }
         public string? code { get; set; }
-        public int? type { get; set; }
+        public TYPE_SITE? type { get; set; }
     }
 
     public class SiteDtoValidator : AbstractValidator<SiteDto>

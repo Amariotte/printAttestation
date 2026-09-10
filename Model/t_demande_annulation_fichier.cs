@@ -11,6 +11,8 @@ namespace print_attestation.Model
         [ForeignKey(nameof(r_demande_annulation))]
         public int r_demande_annulation_id_fk { get; set; }
 
+        public TYPE_FICHIER? r_type { get; set; }
+
         [MaxLength(255)]
         public string? r_nom_fichier { get; set; }
 

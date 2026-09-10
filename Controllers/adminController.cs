@@ -1134,6 +1134,13 @@ namespace print_attestation.Controllers
                     }
                 }
 
+                var oldNom = User.r_nom;
+                var oldPrenom = User.r_prenom;
+                var oldEmail = User.r_email;
+                var oldTelephone = User.r_telephone;
+                var oldSiteId = User.r_site_id_fk;
+                var oldType = User.r_type;
+
                 User.r_nom = _body.nom;
                 User.r_prenom = _body.prenom;
                 User.r_email = _body.email;
@@ -1144,7 +1151,8 @@ namespace print_attestation.Controllers
                 _dbContext.t_user.Update(User);
                 await _dbContext.SaveChangesAsync();
 
-                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFIER_UTILISATEUR, description: $"Modification de l'utilisateur : {User.r_email}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFIER_UTILISATEUR,
+                    description: $"Modification de l'utilisateur : Avant [Nom : {oldNom}, Prénom : {oldPrenom}, Email : {oldEmail}, Téléphone : {oldTelephone}, SiteId : {oldSiteId}, Type : {oldType}] - Après [Nom : {User.r_nom}, Prénom : {User.r_prenom}, Email : {User.r_email}, Téléphone : {User.r_telephone}, SiteId : {User.r_site_id_fk}, Type : {User.r_type}]");
 
                 return Ok(Tools.Tools.BuildUserToUserResponseDto(User));
 
@@ -1186,7 +1194,7 @@ namespace print_attestation.Controllers
                     await _dbContext.SaveChangesAsync();
 
 
-                await _traceService.TraceActionAsync(TYPE_ACTION.DESACTIVER_UTILISATEUR, description: $"Modification de l'utilisateur : {resQuery.r_email}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.DESACTIVER_UTILISATEUR, description: $"Désactivation de l'utilisateur : {resQuery.r_email}");
 
 
                     //     _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, resQuery,null);
@@ -1408,7 +1416,8 @@ namespace print_attestation.Controllers
                 await _dbContext.t_site.AddAsync(site);
                 await _dbContext.SaveChangesAsync();
 
-                await _traceService.TraceActionAsync(TYPE_ACTION.CREATION_SITE,description: $"Création d'un site : {_body.nom}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.CREATION_SITE,description: $"Création du" +
+                    $" site : { "Code : "+ site.r_code} - {"Nom : "+ site.r_nom} - { "Type : "+ Tools.Tools.EquivalenceTypeSite(site.r_type)}");
 
                 return Ok(Tools.Tools.BuildSiteToSiteResponseDto(site));
             }
@@ -1481,13 +1490,18 @@ namespace print_attestation.Controllers
 
                 string myPass = Tools.Tools.GeneratePassword(includeSpecialChars: false);
 
+                var oldCode = site.r_code;
+                var oldNom = site.r_nom;
+                var oldType = site.r_type;
 
                 site.r_nom = _body.nom;
                 site.r_code = _body.code;
+                site.r_type = (TYPE_SITE)_body.type;
 
                 _dbContext.t_site.Update(site);
                 await _dbContext.SaveChangesAsync();
-                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_SITE, description: $"Modification d'un site : {_body.nom}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_SITE,
+                    description: $"Modification du site : Avant [Code : {oldCode} - Nom : {oldNom} - Type : {Tools.Tools.EquivalenceTypeSite(oldType)}] - Après [Code : {site.r_code} - Nom : {site.r_nom} - Type : {Tools.Tools.EquivalenceTypeSite(site.r_type)}]");
 
                 return Ok(Tools.Tools.BuildSiteToSiteResponseDto(site));
 
@@ -1539,7 +1553,7 @@ namespace print_attestation.Controllers
 
                 await _traceService.TraceActionAsync(TYPE_ACTION.SUPPRESSION_SITE, description: $"Suppression du site : {resQuery.r_nom}");
 
-                return NotFound();
+                return NoContent();
             }
             catch (Exception ex)
             {
@@ -1722,11 +1736,14 @@ namespace print_attestation.Controllers
                         instance: HttpContext.Request.Path));
 
 
+                var oldLibelle = motif.r_libelle;
+
                 motif.r_libelle = _body.libelle;
 
                 _dbContext.t_motif_annulation.Update(motif);
                 await _dbContext.SaveChangesAsync();
-                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_MOTIF_ANNULATION, description: $"Modification d'un motif d'annulation : {_body.libelle}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_MOTIF_ANNULATION,
+                    description: $"Modification du motif d'annulation : Avant [Libellé : {oldLibelle}] - Après [Libellé : {motif.r_libelle}]");
 
                 return Ok(Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(motif));
 
@@ -1763,7 +1780,7 @@ namespace print_attestation.Controllers
 
                 await _traceService.TraceActionAsync(TYPE_ACTION.SUPPRESSION_MOTIF_ANNULATION, description: $"Suppression du motif d'annulation : {resQuery.r_libelle}");
 
-                return NotFound();
+                return NoContent();
             }
             catch (Exception ex)
             {
