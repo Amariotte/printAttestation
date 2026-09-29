@@ -442,7 +442,7 @@ namespace print_attestation.Controllers
                 var numeImmaSql = SqlReplace("a.NUMEIMMA", caracteres);
                 var cleRechercheSql = SqlReplace(":cleRecherche", caracteres);
 
-                if (status == "ACTIVE")
+                if (status == "VALIDE")
                 {
                     statutSql = " AND TRUNC(a.DATECHAT) >= TRUNC(SYSDATE)";
                 }
