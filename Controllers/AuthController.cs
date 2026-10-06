@@ -1,4 +1,5 @@
 using System.Data;
+using AutoMapper;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,7 @@ namespace print_attestation.Controllers
         private readonly ServiceMessagerie _serviceMessagerie;
         private readonly ILogger<AuthController> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IMapper _mapper;
         private readonly TraceService _traceService;
 
         public AuthController(
@@ -34,12 +36,14 @@ namespace print_attestation.Controllers
             Microsoft.Extensions.Options.IOptions<ParamMessage> paramdata,
             ILogger<AuthController> logger,
             IConfiguration configuration,
-            TraceService traceService)
+            TraceService traceService ,
+            IMapper mapper)
         {
             _dbContext = dbContext;
             _jwtService = jwtService;
             _serviceMessagerie = serviceMessagerie;
             _logger = logger;
+            _mapper = mapper;
             _configuration = configuration;
             _traceService = traceService;
         }
@@ -362,30 +366,20 @@ namespace print_attestation.Controllers
                 // 17. RÉPONSE
                 // ============================================================
 
+                var UserDto = _mapper.Map<UserResponseDto>(user);
                 return Ok(
                     new AuthSecurityRetourDto
                     {
-                        access_token = accessToken,
+                        session = new sessionResponseDto
+                        {
+                            access_token = accessToken,
+                            refresh_token = refreshTokenData.r_token,
+                            token_type = "Bearer",
+                            expires_in = expirySeconds,
+                            refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0
+                        },
 
-                        refresh_token =
-                            refreshTokenData.r_token,
-
-                        token_type = "Bearer",
-
-                        expires_in = expirySeconds,
-
-                        refresh_expires_in =
-                            refreshExpiry > 0
-                                ? refreshExpiry
-                                : 0,
-
-                        password_change_required =
-                            user.r_password_change_required,
-
-                        user =
-                            Tools.Tools.BuildUserToUserResponseDto(
-                                user
-                            )
+                        user = UserDto
                     }
                 );
             }
@@ -483,15 +477,21 @@ namespace print_attestation.Controllers
                 int expirySeconds = int.TryParse(_configuration["JwtSettings:ExpiryInSecond"], out var secR) ? secR : 3600;
                 int refreshExpiry = (int)(newRefreshToken.r_expires_at - DateTime.UtcNow).TotalSeconds;
 
-                return Ok(new AuthSecurityRetourDto
+                var userDto = _mapper.Map<UserResponseDto>(dataUser);
+              
+                var sessionDto = new sessionResponseDto
                 {
                     access_token = newAccessToken,
                     refresh_token = newRefreshToken?.r_token,
                     token_type = "Bearer",
                     expires_in = expirySeconds,
                     refresh_expires_in = refreshExpiry > 0 ? refreshExpiry : 0,
-                    password_change_required = dataUser?.r_password_change_required ?? false,
-                    user = Tools.Tools.BuildUserToUserResponseDto(dataUser),
+                };
+
+                return Ok(new AuthSecurityRetourDto
+                {
+                    session = sessionDto,
+                    user = userDto,
                 });
             }
             catch (Exception ex)
@@ -715,7 +715,9 @@ namespace print_attestation.Controllers
                         detail: "Utilisateur non authentifié",
                         instance: HttpContext.Request.Path));
 
-                return Ok(Tools.Tools.BuildUserToUserResponseDto(dataUser));
+                var dto = _mapper.Map<UserResponseDto>(dataUser);
+
+                return Ok(dto);
             }
             catch (Exception ex)
             {

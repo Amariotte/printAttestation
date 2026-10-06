@@ -199,26 +199,7 @@ namespace print_attestation.Tools
         }
 
 
-        public static UserResponseDto BuildUserToUserResponseDto(t_user? u)
-        {
-            if (u == null) return null;
-
-            return new UserResponseDto
-            {
-                id = u.r_id,
-                nom = u.r_nom,
-                prenom = u .r_prenom,
-                email = u.r_email,
-                telephone = u.r_telephone,
-                siteId = u.r_site_id_fk,
-                actif = (u.r_statut == STATUT_USER.ACTIVE),
-                site = u.r_site != null ? BuildSiteToSiteResponseDto(u.r_site) : null,
-                roleId = (int?)u.r_type,
-                role = u.r_type != null ? EquivalenceTypeUtilisateur(u.r_type) : null
-            };
-        }
-
-
+     
         public static string ReplaceCaracteres(string mot , string[] caracteres)
         {
             if (string.IsNullOrWhiteSpace(mot))
@@ -232,26 +213,7 @@ namespace print_attestation.Tools
             return mot;
         }
 
-        public static jobReponseDto BuildJobToJobResponseDto(t_job j)
-        {
-            return new jobReponseDto
-            {
-                id = j.r_id,
-                jobId = j.r_job_id,
-                userId = j.r_user_id_fk,
-                completedAt = (DateTime?)j.r_completed_at,
-                fileName = j.r_file_name,
-                createdAt = j.r_created_at,
-                type = j.r_type?.ToString(),
-                nbTotal = j.r_total,
-                nbSuccess = j.r_success,
-                nbErrors = j.r_errors,
-                status = j.r_status,
-                user = j.r_user != null ? BuildUserToUserResponseDto(j.r_user) : null,
-                details = j.r_job_details != null ? j.r_job_details.Select(BuildJobDetailResponseDto).ToArray() : null
-            };
-        }
-
+       
         public static jobDetailReponseDto BuildJobDetailResponseDto(t_job_details d)
         {
             return new jobDetailReponseDto
@@ -339,59 +301,7 @@ namespace print_attestation.Tools
 
 
 
-        public static SiteResponseDto BuildSiteToSiteResponseDto(t_site? s)
-        {
-
-            if (s == null)
-                return null;
-
-            return new SiteResponseDto
-            {
-                id = s.r_id,
-                nom = s.r_nom,
-                code = s.r_code,
-                type = s.r_type,
-                typeLibelle = s.r_type != null ? EquivalenceTypeSite(s.r_type) : null
-
-            };
-        }
-
-
-        public static demandeAnnulationResponseDto BuildDemandeAnnulationResponseDto(t_demande_annulation d)
-        {
-            return new demandeAnnulationResponseDto
-            {
-                id = d.r_id,
-                motifLibelle = d.r_motif_annulation.r_libelle,
-                reference = d.r_reference,
-                status = d.r_status,
-                numAttestation = d.r_num_attestation,
-                numImmatriculation = d.r_num_immatriculation,
-                createdAt = d.r_created_at,
-                dateTraitement = d.r_date_traitement,
-                motifId = d.r_motif_annulation.r_id,
-                numPolice = d.r_num_police,
-                motifRejet = d.r_motif_rejet,
-                fichiers = d.r_fichiers != null ? d.r_fichiers.Select(BuildDemandeAnnulationFichierResponseDto).ToList() : null,
-                user = d.r_user != null ? BuildUserToUserResponseDto(d.r_user) : null,
-                site = d.r_site != null ? BuildSiteToSiteResponseDto(d.r_site) : null
-            };
-        }
-
-
-
-        public static demandeAnnulationFichierResponseDto BuildDemandeAnnulationFichierResponseDto(t_demande_annulation_fichier f)
-        {
-            return new demandeAnnulationFichierResponseDto
-            {
-                id = f.r_id,
-                nomFichier = f.r_nom_fichier,
-                type = f.r_type.ToString(),
-                nomFichierSave = f.r_nom_fichier_save,
-            };
-        }
-
-
+  
         [NonAction]
         public static string GetFolderPath(IWebHostEnvironment _env, params string[] segments)
         {

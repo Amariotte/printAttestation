@@ -53,8 +53,9 @@ public enum STATUT_JOB
 public enum STATUT_DEMANDE_ANNULATION
 {
     EN_ATTENTE = 1,
-    TRAITE = 2,
-    REJETE = 3,
+    VALIDE = 2,
+    TRAITE = 3,
+    REJETE = 4,
 }
 
 

@@ -37,6 +37,17 @@ namespace print_attestation.Model
         public t_site? r_site { get; set; }
 
 
+
+        [ForeignKey(nameof(r_user_valideur))]
+
+        public int? r_user_valideur_id_fk { get; set; }
+
+        public t_user? r_user_valideur { get; set; }
+
+
+
+
+
         [ForeignKey(nameof(r_user_traite))]
 
         public int? r_user_traite_id_fk { get; set; }

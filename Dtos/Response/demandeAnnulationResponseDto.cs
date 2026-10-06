@@ -1,5 +1,6 @@
 
 using System.ComponentModel.DataAnnotations;
+using print_attestation.Dtos.Request;
 using print_attestation.Dtos.Response.auth;
 
 namespace print_attestation.Dtos.Response
@@ -23,13 +24,13 @@ namespace print_attestation.Dtos.Response
         public string? numImmatriculation { get; set; } = null;
         public STATUT_DEMANDE_ANNULATION? status { get; set; } = null;
 
-        public string? motifLibelle { get; set; }
         public int? motifId { get; set; }
+        public MotifAnnulationResponseDto? motif { get; set; }
         public UserResponseDto? user { get; set; }
         public SiteResponseDto? site { get; set; }
         public List<demandeAnnulationFichierResponseDto>? fichiers { get; set; } = new List<demandeAnnulationFichierResponseDto>();
 
-
+        
     }
 
  

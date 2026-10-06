@@ -1,6 +1,8 @@
 ﻿using System.Data;
 using System.Drawing;
 using System.Net;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,13 +45,14 @@ namespace print_attestation.Controllers
         private readonly ZipAttestationService _service;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ParamAppSettings _param_app_settings;
+        private readonly IMapper _mapper;
 
         //private readonly ILogger _logger;
         public askController(askContext askContext, TraceService traceService, ServiceAsaci ServiceAsaci,
-            IOptions<ParamMessage> paramdata, IOptions<ParamAppSettings> param_app_settings, IConfiguration configuration, 
+            IOptions<ParamMessage> paramdata, IOptions<ParamAppSettings> param_app_settings, IConfiguration configuration,
             IWebHostEnvironment env, ILogger<askController> logger, IOracleService oracleService,
          ZipJobManager manager,
-       ZipAttestationService service, IServiceScopeFactory scopeFactory)
+       ZipAttestationService service, IServiceScopeFactory scopeFactory, IMapper mapper)
         {
             _configuration = configuration;
             _ServiceAsaci = ServiceAsaci;
@@ -63,10 +66,12 @@ namespace print_attestation.Controllers
             _manager = manager;
             _service = service;
             _scopeFactory = scopeFactory;
-                
+            _mapper = mapper;
+
+
         }
 
-     
+
 
         [NonAction]
         public t_user GetInfoUser()
@@ -91,7 +96,7 @@ namespace print_attestation.Controllers
 
             return webRoot;
         }
- 
+
 
 
         #region Attestation
@@ -112,7 +117,7 @@ namespace print_attestation.Controllers
                 .Distinct()
                 .ToList();
 
-          
+
             var job = _manager.Create(nums);
             job.CancellationTokenSource = new System.Threading.CancellationTokenSource();
 
@@ -139,7 +144,7 @@ namespace print_attestation.Controllers
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "Type de tâche invalide (atd|cedeao|atd_cedeao)", instance: HttpContext.Request.Path));
             }
 
-          
+
 
 
             job.r_created_by = dataUser.r_id;
@@ -156,7 +161,7 @@ namespace print_attestation.Controllers
             _dbContext.t_job.Add(job);
             await _dbContext.SaveChangesAsync();
 
-           
+
 
             // lancer le job
             _ = Task.Run(async () =>
@@ -182,14 +187,14 @@ namespace print_attestation.Controllers
                     }
 
 
-              
+
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Erreur dans le job de génération ZIP");
                 }
             });
-           
+
 
             return Ok(new { jobId = job.r_job_id });
         }
@@ -249,7 +254,7 @@ namespace print_attestation.Controllers
 
                 if (User.HasScope(Scopes.responsable_reseau)) // Voir pour tout les utilisateurs sauf les administrateurs
                 {
-                    baseQuery = baseQuery.Where(u => ((u.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR  ) || (u.r_user_id_fk != null && u.r_user_id_fk == userConnecte.r_id)));
+                    baseQuery = baseQuery.Where(u => ((u.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || (u.r_user_id_fk != null && u.r_user_id_fk == userConnecte.r_id)));
                 }
                 else if (User.HasScope(Scopes.bureau_direct)) // Voir pour tout les utilisateurs de son bureau et pour lui meme
                 {
@@ -280,20 +285,17 @@ namespace print_attestation.Controllers
                 baseQuery = baseQuery.Where(x => x.r_type == type);
             }
 
-      
+
             var total = await baseQuery.CountAsync();
 
 
-            var jobs = await baseQuery
-                 .Include(u => u.r_user)
-                        .ThenInclude(us => us.r_site)
+            var jobsDto = await baseQuery
                 .OrderByDescending(x => x.r_created_at)
                 .Skip((pagination.page - 1) * pagination.limit)
                 .Take(pagination.limit)
+                .ProjectTo<jobReponseDto>(_mapper.ConfigurationProvider)
                 .ToListAsync();
 
-            
-              var jobsDto = jobs.Select(j => Tools.Tools.BuildJobToJobResponseDto(j)).ToList();
 
             return Ok(PaginatedResponse<jobReponseDto>.Create(jobsDto, total, pagination.page, pagination.limit));
 
@@ -312,12 +314,15 @@ namespace print_attestation.Controllers
             if (jobRec == null)
                 return NotFound(GeneraleRetour.BuildNotFound(detail: "Job introuvable", instance: HttpContext.Request.Path));
 
-        
+
 
             if (!(await HasAccessToJob(jobRec, userConnecte)))
-                return StatusCode(403,GeneraleRetour.BuildForbid(instance: HttpContext.Request.Path, detail:"Accès refusé"));
+                return StatusCode(403, GeneraleRetour.BuildForbid(instance: HttpContext.Request.Path, detail: "Accès refusé"));
 
-            return Ok(Tools.Tools.BuildJobToJobResponseDto(jobRec));
+
+           var jobsDto = _mapper.Map<jobReponseDto>(jobRec);
+
+            return Ok(jobsDto);
         }
 
 
@@ -362,7 +367,7 @@ namespace print_attestation.Controllers
             return Ok(new { success = true });
         }
 
-       
+
 
         /// <summary>
         /// Convertit une chaîne Base64 en tableau de bytes (image)
@@ -370,7 +375,7 @@ namespace print_attestation.Controllers
         /// <summary>
         /// Sauvegarde une image Base64 sur le disque et retourne le chemin
         /// </summary>
-       
+
 
         [Authorize]
         [HttpGet("attestations/{cleRechercheEncode}")]
@@ -384,7 +389,7 @@ namespace print_attestation.Controllers
                 t_user dataUser = GetInfoUser();
 
 
-                string cleRecherche =  WebUtility.UrlDecode(cleRechercheEncode);
+                string cleRecherche = WebUtility.UrlDecode(cleRechercheEncode);
 
 
                 await _traceService.TraceActionAsync(
@@ -808,7 +813,7 @@ namespace print_attestation.Controllers
                 if (string.IsNullOrWhiteSpace(base64))
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'image Base64 est manquante dans la réponse", instance: HttpContext.Request.Path));
 
-                return Ok(new{base64 = base64 });
+                return Ok(new { base64 = base64 });
 
             }
             catch (Exception ex)
@@ -819,10 +824,10 @@ namespace print_attestation.Controllers
             }
         }
 
-    
+
         [Authorize]
         [HttpGet("attestations/download/{fileName}")]
-       
+
         public async Task<IActionResult> DownloadZip(string fileName)
         {
             var path = Path.Combine(Path.GetTempPath(), fileName);
@@ -863,7 +868,7 @@ namespace print_attestation.Controllers
         }
 
 
-       
+
 
         [HttpGet("attestations/zip/sse/{id}")]
         public async Task GetZipSse(string id)
@@ -904,7 +909,7 @@ namespace print_attestation.Controllers
 
                 await SendEvent(eventData.type, eventData.data);
 
-            
+
                 if (eventData.type == "complete")
                 {
                     // arrêter le SSE
@@ -992,8 +997,8 @@ namespace print_attestation.Controllers
 
             var query = _dbContext.t_demande_annulation.AsQueryable();
 
-          
-   
+
+
             // Filtre par statut si fourni (valeurs : RUNNING, COMPLETED, CANCELLED)
             if (status > 0)
             {
@@ -1004,18 +1009,14 @@ namespace print_attestation.Controllers
             var total = await query.CountAsync();
 
 
-            var demandes = await query
-                 .Include(u => u.r_user)
-                 .Include(u => u.r_site)
-                 .Include(u => u.r_motif_annulation)
-                        .Include(us => us.r_site)
+            var demandesDto = await query
                 .OrderByDescending(x => x.r_created_at)
                 .Skip((pagination.page - 1) * pagination.limit)
                 .Take(pagination.limit)
+                .ProjectTo<demandeAnnulationResponseDto>(_mapper.ConfigurationProvider)
                 .ToListAsync();
 
 
-            var demandesDto = demandes.Select(d => Tools.Tools.BuildDemandeAnnulationResponseDto(d)).ToList();
 
             return Ok(PaginatedResponse<demandeAnnulationResponseDto>.Create(demandesDto, total, pagination.page, pagination.limit));
 
@@ -1118,8 +1119,8 @@ namespace print_attestation.Controllers
                     {
                         r_demande_annulation_id_fk = demande.r_id,
                         r_nom_fichier = file.FileName,
-                        r_nom_fichier_save = safeName,  
-                        r_type = TYPE_FICHIER.PREUVE_DEMANDE,  
+                        r_nom_fichier_save = safeName,
+                        r_type = TYPE_FICHIER.PREUVE_DEMANDE,
                         r_created_by = user.r_id,
                         r_created_at = DateTime.UtcNow
                     });
@@ -1131,14 +1132,13 @@ namespace print_attestation.Controllers
                     await _dbContext.SaveChangesAsync();
                 }
 
-                var created = await _dbContext.t_demande_annulation
-                    .Include(d => d.r_user)
-                    .Include(d => d.r_fichiers)
-                    .Include(d => d.r_site)
-                    .Include(d => d.r_motif_annulation)
-                    .FirstOrDefaultAsync(d => d.r_id == demande.r_id);
+                var createdDto = await _dbContext.t_demande_annulation
+                    .Where(d => d.r_id == demande.r_id)
+                    .ProjectTo<demandeAnnulationResponseDto>(_mapper.ConfigurationProvider)
+                    .FirstOrDefaultAsync();
 
-                return Ok(Tools.Tools.BuildDemandeAnnulationResponseDto(created!));
+
+                return Ok(createdDto);
             }
             catch (Exception ex)
             {
@@ -1189,14 +1189,12 @@ namespace print_attestation.Controllers
                 _dbContext.t_demande_annulation.Update(demande);
                 await _dbContext.SaveChangesAsync();
 
-                var updated = await _dbContext.t_demande_annulation
-                    .Include(d => d.r_user)
-                    .Include(d => d.r_fichiers)
-                    .Include(d => d.r_site)
-                    .Include(d => d.r_motif_annulation)
-                    .FirstOrDefaultAsync(d => d.r_id == demande.r_id);
+                var updatedDto = await _dbContext.t_demande_annulation
+                    .Where(d => d.r_id == demande.r_id)
+                    .ProjectTo<demandeAnnulationResponseDto>(_mapper.ConfigurationProvider)
+                    .FirstOrDefaultAsync();
 
-                return Ok(Tools.Tools.BuildDemandeAnnulationResponseDto(updated!));
+                return Ok(updatedDto);
             }
             catch (Exception ex)
             {
@@ -1209,9 +1207,9 @@ namespace print_attestation.Controllers
 
         [Authorize]
         [RequireAnyScope(Scopes.administrateur, Scopes.responsable_reseau, Scopes.responsable_intermediaire)]
-        [HttpPut("demandes/annulations/{id}/validations")]
+        [HttpPut("demandes/annulations/{id}/traitements")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> ValiderUneDemandeAnnulation(int id, [FromForm] List<IFormFile>? files)
+        public async Task<IActionResult> TraiterUneDemandeAnnulation(int id, [FromForm] List<IFormFile>? files)
         {
             const string _desc_route = "Valider une demande d'annulation";
 
@@ -1274,14 +1272,12 @@ namespace print_attestation.Controllers
                     await _dbContext.SaveChangesAsync();
                 }
 
-                var updated = await _dbContext.t_demande_annulation
-                    .Include(d => d.r_user)
-                    .Include(d => d.r_fichiers)
-                    .Include(d => d.r_site)
-                    .Include(d => d.r_motif_annulation)
-                    .FirstOrDefaultAsync(d => d.r_id == demande.r_id);
+                var updatedDto = await _dbContext.t_demande_annulation
+                     .Where(d => d.r_id == demande.r_id)
+                    .ProjectTo<demandeAnnulationResponseDto>(_mapper.ConfigurationProvider)
+                    .FirstOrDefaultAsync();
 
-                return Ok(Tools.Tools.BuildDemandeAnnulationResponseDto(updated!));
+                return Ok(updatedDto);
             }
             catch (Exception ex)
             {
@@ -1289,6 +1285,89 @@ namespace print_attestation.Controllers
                 return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
             }
         }
+
+
+        [Authorize]
+        [RequireAnyScope(Scopes.administrateur, Scopes.responsable_reseau, Scopes.responsable_intermediaire)]
+        [HttpPut("demandes/annulations/{id}/validations")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> ValiderUneDemandeAnnulation(int id, [FromForm] List<IFormFile>? files)
+        {
+            const string _desc_route = "Valider une demande d'annulation";
+
+            try
+            {
+                var user = GetInfoUser();
+                if (user == null)
+                    return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
+
+                var demande = await _dbContext.t_demande_annulation
+                    .FirstOrDefaultAsync(m => m.r_id == id && m.r_is_delete != true);
+
+                if (demande == null)
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "La demande d'annulation est introuvable", instance: HttpContext.Request.Path));
+
+                if (demande.r_status != STATUT_DEMANDE_ANNULATION.EN_ATTENTE)
+                    return BadRequest(GeneraleRetour.BuildConflict(detail: "La demande d'annulation n'est pas en attente", instance: HttpContext.Request.Path));
+
+
+                demande.r_status = STATUT_DEMANDE_ANNULATION.TRAITE;
+                demande.r_date_traitement = DateTime.UtcNow;
+                demande.r_user_traite_id_fk = user.r_id;
+
+                _dbContext.t_demande_annulation.Update(demande);
+                await _dbContext.SaveChangesAsync();
+
+                var preuves = new List<t_demande_annulation_fichier>();
+                if (files != null && files.Any(f => f != null && f.Length > 0))
+                {
+                    var webRoot = GetWebRoot();
+                    var uploadFolder = Path.Combine(webRoot, "uploads", "demandes-annulations");
+                    Directory.CreateDirectory(uploadFolder);
+
+                    foreach (var file in files.Where(f => f != null && f.Length > 0))
+                    {
+                        var extension = Path.GetExtension(file.FileName);
+                        var safeName = $"{Guid.NewGuid():N}{extension}";
+                        var filePath = Path.Combine(uploadFolder, safeName);
+
+                        await using var stream = new FileStream(filePath, FileMode.Create);
+                        await file.CopyToAsync(stream);
+
+                        preuves.Add(new t_demande_annulation_fichier
+                        {
+                            r_demande_annulation_id_fk = demande.r_id,
+                            r_nom_fichier = file.FileName,
+                            r_nom_fichier_save = safeName,
+                            r_type = TYPE_FICHIER.PREUVE_TRAITEMENT,
+                            r_created_by = user.r_id,
+                            r_created_at = DateTime.UtcNow
+                        });
+                    }
+                }
+
+                if (preuves.Count > 0)
+                {
+                    await _dbContext.t_demande_annulation_fichier.AddRangeAsync(preuves);
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                var updatedDto = await _dbContext.t_demande_annulation
+                    .Where(d => d.r_id == demande.r_id)
+                    .ProjectTo<demandeAnnulationResponseDto>(_mapper.ConfigurationProvider)
+                    .FirstOrDefaultAsync();
+
+                return Ok(updatedDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+
+
 
         [Authorize]
         [HttpGet("demandes/annulations/{id}")]
@@ -1303,17 +1382,15 @@ namespace print_attestation.Controllers
                     return Unauthorized(GeneraleRetour.BuildUnauthorized(detail: "Utilisateur non authentifié", instance: HttpContext.Request.Path));
 
 
-                var demande = await _dbContext.t_demande_annulation
-                       .Include(d => d.r_user)
-                    .Include(d => d.r_fichiers)
-                    .Include(d => d.r_site)
-                    .Include(d => d.r_motif_annulation)
-                    .FirstOrDefaultAsync(m => m.r_id == id && m.r_is_delete != true);
-
-              
+                var demandeDto = await _dbContext.t_demande_annulation
+                                        .Where(m => m.r_id == id && m.r_is_delete != true)
+                                          .ProjectTo<demandeAnnulationResponseDto>(_mapper.ConfigurationProvider)
+                                          .FirstOrDefaultAsync();
 
 
-                return Ok(Tools.Tools.BuildDemandeAnnulationResponseDto(demande!));
+
+                return Ok(demandeDto);
+
             }
             catch (Exception ex)
             {
@@ -1450,7 +1527,7 @@ namespace print_attestation.Controllers
                                                                    .AlignCenter()
                                                                    .Text(statusLibelle).Bold().FontSize(12).FontColor(statusColor);
                                 }
-                           
+
                             });
 
                             column.Item().LineHorizontal(2).LineColor(Colors.Black);
@@ -1518,7 +1595,7 @@ namespace print_attestation.Controllers
                                     table.Cell().ColumnSpan(2).PaddingBottom(10).Column(info =>
                                     {
                                         info.Item().Text("AGENCE/INTERMEDIAIRE").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
-                                        info.Item().PaddingTop(2).Text((demande.r_site?.r_code + " - "+ demande.r_site?.r_nom)).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                        info.Item().PaddingTop(2).Text((demande.r_site?.r_code + " - " + demande.r_site?.r_nom)).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
                                         info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
                                     });
 
@@ -1532,7 +1609,7 @@ namespace print_attestation.Controllers
                                     AddInfoCell("IDENTITÉ DU DEMANDEUR", nomComplet);
                                     AddInfoCell("DATE DE LA DEMANDE", dateCreation);
 
-                                   
+
                                 });
                             });
 
@@ -1541,64 +1618,64 @@ namespace print_attestation.Controllers
                             if (demande.r_status != STATUT_DEMANDE_ANNULATION.EN_ATTENTE)
                             {
 
-                           
 
-                            column.Item().Background(Colors.White).Border(1).BorderColor(Colors.Black).Padding(10).Column(block =>
-                            {
-                                block.Spacing(2);
-                                block.Item().Row(header =>
+
+                                column.Item().Background(Colors.White).Border(1).BorderColor(Colors.Black).Padding(10).Column(block =>
                                 {
-                                    header.ConstantItem(4).Background(Colors.Black);
-                                    header.RelativeItem().PaddingLeft(8).Text("TRAITEMENT DE LA DEMANDE").Bold().FontSize(12).FontColor(Colors.Black);
+                                    block.Spacing(2);
+                                    block.Item().Row(header =>
+                                    {
+                                        header.ConstantItem(4).Background(Colors.Black);
+                                        header.RelativeItem().PaddingLeft(8).Text("TRAITEMENT DE LA DEMANDE").Bold().FontSize(12).FontColor(Colors.Black);
+                                    });
                                 });
-                            });
 
-                            column.Item().Border(1).BorderColor(Colors.Black).Padding(14).Column(block =>
-                            {
-                                block.Item().Table(table =>
+                                column.Item().Border(1).BorderColor(Colors.Black).Padding(14).Column(block =>
                                 {
-                                    table.ColumnsDefinition(columns =>
+                                    block.Item().Table(table =>
                                     {
-                                        columns.RelativeColumn();
-                                        columns.RelativeColumn();
-                                    });
-
-                                    void AddTraitementCell(string label, string? value, string? colorHex = null)
-                                    {
-                                        table.Cell().PaddingBottom(10).PaddingRight(10).Column(info =>
+                                        table.ColumnsDefinition(columns =>
                                         {
-                                            info.Item().Text(label).SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
-                                            var textEl = info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(value) ? "-" : value).Bold().FontSize(12);
-                                            textEl.FontColor(colorHex ?? Colors.Grey.Darken4);
-                                            info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                            columns.RelativeColumn();
+                                            columns.RelativeColumn();
                                         });
-                                    }
 
-                                    AddTraitementCell("DATE DE TRAITEMENT", dateTraitement);
-                                    AddTraitementCell("STATUT FINAL", statusLibelle, statusColor);
+                                        void AddTraitementCell(string label, string? value, string? colorHex = null)
+                                        {
+                                            table.Cell().PaddingBottom(10).PaddingRight(10).Column(info =>
+                                            {
+                                                info.Item().Text(label).SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                                var textEl = info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(value) ? "-" : value).Bold().FontSize(12);
+                                                textEl.FontColor(colorHex ?? Colors.Grey.Darken4);
+                                                info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                            });
+                                        }
 
-                                    table.Cell().ColumnSpan(2).PaddingBottom(10).Column(info =>
-                                    {
-                                        info.Item().Text("PERSONNE QUI A TRAITÉ").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
-                                        info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(personneTraitement) ? "-" : personneTraitement).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
-                                        info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
-                                    });
+                                        AddTraitementCell("DATE DE TRAITEMENT", dateTraitement);
+                                        AddTraitementCell("STATUT FINAL", statusLibelle, statusColor);
 
-                                    if (demande.r_status == STATUT_DEMANDE_ANNULATION.REJETE)
-                                    {
                                         table.Cell().ColumnSpan(2).PaddingBottom(10).Column(info =>
                                         {
-                                            info.Item().Text("MOTIF DE REJET").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
-                                            info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(demande.r_motif_rejet) ? "-" : demande.r_motif_rejet).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                            info.Item().Text("PERSONNE QUI A TRAITÉ").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                            info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(personneTraitement) ? "-" : personneTraitement).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
                                             info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
                                         });
-                                    }
-                                  
+
+                                        if (demande.r_status == STATUT_DEMANDE_ANNULATION.REJETE)
+                                        {
+                                            table.Cell().ColumnSpan(2).PaddingBottom(10).Column(info =>
+                                            {
+                                                info.Item().Text("MOTIF DE REJET").SemiBold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                                info.Item().PaddingTop(2).Text(string.IsNullOrWhiteSpace(demande.r_motif_rejet) ? "-" : demande.r_motif_rejet).Bold().FontSize(12).FontColor(Colors.Grey.Darken4);
+                                                info.Item().PaddingTop(3).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten3);
+                                            });
+                                        }
 
 
-                                 
+
+
+                                    });
                                 });
-                            });
                             }
 
                             column.Item().PaddingTop(20).Row(row =>
@@ -1677,7 +1754,7 @@ namespace print_attestation.Controllers
 
                 if (User.HasScope(Scopes.responsable_reseau)) // Voir pour tout les utilisateurs sauf les administrateurs
                 {
-                   return (jobRec.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || (jobRec.r_user_id_fk != null && jobRec.r_user_id_fk == user.r_id);
+                    return (jobRec.r_user.r_type != TYPE_UTILISATEUR.ADMINISTRATEUR) || (jobRec.r_user_id_fk != null && jobRec.r_user_id_fk == user.r_id);
                 }
                 else if (User.HasScope(Scopes.bureau_direct)) // Voir pour tout les utilisateurs de son bureau et pour lui meme
                 {
@@ -1689,7 +1766,7 @@ namespace print_attestation.Controllers
                 }
                 else // Voir uniquement pour lui meme
                 {
-                   return ((jobRec.r_user_id_fk != null && jobRec.r_user_id_fk == user.r_id));
+                    return ((jobRec.r_user_id_fk != null && jobRec.r_user_id_fk == user.r_id));
                 }
 
             }

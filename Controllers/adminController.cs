@@ -1,4 +1,6 @@
 using System.Data;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,16 +27,17 @@ namespace print_attestation.Controllers
         private readonly ServiceMessagerie _serviceMessagerie;
         private readonly ParamAppSettings _param_app_settings;
         private readonly TraceService _traceService;
+        private readonly IMapper _mapper;
 
 
-        public adminController(askContext dbContext, ILogger<adminController> logger, ServiceMessagerie serviceMessagerie, IOptions<ParamAppSettings> param_app_settings, TraceService traceService)
+        public adminController(askContext dbContext, ILogger<adminController> logger, ServiceMessagerie serviceMessagerie, IOptions<ParamAppSettings> param_app_settings, TraceService traceService, IMapper mapper)
         {
             _dbContext = dbContext;
             _logger = logger;
             _serviceMessagerie = serviceMessagerie;
             _param_app_settings = param_app_settings.Value;
             _traceService = traceService;
-
+            _mapper = mapper;
         }
 
         [NonAction]
@@ -533,30 +536,12 @@ namespace print_attestation.Controllers
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
 
-                var logs = await baseQuery
-                    .Include(u => u.r_user)
+                var logsDto = await baseQuery
                     .OrderByDescending(u => u.r_id)
                     .Skip((pagination.Skip))
                     .Take(pagination.Take)
+                    .ProjectTo<logDto>(_mapper.ConfigurationProvider)   
                     .ToListAsync();
-
-                var logsDto = logs.Select(m => new logDto
-                {
-                    id = m.r_id,
-                    userId = m.r_user_id,
-                    description = m.r_description,
-                    date = m.r_created_at,
-                    userEmail = m.r_user_email,
-                    typeAction = m.r_type_action,
-                    detailJson = m.r_details_json,
-                    ip = m.r_ip_address,
-                    userAgent = m.r_user_agent,
-                    httpMethod = m.r_http_method,
-                    endpoint = m.r_endpoint,
-                    statusCode = m.r_status_code,
-                    durationMs = m.r_duration_ms,
-                    user = Tools.Tools.BuildUserToUserResponseDto(m.r_user),
-                }).ToList();
 
 
                 return Ok(PaginatedResponse<logDto>.Create(logsDto, total, page, limit));
@@ -611,29 +596,14 @@ namespace print_attestation.Controllers
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
 
-                var logs = await baseQuery
-                    .Include(u => u.r_user)
-                    .OrderByDescending(u => u.r_id)
+                var logsDto = await baseQuery
+                     .OrderByDescending(u => u.r_id)
+                    .ProjectTo<logAccesDto>(_mapper.ConfigurationProvider)
                     .Skip((pagination.Skip))
                     .Take(pagination.Take)
                     .ToListAsync();
 
-                var logsDto = logs.Select(m => new logAccesDto
-                {
-                    id = m.r_id,
-                    userId = m.r_user_id,
-                    date = m.r_created_at,
-                    userEmail = m.r_email,
-                    typeEvenement = m.r_type_evenement,
-                    detailJson = m.r_details_json,
-                    ip = m.r_ip_address,
-                    userAgent = m.r_user_agent,
-                    success = m.r_succes,
-                    raisonEchec = m.r_raison_echec,
-                    user = Tools.Tools.BuildUserToUserResponseDto(m.r_user),
-                }).ToList();
-
-
+           
                 return Ok(PaginatedResponse<logAccesDto>.Create(logsDto, total, page, limit));
 
             }
@@ -868,14 +838,12 @@ namespace print_attestation.Controllers
 
                 var total = await baseQuery.CountAsync();
 
-                var users = await baseQuery
-                    .Include(u => u.r_site)
+                var usersDto = await baseQuery
                     .OrderBy(u => u.r_id)
                     .Skip(pagination.Skip)
                     .Take(pagination.Take)
+                    .ProjectTo<UserResponseDto>(_mapper.ConfigurationProvider)
                     .ToListAsync();
-
-                var usersDto = users.Select(m => Tools.Tools.BuildUserToUserResponseDto(m)).ToList();
 
                 return Ok(PaginatedResponse<UserResponseDto>.Create(usersDto, total, page, limit));
 
@@ -899,8 +867,9 @@ namespace print_attestation.Controllers
             {
 
                 var User = await _dbContext.t_user
-                    .Include(u => u.r_site)
-                    .FirstOrDefaultAsync(u => u.r_id == id && u.r_is_delete != true);
+                    .Where(u => u.r_id == id && u.r_is_delete != true)
+                    .ProjectTo<UserResponseDto>(_mapper.ConfigurationProvider)
+                    .FirstOrDefaultAsync();
 
 
                 if (User == null)
@@ -911,9 +880,10 @@ namespace print_attestation.Controllers
                     ));
                 }
 
-       
+                var userDto = _mapper.Map<UserResponseDto>(User);
 
-                return Ok(Tools.Tools.BuildUserToUserResponseDto(User));
+
+                return Ok(userDto);
 
             }
             catch (Exception ex)
@@ -963,10 +933,9 @@ namespace print_attestation.Controllers
                 }
 
                 var existingUser = await _dbContext.t_user
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(u => u.r_email == _body.email && u.r_is_delete != true);
+                    .AnyAsync(u => u.r_email == _body.email && u.r_is_delete != true);
 
-                if (existingUser != null)
+                if (existingUser)
                     return Conflict(GeneraleRetour.BuildProblemResponse(
                         new GeneraleRetour
                         {
@@ -1095,12 +1064,12 @@ namespace print_attestation.Controllers
                 }
 
 
-                var User = await _dbContext.t_user
+                var UserUpdate = await _dbContext.t_user
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.r_id == id && u.r_is_delete != true);
 
 
-                if (User == null)
+                if (UserUpdate == null)
                 {
                     return NotFound(GeneraleRetour.BuildNotFound(
                        detail: "L'utilisateur est introuvable",
@@ -1109,11 +1078,9 @@ namespace print_attestation.Controllers
                 }
 
                 var existingUser = await _dbContext.t_user
-                    .Include(us => us.r_site)
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(u => u.r_email == _body.email && u.r_is_delete != true && u.r_id != User.r_id);
+                    .AnyAsync(u => u.r_email == _body.email && u.r_is_delete != true && u.r_id != UserUpdate.r_id);
 
-                if (existingUser != null)
+                if (existingUser)
                     return Conflict(GeneraleRetour.BuildProblemResponse(
                         new GeneraleRetour
                         {
@@ -1134,27 +1101,29 @@ namespace print_attestation.Controllers
                     }
                 }
 
-                var oldNom = User.r_nom;
-                var oldPrenom = User.r_prenom;
-                var oldEmail = User.r_email;
-                var oldTelephone = User.r_telephone;
-                var oldSiteId = User.r_site_id_fk;
-                var oldType = User.r_type;
+                var oldNom = UserUpdate.r_nom;
+                var oldPrenom = UserUpdate.r_prenom;
+                var oldEmail = UserUpdate.r_email;
+                var oldTelephone = UserUpdate.r_telephone;
+                var oldSiteId = UserUpdate.r_site_id_fk;
+                var oldType = UserUpdate.r_type;
 
-                User.r_nom = _body.nom;
-                User.r_prenom = _body.prenom;
-                User.r_email = _body.email;
-                User.r_telephone = _body.telephone;
-                User.r_site_id_fk = _body.siteId ?? 0;
-                User.r_type = requestedType;
+                UserUpdate.r_nom = _body.nom;
+                UserUpdate.r_prenom = _body.prenom;
+                UserUpdate.r_email = _body.email;
+                UserUpdate.r_telephone = _body.telephone;
+                UserUpdate.r_site_id_fk = _body.siteId ?? 0;
+                UserUpdate.r_type = requestedType;
 
-                _dbContext.t_user.Update(User);
+                _dbContext.t_user.Update(UserUpdate);
                 await _dbContext.SaveChangesAsync();
 
                 await _traceService.TraceActionAsync(TYPE_ACTION.MODIFIER_UTILISATEUR,
-                    description: $"Modification de l'utilisateur : Avant [Nom : {oldNom}, Prénom : {oldPrenom}, Email : {oldEmail}, Téléphone : {oldTelephone}, SiteId : {oldSiteId}, Type : {oldType}] - Après [Nom : {User.r_nom}, Prénom : {User.r_prenom}, Email : {User.r_email}, Téléphone : {User.r_telephone}, SiteId : {User.r_site_id_fk}, Type : {User.r_type}]");
+                    description: $"Modification de l'utilisateur : Avant [Nom : {oldNom}, Prénom : {oldPrenom}, Email : {oldEmail}, Téléphone : {oldTelephone}, SiteId : {oldSiteId}, Type : {oldType}] - Après [Nom : {UserUpdate.r_nom}, Prénom : {UserUpdate.r_prenom}, Email : {UserUpdate.r_email}, Téléphone : {UserUpdate.r_telephone}, SiteId : {UserUpdate.r_site_id_fk}, Type : {UserUpdate.r_type}]");
 
-                return Ok(Tools.Tools.BuildUserToUserResponseDto(User));
+                var dto = _mapper.Map<UserResponseDto>(UserUpdate);
+
+                return Ok(dto);
 
             }
             catch (Exception ex)
@@ -1177,32 +1146,33 @@ namespace print_attestation.Controllers
                 if (id <= 0)
                     return BadRequest(GeneraleRetour.BuildBadRequest(detail: "L'identifiant de l'utilisateur est manquant", instance: HttpContext.Request.Path));
 
-                var resQuery = await _dbContext.t_user
+                var UserUpdate = await _dbContext.t_user
                     .Where(e => e.r_id == id && e.r_is_delete != true)
                     .FirstOrDefaultAsync();
 
-                if (resQuery == null)
+                if (UserUpdate == null)
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "L'utilisateur n'existe pas", instance: HttpContext.Request.Path));
 
 
-                if (resQuery.r_statut == STATUT_USER.ACTIVE)
+                if (UserUpdate.r_statut == STATUT_USER.ACTIVE)
                 {
-                    resQuery.r_is_active = false;
-                    resQuery.r_statut = STATUT_USER.DESACTIVE;
-                    resQuery.r_date_last_statut = DateTime.UtcNow;
-                    _dbContext.t_user.Update(resQuery);
+                    UserUpdate.r_is_active = false;
+                    UserUpdate.r_statut = STATUT_USER.DESACTIVE;
+                    UserUpdate.r_date_last_statut = DateTime.UtcNow;
+                    _dbContext.t_user.Update(UserUpdate);
                     await _dbContext.SaveChangesAsync();
 
 
-                await _traceService.TraceActionAsync(TYPE_ACTION.DESACTIVER_UTILISATEUR, description: $"Désactivation de l'utilisateur : {resQuery.r_email}");
+                await _traceService.TraceActionAsync(TYPE_ACTION.DESACTIVER_UTILISATEUR, description: $"Désactivation de l'utilisateur : {UserUpdate.r_email}");
 
 
-                    //     _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, resQuery,null);
+                    //     _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_DESACTIVE, UserUpdate,null);
 
                 }
 
+                var userDto = _mapper.Map<UserResponseDto>(UserUpdate);
 
-                return Ok(Tools.Tools.BuildUserToUserResponseDto(resQuery));
+                return Ok(userDto);
             }
             catch (Exception ex)
             {
@@ -1244,8 +1214,9 @@ namespace print_attestation.Controllers
                     //  _serviceMessagerie.sendMessageALUtilisateur(TYPE_MODELE.COMPTE_ACTIVE, resQuery, null);
 
                 }
+                var userDto = _mapper.Map<UserResponseDto>(resQuery);
 
-                return Ok(Tools.Tools.BuildUserToUserResponseDto(resQuery));
+                return Ok(userDto);
             }
             catch (Exception ex)
             {
@@ -1340,14 +1311,14 @@ namespace print_attestation.Controllers
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
 
-                var sites = await baseQuery
+                var siteDto = await baseQuery
                     .OrderBy(u => u.r_nom)
                     .Skip((pagination.Skip))
                     .Take(pagination.Take)
+                    .ProjectTo<SiteResponseDto>(_mapper.ConfigurationProvider)
                     .ToListAsync();
 
 
-                var siteDto = sites.Select(m => Tools.Tools.BuildSiteToSiteResponseDto(m)).ToList();
 
                 return Ok(PaginatedResponse<SiteResponseDto>.Create(siteDto, total, page, limit));
 
@@ -1392,10 +1363,9 @@ namespace print_attestation.Controllers
                 }
 
                 var existingSite = await _dbContext.t_site
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(u => u.r_code == _body.code && u.r_is_delete != true);
+                    .AnyAsync(u => u.r_code == _body.code && u.r_is_delete != true);
 
-                if (existingSite != null)
+                if (existingSite)
                     return Conflict(GeneraleRetour.BuildProblemResponse(
                         new GeneraleRetour
                         {
@@ -1419,7 +1389,9 @@ namespace print_attestation.Controllers
                 await _traceService.TraceActionAsync(TYPE_ACTION.CREATION_SITE,description: $"Création du" +
                     $" site : { "Code : "+ site.r_code} - {"Nom : "+ site.r_nom} - { "Type : "+ Tools.Tools.EquivalenceTypeSite(site.r_type)}");
 
-                return Ok(Tools.Tools.BuildSiteToSiteResponseDto(site));
+                var dto = _mapper.Map<SiteResponseDto>(site);
+
+                return Ok(dto);
             }
             catch (Exception ex)
             {
@@ -1475,8 +1447,7 @@ namespace print_attestation.Controllers
 
 
                 var existingSite = await _dbContext.t_site
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.r_code == _body.code && s.r_is_delete != true && s.r_id != site.r_id);
+                    .AnyAsync(s => s.r_code == _body.code && s.r_is_delete != true && s.r_id != site.r_id);
 
                 if (existingSite != null)
                     return Conflict(GeneraleRetour.BuildProblemResponse(
@@ -1503,7 +1474,7 @@ namespace print_attestation.Controllers
                 await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_SITE,
                     description: $"Modification du site : Avant [Code : {oldCode} - Nom : {oldNom} - Type : {Tools.Tools.EquivalenceTypeSite(oldType)}] - Après [Code : {site.r_code} - Nom : {site.r_nom} - Type : {Tools.Tools.EquivalenceTypeSite(site.r_type)}]");
 
-                return Ok(Tools.Tools.BuildSiteToSiteResponseDto(site));
+                return Ok(_mapper.Map<SiteResponseDto>(site));
 
             }
             catch (Exception ex)
