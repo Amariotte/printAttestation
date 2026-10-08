@@ -23,15 +23,6 @@ public enum TYPE_UTILISATEUR
     UTILISATEUR = 5,
 }
 
-public enum TYPE_SITE
-{
-    SIEGE = 1,
-    BUREAU_DIRECT = 2,
-    BANCASSURANCE = 3,
-    AGENT_GENERAL = 4,
-    COURTTIER = 5,
-    AUTRES = 6
-}
 
 
 public enum TYPE_JOB
@@ -167,6 +158,9 @@ public enum TYPE_CONNEXION
 
 public enum TYPE_FICHIER
 {
-    PREUVE_DEMANDE = 1,
-    PREUVE_TRAITEMENT = 2,
+    PREUVE_DEMANDE_ATD = 1,
+    PREUVE_DEMANDE_CPA = 2,
+    PREUVE_DEMANDE_CARTE_GRISE = 3,
+    PREUVE_DEMANDE_OTHER = 4,
+    PREUVE_TRAITEMENT = 5,
 }

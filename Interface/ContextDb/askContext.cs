@@ -25,6 +25,7 @@ namespace print_attestation.ContextDb
         public DbSet<t_trace_connexion> t_trace_connexion { get; set; } = null!;
         public DbSet<t_job> t_job { get; set; } = null!;
         public DbSet<t_job_details> t_job_details { get; set; } = null!;
+        public DbSet<t_type_site> t_type_site { get; set; } = null!;
         public DbSet<t_demande_annulation> t_demande_annulation { get; set; } = null!;
         public DbSet<t_motif_annulation> t_motif_annulation { get; set; } = null!;
         public DbSet<t_demande_annulation_fichier> t_demande_annulation_fichier { get; set; } = null!;

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using print_attestation.ContextDb;
 
@@ -11,9 +12,11 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20261008153410__typess")]
+    partial class _typess
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -704,6 +707,9 @@ namespace print_attestation.Migrations
                         .IsRequired()
                         .HasColumnType("int");
 
+                    b.Property<int?>("r_type_siter_id")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("r_updated_at")
                         .HasColumnType("datetime(6)");
 
@@ -712,7 +718,7 @@ namespace print_attestation.Migrations
 
                     b.HasKey("r_id");
 
-                    b.HasIndex("r_type_site_id_fk");
+                    b.HasIndex("r_type_siter_id");
 
                     b.HasIndex(new[] { "r_code" }, "IX_Site_Code")
                         .IsUnique();
@@ -1099,9 +1105,7 @@ namespace print_attestation.Migrations
                 {
                     b.HasOne("print_attestation.Model.t_type_site", "r_type_site")
                         .WithMany("r_sites")
-                        .HasForeignKey("r_type_site_id_fk")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("r_type_siter_id");
 
                     b.Navigation("r_type_site");
                 });

@@ -213,69 +213,7 @@ namespace print_attestation.Tools
             return mot;
         }
 
-       
-        public static jobDetailReponseDto BuildJobDetailResponseDto(t_job_details d)
-        {
-            return new jobDetailReponseDto
-            {
-                id = d.r_id,
-                success = d.r_success,
-                numAttestation = d.r_attestation,
-                raisonEchec = d.r_desc_error
-            };
-        }
-
-
-        
-        public static MotifAnnulationResponseDto BuildMotifAnnulationToMotifAnnulationResponseDto(t_motif_annulation m)
-        {
-            return new MotifAnnulationResponseDto
-            {
-                id = m.r_id,
-                libelle = m.r_libelle
-            };
-               
-        }
-
-
-        
-
-        public static string EquivalenceTypeSite(TYPE_SITE? t)
-        {
-            switch (t)
-            {
-                case TYPE_SITE.SIEGE:
-                    return "Siège";
-                case TYPE_SITE.BUREAU_DIRECT:
-                    return "Bureau direct";
-                case TYPE_SITE.BANCASSURANCE:
-                    return "Bancassurance";
-                case TYPE_SITE.AGENT_GENERAL:
-                    return "Agent général";
-                case TYPE_SITE.COURTTIER:
-                    return "Courtier";
-                case TYPE_SITE.AUTRES:
-                    return "Autres";
-                default:
-                    return "Inconnu";
-             
-            }
-        }
-
-
-
-
-        public static siteTypeResponseDto BuildSiteTypeToSiteTypeResponseDto(TYPE_SITE? t)
-        {
-            return new siteTypeResponseDto
-            {
-                id = (int)t,
-                libelle = t != null ? EquivalenceTypeSite(t) : null
-            };
-        }
-
-            
-        
+ 
 
         public static string EquivalenceTypeUtilisateur(TYPE_UTILISATEUR? t)
         {

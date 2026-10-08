@@ -11,20 +11,30 @@ public class MappingProfile : Profile
     {
 
 
-        CreateMap<t_site, SiteResponseDto>()
+        CreateMap<t_type_site, siteTypeResponseDto>()
          .ForMember(d => d.id, o => o.MapFrom(s => s.r_id))
-         .ForMember(d => d.typeLibelle, o => o.MapFrom(s => Tools.EquivalenceTypeSite(s.r_type)))
+         .ForMember(d => d.libelle, o => o.MapFrom(s => s.r_libelle));
 
-         .ForMember(d => d.type, o => o.MapFrom(s => s.r_type))
-         .ForMember(d => d.nom, o => o.MapFrom(s => s.r_nom))
-         .ForMember(d => d.code, o => o.MapFrom(s => s.r_code));
+       
+        CreateMap<t_site, siteResponseDto>()
+         .ForMember(d => d.id, o => o.MapFrom(s => s.r_id))
+                  .ForMember(d => d.code, o => o.MapFrom(s => s.r_code))
+                  .ForMember(d => d.nom, o => o.MapFrom(s => s.r_nom))
+
+         .ForMember(d => d.typeSiteId, o => o.MapFrom(s => s.r_type_site_id_fk))
+         .ForMember(d => d.typeSite, o => o.MapFrom(s => s.r_type_site));
 
         CreateMap<t_motif_annulation, MotifAnnulationResponseDto>()
             .ForMember(d => d.id, o => o.MapFrom(s => s.r_id))
-            .ForMember(d => d.libelle, o => o.MapFrom(s => s.r_libelle));
+            .ForMember(d => d.libelle, o => o.MapFrom(s => s.r_libelle))
+            .ForMember(d => d.besoinAtd, o => o.MapFrom(s => s.r_file_atd_required))
+            .ForMember(d => d.besoinCpa, o => o.MapFrom(s => s.r_file_cpa_required))
+            .ForMember(d => d.besoinCarteGrise, o => o.MapFrom(s => s.r_file_carte_grise_required))
+            .ForMember(d => d.besoinOther, o => o.MapFrom(s => s.r_file_other_required));
 
 
-        CreateMap<t_demande_annulation_fichier, demandeAnnulationFichierResponseDto>()
+
+    CreateMap<t_demande_annulation_fichier, demandeAnnulationFichierResponseDto>()
          .ForMember(d => d.id, o => o.MapFrom(s => s.r_id))
          .ForMember(d => d.nomFichierSave, o => o.MapFrom(s => s.r_nom_fichier_save))
          .ForMember(d => d.nomFichier, o => o.MapFrom(s => s.r_nom_fichier))

@@ -934,12 +934,12 @@ namespace print_attestation.Controllers
             try
             {
 
-                string _sql = @" SELECT CODEINTE, RAISOCIN FROM INTERMEDIAIRE";
+                string _sql = @" SELECT CODEINTE, RAISOCIN,CODTYPIN FROM INTERMEDIAIRE";
 
                 var rows = await _oracleService.ExecuteQueryAsync(_sql);
 
                 if (!rows.Any())
-                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucune attestation trouvée", instance: HttpContext.Request.Path));
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucun site trouvé", instance: HttpContext.Request.Path));
 
                 for (int i = 0; i < rows.Count; i++)
                 {
@@ -948,10 +948,31 @@ namespace print_attestation.Controllers
                     {
 
                         string codeInt = row["CODEINTE"]?.ToString();
+                        string raisonInt = row["RAISOCIN"]?.ToString();
+                        string codeType = row["CODTYPIN"]?.ToString();
+
+
+                        int typeSiteId = 0;
+                        var existingTypeSite = await _dbContext.t_type_site.FirstOrDefaultAsync(s => s.r_code == codeType);
+                        if (existingTypeSite != null)
+                        {
+                            typeSiteId = existingTypeSite.r_id;
+                        }
+
+
+
+
+
+
+
+
+
+
                         var existingSite = await _dbContext.t_site.FirstOrDefaultAsync(s => s.r_code == codeInt);
                         if (existingSite != null)
                         {
-                            existingSite.r_nom = row["RAISOCIN"]?.ToString();
+                            existingSite.r_nom = raisonInt;
+                            existingSite.r_type_site_id_fk = typeSiteId;
                             _dbContext.Update(existingSite);
                             continue;
                         }
@@ -959,8 +980,69 @@ namespace print_attestation.Controllers
                         {
                             t_site s = new t_site
                             {
-                                r_code = row["CODEINTE"]?.ToString(),
-                                r_nom = row["RAISOCIN"]?.ToString()
+                                r_code = codeInt,
+                                r_nom = raisonInt,
+                                r_type_site_id_fk = typeSiteId
+
+                            };
+
+                            _dbContext.Add(s);
+                        }
+
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                return Ok("Opération terminée avec succès");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[EndPoint {_desc_route}] ===============================>{ex.Message}");
+                return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
+            }
+        }
+
+        [Authorize]
+        [RequireScope(Scopes.administrateur)]
+        [HttpGet("sites/types")]
+        public async Task<IActionResult> ChargerLesTypesDeSites()
+        {
+            string _desc_route = "Charger les types de sites";
+
+            try
+            {
+
+                string _sql = @" SELECT CODTYPIN, LIBTYPIN FROM TYPE_INTERMEDIAIRE";
+
+                var rows = await _oracleService.ExecuteQueryAsync(_sql);
+
+                if (!rows.Any())
+                    return NotFound(GeneraleRetour.BuildNotFound(detail: "Aucun type de site trouvé", instance: HttpContext.Request.Path));
+
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    var row = rows[i];
+
+                     string codeType = row["CODTYPIN"]?.ToString();
+                     string libelleType = row["LIBTYPIN"]?.ToString();
+
+                    if (row.ContainsKey("LIBTYPIN") && libelleType != null)
+                    {
+
+                        var existingType = await _dbContext.t_type_site.FirstOrDefaultAsync(t => t.r_code == codeType);
+                        if (existingType != null)
+                        {
+                            existingType.r_libelle = libelleType;
+                            _dbContext.Update(existingType);
+                            continue;
+                        }
+                        else
+                        {
+                            t_type_site s = new t_type_site
+                            {
+                                r_code = codeType,
+                                r_libelle = libelleType
                             };
 
                             _dbContext.Add(s);
@@ -1079,6 +1161,83 @@ namespace print_attestation.Controllers
                     return NotFound(GeneraleRetour.BuildNotFound(detail: "Motif d'annulation introuvable", instance: HttpContext.Request.Path));
 
 
+                // Vérifier si les fichiers necessaires avec le motif sont présents 
+
+                if (motif.r_file_atd_required == true)
+                {
+
+                var fileExists = body.files != null &&
+                                 body.files.Any(f => f.typeId == TYPE_FICHIER.PREUVE_DEMANDE_ATD);
+
+                if (!fileExists)
+                {
+                    return BadRequest(
+                        GeneraleRetour.BuildBadRequest(
+                            detail: $"L' attestation digitale est requis pour le motif d'annulation '{motif.r_libelle}'",
+                            instance: HttpContext.Request.Path
+                        )
+                    );
+                }
+                }
+
+
+                if (motif.r_file_carte_grise_required == true)
+                {
+
+                    var fileExists = body.files != null &&
+                                     body.files.Any(f => f.typeId == TYPE_FICHIER.PREUVE_DEMANDE_CARTE_GRISE);
+
+                    if (!fileExists)
+                    {
+                        return BadRequest(
+                            GeneraleRetour.BuildBadRequest(
+                                detail: $"La carte grise est requise pour le motif d'annulation '{motif.r_libelle}'",
+                                instance: HttpContext.Request.Path
+                            )
+                        );
+                    }
+                }
+
+
+                if (motif.r_file_cpa_required == true)
+                {
+
+                    var fileExists = body.files != null &&
+                                     body.files.Any(f => f.typeId == TYPE_FICHIER.PREUVE_DEMANDE_CPA);
+
+                    if (!fileExists)
+                    {
+                        return BadRequest(
+                            GeneraleRetour.BuildBadRequest(
+                                detail: $"Les conditions particulières sont requises pour le motif d'annulation '{motif.r_libelle}'",
+                                instance: HttpContext.Request.Path
+                            )
+                        );
+                    }
+                }
+
+
+
+                if (motif.r_file_other_required == true)
+                {
+
+                    var fileExists = body.files != null &&
+                                     body.files.Any(f => f.typeId == TYPE_FICHIER.PREUVE_DEMANDE_OTHER);
+
+                    if (!fileExists)
+                    {
+                        return BadRequest(
+                            GeneraleRetour.BuildBadRequest(
+                                detail: $"D'autres fichiers sont requis pour le motif d'annulation '{motif.r_libelle}'",
+                                instance: HttpContext.Request.Path
+                            )
+                        );
+                    }
+                }
+
+
+
+
                 var demande = new t_demande_annulation
                 {
                     r_status = STATUT_DEMANDE_ANNULATION.EN_ATTENTE,
@@ -1106,25 +1265,39 @@ namespace print_attestation.Controllers
 
                 var fichiers = new List<t_demande_annulation_fichier>();
 
-                foreach (var file in body.files.Where(f => f != null && f.Length > 0))
-                {
-                    var extension = Path.GetExtension(file.FileName);
-                    var safeName = $"{Guid.NewGuid():N}{extension}";
-                    var filePath = Path.Combine(uploadFolder, safeName);
 
-                    await using var stream = new FileStream(filePath, FileMode.Create);
-                    await file.CopyToAsync(stream);
-
-                    fichiers.Add(new t_demande_annulation_fichier
+                    for (int i = 0; i < body.files.Count; i++)
                     {
-                        r_demande_annulation_id_fk = demande.r_id,
-                        r_nom_fichier = file.FileName,
-                        r_nom_fichier_save = safeName,
-                        r_type = TYPE_FICHIER.PREUVE_DEMANDE,
-                        r_created_by = user.r_id,
-                        r_created_at = DateTime.UtcNow
-                    });
-                }
+                        var fileCurrent = body.files[i];
+                        var file = fileCurrent.file;
+
+
+                    if (file == null || file.Length == 0)
+                            continue;
+
+                    var typeFichier = fileCurrent.typeId > 0 ? (TYPE_FICHIER)fileCurrent.typeId : TYPE_FICHIER.PREUVE_DEMANDE_OTHER;
+
+                    var extension = Path.GetExtension(file.FileName);
+                        var safeName = $"{Guid.NewGuid():N}{extension}";
+                        var filePath = Path.Combine(uploadFolder, safeName);
+
+                        await using var stream = new FileStream(filePath, FileMode.Create);
+                        await file.CopyToAsync(stream);
+
+                        fichiers.Add(new t_demande_annulation_fichier
+                        {
+                            r_demande_annulation_id_fk = demande.r_id,
+                            r_nom_fichier = file.FileName,
+                            r_nom_fichier_save = safeName,
+                            r_type = typeFichier,
+                            r_created_by = user.r_id,
+                            r_created_at = DateTime.UtcNow
+                        });
+                    }
+                
+
+
+
 
                 if (fichiers.Count > 0)
                 {

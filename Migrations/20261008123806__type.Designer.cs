@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using print_attestation.ContextDb;
 
@@ -11,9 +12,11 @@ using print_attestation.ContextDb;
 namespace print_attestation.Migrations
 {
     [DbContext(typeof(askContext))]
-    partial class askContextModelSnapshot : ModelSnapshot
+    [Migration("20261008123806__type")]
+    partial class _type
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -491,18 +494,6 @@ namespace print_attestation.Migrations
 
                     b.Property<int?>("r_created_by")
                         .HasColumnType("int");
-
-                    b.Property<bool>("r_file_atd_required")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_file_carte_grise_required")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_file_cpa_required")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("r_file_other_required")
-                        .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("r_is_active")
                         .HasColumnType("tinyint(1)");

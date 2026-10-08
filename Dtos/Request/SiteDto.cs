@@ -2,16 +2,16 @@
 
 namespace print_attestation.Dtos.Request
 {
-    public class SiteDto
+    public class siteDto
     {
         public string? nom { get; set; }
         public string? code { get; set; }
-        public TYPE_SITE? type { get; set; }
+        public int? typeId { get; set; }
     }
 
-    public class SiteDtoValidator : AbstractValidator<SiteDto>
+    public class siteDtoValidator : AbstractValidator<siteDto>
     {
-        public SiteDtoValidator()
+        public siteDtoValidator()
         {
             RuleFor(x => x.nom)
                .NotEmpty().WithMessage("Le nom est obligatoire.");
@@ -20,8 +20,8 @@ namespace print_attestation.Dtos.Request
                 .NotEmpty().WithMessage("Le code est obligatoire.");
 
           
-            RuleFor(x => x.type)
-                .IsInEnum().WithMessage("Le type doit être valide.");
+            RuleFor(x => x.typeId)
+                .GreaterThan(0).WithMessage("Le type doit être valide.");
         }
     }
 }

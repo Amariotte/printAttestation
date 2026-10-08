@@ -10,6 +10,13 @@ namespace print_attestation.Dtos.Request
         public string? numPolice { get; set; }
         public string? numAttestation { get; set; }
         public string? numImmatriculation { get; set; }
-        public List<IFormFile>? files { get; set; }
+        public List<DemandeAnnulationFileDto>? files { get; set; }
+    }
+
+
+    public class DemandeAnnulationFileDto
+    {
+        public IFormFile file { get; set; } = null!;
+        public TYPE_FICHIER typeId { get; set; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 using print_attestation.Dtos.Response.auth;
@@ -59,7 +60,7 @@ namespace print_attestation.Model
         [ForeignKey(nameof(r_site))]
         public int r_site_id_fk { get; set; }
 
-        public t_site? r_site{ get; set; }
+        public t_site? r_site { get; set; }
 
         /// <summary>
         /// Statut du compte utilisateur

@@ -1315,12 +1315,12 @@ namespace print_attestation.Controllers
                     .OrderBy(u => u.r_nom)
                     .Skip((pagination.Skip))
                     .Take(pagination.Take)
-                    .ProjectTo<SiteResponseDto>(_mapper.ConfigurationProvider)
+                    .ProjectTo<siteResponseDto>(_mapper.ConfigurationProvider)
                     .ToListAsync();
 
 
 
-                return Ok(PaginatedResponse<SiteResponseDto>.Create(siteDto, total, page, limit));
+                return Ok(PaginatedResponse<siteResponseDto>.Create(siteDto, total, page, limit));
 
             }
             catch (Exception ex)
@@ -1337,7 +1337,7 @@ namespace print_attestation.Controllers
         [Authorize]
         [RequireScope(Scopes.administrateur)]
         [HttpPost("sites")]
-        public async Task<IActionResult> CréerUnSite([FromBody] SiteDto _body)
+        public async Task<IActionResult> CréerUnSite([FromBody] siteDto _body)
         {
             const string _desc_route = "Créer un site";
 
@@ -1345,7 +1345,7 @@ namespace print_attestation.Controllers
             {
 
 
-                var validator = new SiteDtoValidator();
+                var validator = new siteDtoValidator();
                 var results = validator.Validate(_body);
 
                 if (!results.IsValid)
@@ -1360,6 +1360,17 @@ namespace print_attestation.Controllers
                         detail: "Les données ne sont pas conformes",
                         instance: HttpContext.Request.Path,
                         invalidParams: invalidParams));
+                }
+
+
+                var existingTypeSite = await _dbContext.t_type_site
+                    .AnyAsync(t => t.r_id == _body.typeId);
+
+                if (!existingTypeSite)
+                {
+                    return BadRequest(GeneraleRetour.BuildBadRequest(
+                        detail: "Le type de site n'existe pas.",
+                        instance: HttpContext.Request.Path));
                 }
 
                 var existingSite = await _dbContext.t_site
@@ -1379,7 +1390,7 @@ namespace print_attestation.Controllers
                 {
                     r_nom = _body.nom,
                     r_code = _body.code,
-                    r_type = (TYPE_SITE)_body.type
+                    r_type_site_id_fk = _body.typeId
                 };
 
 
@@ -1387,9 +1398,9 @@ namespace print_attestation.Controllers
                 await _dbContext.SaveChangesAsync();
 
                 await _traceService.TraceActionAsync(TYPE_ACTION.CREATION_SITE,description: $"Création du" +
-                    $" site : { "Code : "+ site.r_code} - {"Nom : "+ site.r_nom} - { "Type : "+ Tools.Tools.EquivalenceTypeSite(site.r_type)}");
+                    $" site : { "Code : "+ site.r_code} - {"Nom : "+ site.r_nom} - { "Type : "+ site.r_type_site.r_libelle}");
 
-                var dto = _mapper.Map<SiteResponseDto>(site);
+                var dto = _mapper.Map<siteResponseDto>(site);
 
                 return Ok(dto);
             }
@@ -1407,13 +1418,13 @@ namespace print_attestation.Controllers
         [Authorize]
         [RequireScope(Scopes.administrateur)]
         [HttpPut("sites/{id}")]
-        public async Task<IActionResult> ModifierUnSite(int id, [FromBody] SiteDto _body)
+        public async Task<IActionResult> ModifierUnSite(int id, [FromBody] siteDto _body)
         {
             const string _desc_route = "Modifier un site";
 
             try
             {
-                var validator = new SiteDtoValidator();
+                var validator = new siteDtoValidator();
                 var results = validator.Validate(_body);
 
                 if (!results.IsValid)
@@ -1447,7 +1458,7 @@ namespace print_attestation.Controllers
 
 
                 var existingSite = await _dbContext.t_site
-                    .AnyAsync(s => s.r_code == _body.code && s.r_is_delete != true && s.r_id != site.r_id);
+                    .AnyAsync(s => s.r_code == _body.code && s.r_is_delete != true && s.r_id != id);
 
                 if (existingSite != null)
                     return Conflict(GeneraleRetour.BuildProblemResponse(
@@ -1463,18 +1474,18 @@ namespace print_attestation.Controllers
 
                 var oldCode = site.r_code;
                 var oldNom = site.r_nom;
-                var oldType = site.r_type;
+                var oldType = site.r_type_site.r_libelle;
 
                 site.r_nom = _body.nom;
                 site.r_code = _body.code;
-                site.r_type = (TYPE_SITE)_body.type;
+                site.r_type_site_id_fk =_body.typeId;
 
                 _dbContext.t_site.Update(site);
                 await _dbContext.SaveChangesAsync();
                 await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_SITE,
-                    description: $"Modification du site : Avant [Code : {oldCode} - Nom : {oldNom} - Type : {Tools.Tools.EquivalenceTypeSite(oldType)}] - Après [Code : {site.r_code} - Nom : {site.r_nom} - Type : {Tools.Tools.EquivalenceTypeSite(site.r_type)}]");
+                    description: $"Modification du site : Avant [Code : {oldCode} - Nom : {oldNom} - Type : {oldType}] - Après [Code : {site.r_code} - Nom : {site.r_nom} - Type : {site.r_type_site.r_libelle}]");
 
-                return Ok(_mapper.Map<SiteResponseDto>(site));
+                return Ok(_mapper.Map<siteResponseDto>(site));
 
             }
             catch (Exception ex)
@@ -1567,16 +1578,15 @@ namespace print_attestation.Controllers
                 // total avant pagination
                 var total = await baseQuery.CountAsync();
 
-                var motifs = await baseQuery
+                var motifDto = await baseQuery
                     .OrderBy(u => u.r_libelle)
                     .Skip((pagination.Skip))
                     .Take(pagination.Take)
+                    .ProjectTo<MotifAnnulationResponseDto>(_mapper.ConfigurationProvider)
                     .ToListAsync();
 
 
-                var motifDto = motifs.Select(m => Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(m)).ToList();
-
-                return base.Ok(PaginatedResponse<MotifAnnulationResponseDto>.Create((List<MotifAnnulationResponseDto>)motifDto, total, page, limit));
+                return base.Ok(PaginatedResponse<MotifAnnulationResponseDto>.Create(motifDto, total, page, limit));
 
             }
             catch (Exception ex)
@@ -1632,6 +1642,10 @@ namespace print_attestation.Controllers
                 var motif = new t_motif_annulation
                 {
                     r_libelle = _body.libelle,
+                    r_file_atd_required = _body.besoinAtd ?? false,
+                    r_file_cpa_required = _body.besoinCpa ?? false,
+                    r_file_carte_grise_required = _body.besoinCarteGrise ?? false,
+                    r_file_other_required = _body.besoinOther ?? false
                 };
 
 
@@ -1640,7 +1654,9 @@ namespace print_attestation.Controllers
 
                 await _traceService.TraceActionAsync(TYPE_ACTION.CREATION_MOTIF_ANNULATION, description: $"Création d'un motif d'annulation : {_body.libelle}");
 
-                return Ok(Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(motif));
+
+                var dtos = _mapper.Map<MotifAnnulationResponseDto>(motif);
+                return Ok(dtos);
             }
             catch (Exception ex)
             {
@@ -1695,7 +1711,7 @@ namespace print_attestation.Controllers
 
                 var existingMotif = await _dbContext.t_motif_annulation
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.r_libelle == _body.libelle && s.r_is_delete != true && s.r_id != motif.r_id);
+                    .FirstOrDefaultAsync(s => s.r_libelle == _body.libelle && s.r_is_delete != true && s.r_id != id);
 
                 if (existingMotif != null)
                     return Conflict(GeneraleRetour.BuildProblemResponse(
@@ -1708,15 +1724,26 @@ namespace print_attestation.Controllers
 
 
                 var oldLibelle = motif.r_libelle;
+                var oldBesoinAtd = motif.r_file_atd_required;
+                var oldBesoinCarteGrise = motif.r_file_carte_grise_required;
+                var oldBesoinOther = motif.r_file_other_required;
+                var oldBesoinCpa = motif.r_file_cpa_required;
 
-                motif.r_libelle = _body.libelle;
+               
+                if (_body.libelle != null) motif.r_libelle = _body.libelle;
+                if (_body.besoinOther != null) motif.r_file_other_required = _body.besoinOther ?? false;
+                if (_body.besoinCarteGrise != null) motif.r_file_carte_grise_required = _body.besoinCarteGrise ?? false;
+                if (_body.besoinCpa != null) motif.r_file_cpa_required = _body.besoinCpa ?? false;
+                if (_body.besoinAtd != null) motif.r_file_atd_required = _body.besoinAtd ?? false;
 
                 _dbContext.t_motif_annulation.Update(motif);
                 await _dbContext.SaveChangesAsync();
                 await _traceService.TraceActionAsync(TYPE_ACTION.MODIFICATION_MOTIF_ANNULATION,
-                    description: $"Modification du motif d'annulation : Avant [Libellé : {oldLibelle}] - Après [Libellé : {motif.r_libelle}]");
+                    description: $"Modification du motif d'annulation : Avant [Libellé : {oldLibelle}] - Après [Libellé : {motif.r_libelle}] ");
 
-                return Ok(Tools.Tools.BuildMotifAnnulationToMotifAnnulationResponseDto(motif));
+                var dtos = _mapper.Map<MotifAnnulationResponseDto>(motif);
+
+                return Ok(dtos);
 
             }
             catch (Exception ex)
@@ -1777,26 +1804,31 @@ namespace print_attestation.Controllers
             {
                 var pagination = new PaginationParams(page, limit);
 
-                var baseQuery = Enum.GetValues<TYPE_SITE>()
-                    .AsQueryable();
+
+                var baseQuery = _dbContext.t_type_site
+                    .Where(e => e.r_is_delete != true);
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    search = search.Trim();
+                    search = search.ToUpper().Trim();
+
                     baseQuery = baseQuery.Where(x =>
-                        Tools.Tools.EquivalenceTypeSite(x).Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                        x.ToString().Contains(search, StringComparison.OrdinalIgnoreCase));
+                        x.r_libelle.ToUpper().Contains(search)
+                    );
                 }
 
-                var total = baseQuery.Count();
+                // total avant pagination
+                var total = await baseQuery.CountAsync();
 
-                var siteTypes = baseQuery
-                    .Skip(pagination.Skip)
+                var typeSiteDto = await baseQuery
+                    .OrderBy(u => u.r_libelle)
+                    .Skip((pagination.Skip))
                     .Take(pagination.Take)
-                    .Select(m => Tools.Tools.BuildSiteTypeToSiteTypeResponseDto(m))
-                    .ToList();
+                    .ProjectTo<siteTypeResponseDto>(_mapper.ConfigurationProvider)
+                    .ToListAsync();
 
-                return Ok(PaginatedResponse<siteTypeResponseDto>.Create(siteTypes, total, page, limit));
+
+                return base.Ok(PaginatedResponse<siteTypeResponseDto>.Create(typeSiteDto, total, page, limit));
 
             }
             catch (Exception ex)

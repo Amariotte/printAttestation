@@ -18,7 +18,7 @@ namespace print_attestation.Dtos.Response.auth
         public string? role { get; set; }
         public int? roleId { get; set; }
 
-        public SiteResponseDto? site { get; set; }
+        public siteResponseDto? site { get; set; }
 
 
     }
