@@ -39,6 +39,9 @@ namespace print_attestation.Migrations
                     b.Property<DateTime?>("r_date_traitement")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("r_date_validation")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<bool>("r_is_active")
                         .HasColumnType("tinyint(1)");
 

@@ -16,7 +16,8 @@ namespace print_attestation.Dtos.Request
 
     public class DemandeAnnulationFileDto
     {
-        public IFormFile file { get; set; } = null!;
-        public TYPE_FICHIER typeId { get; set; }
+        public IFormFile? file { get; set; }
+        // Accepter un entier (optionnel) depuis le form-data pour faciliter le binding
+        public int? typeId { get; set; }
     }
 }

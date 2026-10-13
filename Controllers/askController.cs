@@ -1167,7 +1167,7 @@ namespace print_attestation.Controllers
                 {
 
                 var fileExists = body.files != null &&
-                                 body.files.Any(f => f.typeId == TYPE_FICHIER.PREUVE_DEMANDE_ATD);
+                                 body.files.Any(f => f.typeId.HasValue && f.typeId.Value == (int)TYPE_FICHIER.PREUVE_DEMANDE_ATD);
 
                 if (!fileExists)
                 {
@@ -1185,7 +1185,7 @@ namespace print_attestation.Controllers
                 {
 
                     var fileExists = body.files != null &&
-                                     body.files.Any(f => f.typeId == TYPE_FICHIER.PREUVE_DEMANDE_CARTE_GRISE);
+                                     body.files.Any(f => f.typeId.HasValue && f.typeId.Value == (int)TYPE_FICHIER.PREUVE_DEMANDE_CARTE_GRISE);
 
                     if (!fileExists)
                     {
@@ -1203,7 +1203,7 @@ namespace print_attestation.Controllers
                 {
 
                     var fileExists = body.files != null &&
-                                     body.files.Any(f => f.typeId == TYPE_FICHIER.PREUVE_DEMANDE_CPA);
+                                     body.files.Any(f => f.typeId.HasValue && f.typeId.Value == (int)TYPE_FICHIER.PREUVE_DEMANDE_CPA);
 
                     if (!fileExists)
                     {
@@ -1222,7 +1222,7 @@ namespace print_attestation.Controllers
                 {
 
                     var fileExists = body.files != null &&
-                                     body.files.Any(f => f.typeId == TYPE_FICHIER.PREUVE_DEMANDE_OTHER);
+                                     body.files.Any(f => f.typeId.HasValue && f.typeId.Value == (int)TYPE_FICHIER.PREUVE_DEMANDE_OTHER);
 
                     if (!fileExists)
                     {
@@ -1266,33 +1266,49 @@ namespace print_attestation.Controllers
                 var fichiers = new List<t_demande_annulation_fichier>();
 
 
-                    for (int i = 0; i < body.files.Count; i++)
+                    if (body.files != null && body.files.Count > 0)
                     {
-                        var fileCurrent = body.files[i];
-                        var file = fileCurrent.file;
-
-
-                    if (file == null || file.Length == 0)
-                            continue;
-
-                    var typeFichier = fileCurrent.typeId > 0 ? (TYPE_FICHIER)fileCurrent.typeId : TYPE_FICHIER.PREUVE_DEMANDE_OTHER;
-
-                    var extension = Path.GetExtension(file.FileName);
-                        var safeName = $"{Guid.NewGuid():N}{extension}";
-                        var filePath = Path.Combine(uploadFolder, safeName);
-
-                        await using var stream = new FileStream(filePath, FileMode.Create);
-                        await file.CopyToAsync(stream);
-
-                        fichiers.Add(new t_demande_annulation_fichier
+                        foreach (var fileCurrent in body.files)
                         {
-                            r_demande_annulation_id_fk = demande.r_id,
-                            r_nom_fichier = file.FileName,
-                            r_nom_fichier_save = safeName,
-                            r_type = typeFichier,
-                            r_created_by = user.r_id,
-                            r_created_at = DateTime.UtcNow
-                        });
+                            var file = fileCurrent.file;
+                            if (file == null || file.Length == 0)
+                                continue;
+
+                            // Si le type est envoyé en tant qu'entier (typeId), utiliser sa valeur; sinon fallback
+                            TYPE_FICHIER typeFichier;
+                            if (fileCurrent.typeId.HasValue && fileCurrent.typeId.Value > 0)
+                            {
+                                try
+                                {
+                                    typeFichier = (TYPE_FICHIER)fileCurrent.typeId.Value;
+                                }
+                                catch
+                                {
+                                    typeFichier = TYPE_FICHIER.PREUVE_DEMANDE_OTHER;
+                                }
+                            }
+                            else
+                            {
+                                typeFichier = TYPE_FICHIER.PREUVE_DEMANDE_OTHER;
+                            }
+
+                            var extension = Path.GetExtension(file.FileName);
+                            var safeName = $"{Guid.NewGuid():N}{extension}";
+                            var filePath = Path.Combine(uploadFolder, safeName);
+
+                            await using var stream = new FileStream(filePath, FileMode.Create);
+                            await file.CopyToAsync(stream);
+
+                            fichiers.Add(new t_demande_annulation_fichier
+                            {
+                                r_demande_annulation_id_fk = demande.r_id,
+                                r_nom_fichier = file.FileName,
+                                r_nom_fichier_save = safeName,
+                                r_type = typeFichier,
+                                r_created_by = user.r_id,
+                                r_created_at = DateTime.UtcNow
+                            });
+                        }
                     }
                 
 
@@ -1463,8 +1479,7 @@ namespace print_attestation.Controllers
         [Authorize]
         [RequireAnyScope(Scopes.administrateur, Scopes.responsable_reseau, Scopes.responsable_intermediaire)]
         [HttpPut("demandes/annulations/{id}/validations")]
-        [Consumes("multipart/form-data")]
-        public async Task<IActionResult> ValiderUneDemandeAnnulation(int id, [FromForm] List<IFormFile>? files)
+        public async Task<IActionResult> ValiderUneDemandeAnnulation(int id)
         {
             const string _desc_route = "Valider une demande d'annulation";
 
@@ -1484,47 +1499,14 @@ namespace print_attestation.Controllers
                     return BadRequest(GeneraleRetour.BuildConflict(detail: "La demande d'annulation n'est pas en attente", instance: HttpContext.Request.Path));
 
 
-                demande.r_status = STATUT_DEMANDE_ANNULATION.TRAITE;
-                demande.r_date_traitement = DateTime.UtcNow;
-                demande.r_user_traite_id_fk = user.r_id;
+                demande.r_status = STATUT_DEMANDE_ANNULATION.VALIDE;
+                demande.r_date_validation = DateTime.UtcNow;
+                demande.r_user_valideur_id_fk = user.r_id;
 
                 _dbContext.t_demande_annulation.Update(demande);
                 await _dbContext.SaveChangesAsync();
 
-                var preuves = new List<t_demande_annulation_fichier>();
-                if (files != null && files.Any(f => f != null && f.Length > 0))
-                {
-                    var webRoot = GetWebRoot();
-                    var uploadFolder = Path.Combine(webRoot, "uploads", "demandes-annulations");
-                    Directory.CreateDirectory(uploadFolder);
-
-                    foreach (var file in files.Where(f => f != null && f.Length > 0))
-                    {
-                        var extension = Path.GetExtension(file.FileName);
-                        var safeName = $"{Guid.NewGuid():N}{extension}";
-                        var filePath = Path.Combine(uploadFolder, safeName);
-
-                        await using var stream = new FileStream(filePath, FileMode.Create);
-                        await file.CopyToAsync(stream);
-
-                        preuves.Add(new t_demande_annulation_fichier
-                        {
-                            r_demande_annulation_id_fk = demande.r_id,
-                            r_nom_fichier = file.FileName,
-                            r_nom_fichier_save = safeName,
-                            r_type = TYPE_FICHIER.PREUVE_TRAITEMENT,
-                            r_created_by = user.r_id,
-                            r_created_at = DateTime.UtcNow
-                        });
-                    }
-                }
-
-                if (preuves.Count > 0)
-                {
-                    await _dbContext.t_demande_annulation_fichier.AddRangeAsync(preuves);
-                    await _dbContext.SaveChangesAsync();
-                }
-
+       
                 var updatedDto = await _dbContext.t_demande_annulation
                     .Where(d => d.r_id == demande.r_id)
                     .ProjectTo<demandeAnnulationResponseDto>(_mapper.ConfigurationProvider)
@@ -1538,7 +1520,6 @@ namespace print_attestation.Controllers
                 return StatusCode(500, GeneraleRetour.BuildProblemResponse500(instance: HttpContext.Request.Path));
             }
         }
-
 
 
 

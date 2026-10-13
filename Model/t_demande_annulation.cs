@@ -31,6 +31,7 @@ namespace print_attestation.Model
         public string? r_motif_rejet { get; set; }
 
         public DateTime? r_date_traitement { get; set; }
+        public DateTime? r_date_validation { get; set; }
 
         public int? r_site_id_fk { get; set; }
 
